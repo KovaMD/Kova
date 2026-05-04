@@ -1,0 +1,95 @@
+.preview-panel {
+  background: #2a2a2a;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-viewport {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: hidden;
+  background: #232323;
+}
+
+/* The slide itself — structural only; colours/fonts come from SlideRenderer.css via --sl-* vars */
+.slide-frame {
+  aspect-ratio: 16 / 9;
+  max-height: 100%;
+  border-radius: 4px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Constrain width so aspect ratio stays correct */
+.preview-viewport .slide-frame {
+  width: min(100%, calc(100vh * 16 / 9 - 80px));
+}
+
+.slide-title {
+  font-size: clamp(18px, 3.5vw, 36px);
+  font-weight: 700;
+  color: #1a1a1a;
+  padding: 10% 8% 4%;
+  line-height: 1.2;
+}
+
+.slide-body {
+  flex: 1;
+  padding: 0 8% 8%;
+  font-size: clamp(11px, 1.8vw, 20px);
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+.slide-body ul, .slide-body ol {
+  padding-left: 1.4em;
+}
+
+.slide-body li {
+  margin-bottom: 0.3em;
+}
+
+/* No file open state */
+.preview-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  gap: 8px;
+  font-size: 13px;
+}
+
+.preview-empty .hint {
+  font-size: 11px;
+  color: #444;
+}
+
+/* Speaker notes area below preview */
+.speaker-notes-area {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+  min-height: 60px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.speaker-notes-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+.speaker-notes-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}

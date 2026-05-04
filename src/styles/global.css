@@ -1,0 +1,174 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-app: #1a1a1a;
+  --bg-panel: #222222;
+  --bg-panel-alt: #1e1e1e;
+  --bg-toolbar: #1a1a1a;
+  --border: #333333;
+  --border-handle: #444444;
+  --text-primary: #e8e8e8;
+  --text-secondary: #999999;
+  --text-muted: #666666;
+  --accent: #c07a30;
+  --accent-hover: #d98c3a;
+  --btn-bg: #2e2e2e;
+  --btn-bg-hover: #383838;
+  --btn-border: #444444;
+  --status-bg: #161616;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --panel-min: 180px;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* ── Toolbar ── */
+.app-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 38px;
+  background: var(--bg-toolbar);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.toolbar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  margin-right: 4px;
+}
+
+.toolbar-filename {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar-filename.dirty::after {
+  content: ' •';
+  color: var(--accent);
+}
+
+.toolbar-spacer {
+  flex: 1;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--btn-bg-hover);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+/* ── Panel area ── */
+.app-panels {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* react-resizable-panels v4 */
+[data-group] {
+  height: 100%;
+}
+
+[data-panel] {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+[data-separator] {
+  width: 4px;
+  background: var(--border);
+  transition: background 0.15s;
+  position: relative;
+  flex-shrink: 0;
+  cursor: col-resize;
+}
+
+[data-separator]:hover,
+[data-separator][data-active] {
+  background: var(--accent);
+}
+
+/* Panel header */
+.panel-header {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  height: 30px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.panel-body {
+  flex: 1;
+  overflow: hidden;
+  background: var(--bg-panel-alt);
+}

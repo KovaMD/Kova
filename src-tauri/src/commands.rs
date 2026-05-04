@@ -1,0 +1,75 @@
+use crate::{file_io, watcher};
+use std::path::PathBuf;
+use std::sync::Mutex;
+use tauri::{AppHandle, State};
+
+pub struct AppState {
+    pub current_file: Mutex<Option<PathBuf>>,
+    pub watcher: Mutex<Option<notify::RecommendedWatcher>>,
+}
+
+#[tauri::command]
+pub fn read_file(path: String) -> Result<String, String> {
+    file_io::read(&path)
+}
+
+#[tauri::command]
+pub fn write_file(path: String, content: String) -> Result<(), String> {
+    file_io::write(&path, &content)
+}
+
+#[tauri::command]
+pub fn start_watching(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<(), String> {
+    let path_buf = PathBuf::from(&path);
+
+    // Drop previous watcher before creating a new one
+    *state.watcher.lock().unwrap() = None;
+
+    let w = watcher::create(app, path_buf.clone()).map_err(|e| e.to_string())?;
+    *state.current_file.lock().unwrap() = Some(path_buf);
+    *state.watcher.lock().unwrap() = Some(w);
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn stop_watching(state: State<'_, AppState>) {
+    *state.watcher.lock().unwrap() = None;
+    *state.current_file.lock().unwrap() = None;
+}
+
+/// Returns the YAML contents of every .yaml/.yml file in ~/.deckmd/themes/.
+/// Each entry is (filename_without_extension, yaml_content).
+#[tauri::command]
+pub fn load_custom_themes() -> Result<Vec<(String, String)>, String> {
+    let home = std::env::var("HOME").map_err(|_| "HOME not set".to_string())?;
+    let themes_dir = std::path::PathBuf::from(home).join(".deckmd").join("themes");
+
+    if !themes_dir.exists() {
+        return Ok(vec![]);
+    }
+
+    let mut result = Vec::new();
+    let entries = std::fs::read_dir(&themes_dir).map_err(|e| e.to_string())?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        if ext != "yaml" && ext != "yml" {
+            continue;
+        }
+        let id = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("custom")
+            .to_string();
+        let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        result.push((id, content));
+    }
+
+    Ok(result)
+}
