@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { Theme } from '../../engine/theme';
 import type { Frontmatter } from '../../engine/types';
 import { ThemePicker } from '../inspector/ThemePicker';
@@ -14,16 +14,24 @@ interface Props {
   allThemes: Theme[];
   onThemeSelect: (id: string) => void;
   onThemeChange: (patch: Partial<Theme>) => void;
+  onExport?: () => Promise<void>;
 }
 
 type Section = 'theme' | 'colours' | 'fonts' | 'branding' | 'export';
 
 export function InspectorPanel({
   filePath, slideCount, frontmatter,
-  theme, allThemes, onThemeSelect, onThemeChange,
+  theme, allThemes, onThemeSelect, onThemeChange, onExport,
 }: Props) {
   const [open, setOpen] = useState<Section>('theme');
+  const [exporting, setExporting] = useState(false);
   const toggle = (s: Section) => setOpen((prev) => (prev === s ? 'theme' : s));
+
+  const handleExport = useCallback(async () => {
+    if (!onExport) return;
+    setExporting(true);
+    try { await onExport(); } finally { setExporting(false); }
+  }, [onExport]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1e1e1e' }}>
@@ -80,14 +88,12 @@ export function InspectorPanel({
           <button
             className="btn btn-primary"
             style={{ width: '100%', justifyContent: 'center' }}
-            disabled
-            title="PPTX export coming in Sprint 4"
+            disabled={exporting || slideCount === 0 || !onExport}
+            onClick={handleExport}
+            title={slideCount === 0 ? 'Open a file to export' : 'Export as PowerPoint (.pptx)'}
           >
-            Export PPTX
+            {exporting ? 'Exporting…' : 'Export PPTX'}
           </button>
-          <p style={{ color: '#555', fontSize: 10, textAlign: 'center', marginTop: 6 }}>
-            Sprint 4
-          </p>
         </div>
 
       </div>

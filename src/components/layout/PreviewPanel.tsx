@@ -8,9 +8,10 @@ interface Props {
   slides: Slide[];
   currentIndex: number;
   theme?: Theme;
+  docTitle?: string;
 }
 
-export function PreviewPanel({ slides, currentIndex, theme = DEFAULT_THEME }: Props) {
+export function PreviewPanel({ slides, currentIndex, theme = DEFAULT_THEME, docTitle }: Props) {
   const slide = slides[currentIndex] ?? null;
 
   return (
@@ -53,6 +54,7 @@ export function PreviewPanel({ slides, currentIndex, theme = DEFAULT_THEME }: Pr
               theme={theme}
               slideNumber={currentIndex + 1}
               totalSlides={slides.length}
+              docTitle={docTitle}
             />
           </div>
         )}

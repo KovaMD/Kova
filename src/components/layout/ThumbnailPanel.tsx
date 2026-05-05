@@ -9,13 +9,14 @@ interface Props {
   currentIndex: number;
   onSelect: (index: number) => void;
   theme?: Theme;
+  docTitle?: string;
 }
 
 const SLIDE_W = 960;
 const SLIDE_H = 540;
 const THUMB_W = 140; // target thumbnail width in px
 
-export function ThumbnailPanel({ slides, currentIndex, onSelect, theme = DEFAULT_THEME }: Props) {
+export function ThumbnailPanel({ slides, currentIndex, onSelect, theme = DEFAULT_THEME, docTitle }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1a1a1a' }}>
       <div className="panel-header">Slides</div>
@@ -33,6 +34,7 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, theme = DEFAULT
               isActive={i === currentIndex}
               onClick={() => onSelect(i)}
               theme={theme}
+              docTitle={docTitle}
             />
           ))
         )}
@@ -47,9 +49,10 @@ interface ThumbnailProps {
   isActive: boolean;
   onClick: () => void;
   theme: Theme;
+  docTitle?: string;
 }
 
-function Thumbnail({ slide, index, isActive, onClick, theme }: ThumbnailProps) {
+function Thumbnail({ slide, index, isActive, onClick, theme, docTitle }: ThumbnailProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(THUMB_W / SLIDE_W);
 
@@ -93,7 +96,7 @@ function Thumbnail({ slide, index, isActive, onClick, theme }: ThumbnailProps) {
             pointerEvents: 'none',
           }}
         >
-          <SlideRenderer slide={slide} theme={theme} />
+          <SlideRenderer slide={slide} theme={theme} docTitle={docTitle} />
         </div>
       </div>
 

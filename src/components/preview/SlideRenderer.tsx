@@ -8,13 +8,13 @@ interface Props {
   theme?: Theme;
   slideNumber?: number;
   totalSlides?: number;
+  docTitle?: string;
   /** Uniform scale applied to the slide frame, used for thumbnail rendering */
   scale?: number;
 }
 
-export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, scale = 1 }: Props) {
+export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, docTitle = '', scale = 1 }: Props) {
   const vars = themeToVars(theme);
-  const docTitle = ''; // will be passed from frontmatter in future
 
   const headerText = theme.header.show
     ? resolveTemplate(theme.header.text, { title: docTitle, slideNumber, totalSlides })

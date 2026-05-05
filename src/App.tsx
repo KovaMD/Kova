@@ -12,6 +12,7 @@ import { InspectorPanel } from './components/layout/InspectorPanel';
 import { StatusBar } from './components/layout/StatusBar';
 
 import { parseDocument } from './engine/parser/markdownToSlides';
+import { exportToPptx } from './engine/export/exportPptx';
 import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml } from './engine/theme';
 import type { Slide, Frontmatter } from './engine/types';
 import type { Theme } from './engine/theme';
@@ -165,6 +166,22 @@ export default function App() {
     } catch (err) { console.error('Save As failed:', err); }
   }, [filePath, content]);
 
+  const handleExport = useCallback(async () => {
+    if (slides.length === 0) return;
+    try {
+      const base64 = await exportToPptx(slides, frontmatter, activeTheme);
+      const defaultPath = filePath
+        ? filePath.replace(/\.(md|markdown)$/i, '.pptx')
+        : 'presentation.pptx';
+      const target = await save({
+        filters: [{ name: 'PowerPoint', extensions: ['pptx'] }],
+        defaultPath,
+      });
+      if (!target) return;
+      await invoke('write_file_bytes', { path: target, data: base64 });
+    } catch (err) { console.error('Export failed:', err); }
+  }, [slides, frontmatter, activeTheme, filePath]);
+
   const handleContentChange = useCallback((value: string) => {
     setContent(value);
     setIsDirty(true);
@@ -212,6 +229,7 @@ export default function App() {
               currentIndex={currentSlideIndex}
               onSelect={setCurrentSlideIndex}
               theme={activeTheme}
+              docTitle={frontmatter.title}
             />
           </Panel>
 
@@ -233,6 +251,7 @@ export default function App() {
               slides={slides}
               currentIndex={currentSlideIndex}
               theme={activeTheme}
+              docTitle={frontmatter.title}
             />
           </Panel>
 
@@ -247,6 +266,7 @@ export default function App() {
               allThemes={allThemes}
               onThemeSelect={handleThemeSelect}
               onThemeChange={handleThemeChange}
+              onExport={handleExport}
             />
           </Panel>
         </PanelGroup>

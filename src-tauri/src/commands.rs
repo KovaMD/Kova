@@ -42,6 +42,16 @@ pub fn stop_watching(state: State<'_, AppState>) {
     *state.current_file.lock().unwrap() = None;
 }
 
+/// Decodes base64-encoded data and writes it as binary to the given path.
+#[tauri::command]
+pub fn write_file_bytes(path: String, data: String) -> Result<(), String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&data)
+        .map_err(|e| format!("Base64 decode error: {e}"))?;
+    file_io::write_bytes(&path, &bytes)
+}
+
 /// Returns the YAML contents of every .yaml/.yml file in ~/.deckmd/themes/.
 /// Each entry is (filename_without_extension, yaml_content).
 #[tauri::command]
