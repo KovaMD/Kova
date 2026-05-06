@@ -282,16 +282,19 @@
 .sl-media__body { flex: 1; display: flex; align-items: center; justify-content: center; padding: 2% 8% 5%; }
 
 .sl-youtube { display: flex; flex-direction: column; align-items: center; gap: 2%; width: 100%; }
-.sl-youtube__thumb { width: 100%; max-width: 320px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); object-fit: cover; }
-.sl-youtube__placeholder { width: 100%; max-width: 320px; aspect-ratio: 16/9; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: clamp(12px, 3cqi, 24px); border-radius: 4px; }
+.sl-youtube--clickable { cursor: pointer; }
+.sl-youtube--clickable:hover .sl-youtube__thumb,
+.sl-youtube--clickable:hover .sl-youtube__placeholder { opacity: 0.85; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+.sl-youtube__thumb { width: 100%; max-width: 320px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); object-fit: cover; transition: opacity 0.15s, box-shadow 0.15s; }
+.sl-youtube__placeholder { width: 100%; max-width: 320px; aspect-ratio: 16/9; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; font-size: clamp(12px, 3cqi, 24px); border-radius: 4px; transition: opacity 0.15s, box-shadow 0.15s; }
 .sl-youtube__label { font-size: clamp(9px, 2cqi, 16px); font-weight: 600; color: var(--sl-text); text-align: center; font-family: var(--sl-font-body); }
-.sl-youtube__url { font-size: clamp(7px, 1.5cqi, 12px); color: color-mix(in srgb, var(--sl-text) 50%, transparent); text-align: center; }
+.sl-youtube__open-hint { font-size: clamp(7px, 1.4cqi, 11px); color: color-mix(in srgb, var(--sl-accent) 80%, transparent); text-align: center; }
 
-.sl-poll { display: flex; flex-direction: column; align-items: center; gap: 2%; padding: 4%; background: color-mix(in srgb, var(--sl-accent) 10%, var(--sl-bg)); border: 2px solid var(--sl-accent); border-radius: 8px; width: 75%; }
+.sl-poll { display: flex; flex-direction: column; align-items: center; gap: 3%; padding: 4%; background: color-mix(in srgb, var(--sl-accent) 10%, var(--sl-bg)); border: 2px solid var(--sl-accent); border-radius: 8px; width: 75%; }
 .sl-poll__icon { font-size: clamp(20px, 5cqi, 44px); }
+.sl-poll__qr { padding: clamp(6px, 1.2cqi, 12px); background: #fff; border-radius: 6px; display: flex; }
 .sl-poll__label { font-family: var(--sl-font-title); font-size: clamp(10px, 2.5cqi, 22px); font-weight: 700; text-align: center; color: var(--sl-text); }
 .sl-poll__url { font-size: clamp(8px, 1.8cqi, 14px); color: var(--sl-accent); text-align: center; }
-.sl-poll__hint { font-size: clamp(7px, 1.4cqi, 11px); color: color-mix(in srgb, var(--sl-text) 40%, transparent); text-align: center; }
 
 /* ── highlight.js override — let the slide supply the background ─────────── */
 

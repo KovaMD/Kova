@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useId, useState } from 'react';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
 import mermaid from 'mermaid';
+import QRCode from 'react-qr-code';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import type { Slide, SlideElement, ListItem } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import { themeToVars, resolveTemplate, DEFAULT_THEME } from '../../engine/theme';
@@ -356,26 +358,49 @@ function ListItemNode({ item }: { item: ListItem }) {
 // ── Media embeds ──────────────────────────────────────────────────────────────
 
 function YoutubeEmbed({ embed }: { embed: Extract<SlideElement, { type: 'youtube' }> }) {
+  const scale = useContext(SlideScaleCtx);
   const thumb = youtubeThumb(embed.url);
+
+  const handleClick = () => {
+    if (scale < 1) return;
+    openUrl(embed.url).catch(() => {});
+  };
+
   return (
-    <div className="sl-youtube">
+    <div
+      className={`sl-youtube${scale >= 1 ? ' sl-youtube--clickable' : ''}`}
+      onClick={handleClick}
+      title={scale >= 1 ? `Open in browser: ${embed.url}` : undefined}
+    >
       {thumb
         ? <img src={thumb} alt={embed.label} className="sl-youtube__thumb" />
         : <div className="sl-youtube__placeholder">▶ YouTube</div>
       }
       <div className="sl-youtube__label">{embed.label}</div>
-      <div className="sl-youtube__url">{embed.url}</div>
+      {scale >= 1 && <div className="sl-youtube__open-hint">Click to open in browser</div>}
     </div>
   );
 }
 
 function PollEmbed({ embed }: { embed: Extract<SlideElement, { type: 'poll' }> }) {
+  const scale = useContext(SlideScaleCtx);
+
+  if (scale < 1) {
+    return (
+      <div className="sl-poll">
+        <div className="sl-poll__icon">📊</div>
+        <div className="sl-poll__label">{embed.label}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="sl-poll">
-      <div className="sl-poll__icon">📊</div>
+      <div className="sl-poll__qr">
+        <QRCode value={embed.url} size={160} bgColor="transparent" fgColor="var(--sl-text)" />
+      </div>
       <div className="sl-poll__label">{embed.label}</div>
       <div className="sl-poll__url">{embed.url}</div>
-      <div className="sl-poll__hint">QR code generation — Sprint 5</div>
     </div>
   );
 }
