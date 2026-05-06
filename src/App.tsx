@@ -277,7 +277,7 @@ export default function App() {
           onExit={handlePresentExit}
         />
       )}
-      <div className="app-toolbar">
+      <div className="app-toolbar" data-tauri-drag-region>
         <button className="btn" onClick={handleNewFile} title="New (Ctrl+N)">New</button>
         <button className="btn" onClick={handleOpenFile} title="Open (Ctrl+O)">Open</button>
         <button className="btn" onClick={handleSave} disabled={!filePath || !isDirty} title="Save (Ctrl+S)">Save</button>
@@ -299,6 +299,17 @@ export default function App() {
           disabled={slides.length === 0}
           title="Present from slide 1 (Alt+click to start from current slide)"
         >▶ Present</button>
+        <div className="wm-controls">
+          <button className="wm-btn" onClick={() => getCurrentWindow().minimize()} title="Minimise">
+            <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
+          </button>
+          <button className="wm-btn" onClick={() => getCurrentWindow().toggleMaximize()} title="Maximise">
+            <svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor"/></svg>
+          </button>
+          <button className="wm-btn wm-btn--close" onClick={() => getCurrentWindow().close()} title="Close">
+            <svg width="10" height="10" viewBox="0 0 10 10"><line x1="0" y1="0" x2="10" y2="10" stroke="currentColor" strokeWidth="1.5"/><line x1="10" y1="0" x2="0" y2="10" stroke="currentColor" strokeWidth="1.5"/></svg>
+          </button>
+        </div>
       </div>
 
       <div className="app-panels">
