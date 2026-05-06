@@ -27,6 +27,42 @@ const editorTheme = EditorView.theme({
   '.cm-cursor': { borderLeftColor: '#D94F00' },
 });
 
+function makeHeadingCommand(level: number) {
+  return (view: EditorView): boolean => {
+    const { state } = view;
+    const { from } = state.selection.main;
+    const line = state.doc.lineAt(from);
+    const existing = line.text.match(/^(#{1,6}) /);
+    const prefix = '#'.repeat(level) + ' ';
+
+    let change: { from: number; to: number; insert: string };
+    let cursorDelta: number;
+
+    if (existing) {
+      const oldPrefix = existing[0];
+      if (existing[1].length === level) {
+        // Same level — toggle off
+        change = { from: line.from, to: line.from + oldPrefix.length, insert: '' };
+        cursorDelta = -oldPrefix.length;
+      } else {
+        // Different level — replace
+        change = { from: line.from, to: line.from + oldPrefix.length, insert: prefix };
+        cursorDelta = prefix.length - oldPrefix.length;
+      }
+    } else {
+      // No heading — insert
+      change = { from: line.from, to: line.from, insert: prefix };
+      cursorDelta = prefix.length;
+    }
+
+    view.dispatch({
+      changes: change,
+      selection: EditorSelection.cursor(Math.max(line.from, from + cursorDelta)),
+    });
+    return true;
+  };
+}
+
 interface ContextMenuState { x: number; y: number; hasSelection: boolean }
 
 export function EditorPanel({ content, onChange, onCursorSlide, focusMode = false }: Props) {
@@ -64,7 +100,15 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
         oneDark,
         editorTheme,
         markdown({ codeLanguages: languages }),
-        keymap.of([indentWithTab]),
+        keymap.of([
+          indentWithTab,
+          { key: 'Ctrl-1', run: makeHeadingCommand(1) },
+          { key: 'Ctrl-2', run: makeHeadingCommand(2) },
+          { key: 'Ctrl-3', run: makeHeadingCommand(3) },
+          { key: 'Ctrl-4', run: makeHeadingCommand(4) },
+          { key: 'Ctrl-5', run: makeHeadingCommand(5) },
+          { key: 'Ctrl-6', run: makeHeadingCommand(6) },
+        ]),
         updateListener,
         focusModeCompartment.of([]),
       ],
