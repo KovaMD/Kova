@@ -1,0 +1,125 @@
+/* ── Overlay root ────────────────────────────────────────────────────────── */
+
+.pres-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+/* ── Slide area (fills remaining height after notes + HUD) ───────────────── */
+
+.pres-slide-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* The slide container: 16:9, as large as possible within the available area.
+   Width = min(viewport width, available-height × 16/9).
+   aspect-ratio then derives the height automatically.                        */
+.pres-slide-frame {
+  position: relative;
+  width: min(
+    100vw,
+    calc((100vh - var(--pres-hud-h, 40px) - var(--pres-notes-h, 0px)) * 16 / 9)
+  );
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* ── Speaker notes panel ─────────────────────────────────────────────────── */
+
+.pres-notes {
+  height: var(--pres-notes-h, 0px);
+  overflow-y: auto;
+  background: #111;
+  border-top: 1px solid #2a2a2a;
+  padding: 10px 24px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.pres-notes__label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #555;
+  font-weight: 600;
+}
+
+.pres-notes__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #ccc;
+  white-space: pre-wrap;
+}
+
+/* ── HUD bar ─────────────────────────────────────────────────────────────── */
+
+.pres-hud {
+  height: var(--pres-hud-h, 40px);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  border-top: 1px solid #1a1a1a;
+  transition: opacity 0.4s ease;
+}
+
+.pres-hud__counter {
+  font-size: 12px;
+  color: #777;
+  font-variant-numeric: tabular-nums;
+  min-width: 56px;
+  text-align: center;
+}
+
+.pres-hud__btn {
+  background: none;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #888;
+  font-size: 13px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.pres-hud__btn:hover:not(:disabled) {
+  color: #ddd;
+  border-color: #555;
+}
+
+.pres-hud__btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.pres-hud__btn--active {
+  color: #c07a30;
+  border-color: #c07a30;
+}
+
+.pres-hud__btn--exit {
+  margin-left: 16px;
+  color: #666;
+}
+
+.pres-hud__btn--exit:hover {
+  color: #e05050 !important;
+  border-color: #e05050 !important;
+}

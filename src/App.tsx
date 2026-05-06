@@ -10,6 +10,7 @@ import { EditorPanel } from './components/layout/EditorPanel';
 import { PreviewPanel } from './components/layout/PreviewPanel';
 import { InspectorPanel } from './components/layout/InspectorPanel';
 import { StatusBar } from './components/layout/StatusBar';
+import { PresentationOverlay } from './components/presentation/PresentationOverlay';
 
 import { parseDocument } from './engine/parser/markdownToSlides';
 import { exportToPptx } from './engine/export/exportPptx';
@@ -32,6 +33,7 @@ export default function App() {
   const [isDirty, setIsDirty]             = useState(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [focusMode, setFocusMode]         = useState(false);
+  const [presentMode, setPresentMode]     = useState(false);
 
   // Theme state: active theme id + per-session overrides
   const [allThemes, setAllThemes]         = useState<Theme[]>(BUILT_IN_THEMES);
@@ -119,6 +121,17 @@ export default function App() {
     });
   }, [thumbPanelRef, inspectorPanelRef]);
 
+  const handlePresentEnter = useCallback(async () => {
+    if (slides.length === 0) return;
+    setPresentMode(true);
+    await getCurrentWindow().setFullscreen(true).catch(() => {});
+  }, [slides.length]);
+
+  const handlePresentExit = useCallback(async () => {
+    setPresentMode(false);
+    await getCurrentWindow().setFullscreen(false).catch(() => {});
+  }, []);
+
   const handleThemeSelect = useCallback((id: string) => {
     setActiveThemeId(id);
     setThemeOverrides({}); // clear overrides when switching base theme
@@ -190,6 +203,7 @@ export default function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (presentMode) return; // PresentationOverlay handles keys while presenting
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key === 'o') { e.preventDefault(); handleOpenFile(); }
       if (mod && !e.shiftKey && e.key === 's') { e.preventDefault(); handleSave(); }
@@ -198,10 +212,20 @@ export default function App() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleOpenFile, handleSave, handleSaveAs, toggleFocusMode]);
+  }, [presentMode, handleOpenFile, handleSave, handleSaveAs, toggleFocusMode]);
 
   return (
     <div className="app">
+      {presentMode && (
+        <PresentationOverlay
+          slides={slides}
+          currentIndex={currentSlideIndex}
+          theme={activeTheme}
+          docTitle={frontmatter.title}
+          onNavigate={setCurrentSlideIndex}
+          onExit={handlePresentExit}
+        />
+      )}
       <div className="app-toolbar">
         <span className="toolbar-title">DeckMD</span>
         <button className="btn" onClick={handleOpenFile} title="Open (Ctrl+O)">Open</button>
@@ -218,7 +242,12 @@ export default function App() {
         >
           Focus
         </button>
-        <button className="btn btn-primary" disabled title="Coming in Sprint 6">▶ Present</button>
+        <button
+          className="btn btn-primary"
+          onClick={handlePresentEnter}
+          disabled={slides.length === 0}
+          title="Present fullscreen (requires an open file)"
+        >▶ Present</button>
       </div>
 
       <div className="app-panels">
