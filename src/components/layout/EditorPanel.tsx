@@ -99,6 +99,7 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
         basicSetup,
         oneDark,
         editorTheme,
+        EditorView.lineWrapping,
         markdown({ codeLanguages: languages }),
         keymap.of([
           indentWithTab,
