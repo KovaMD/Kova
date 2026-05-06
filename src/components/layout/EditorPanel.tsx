@@ -4,6 +4,7 @@ import { EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { markdown } from '@codemirror/lang-markdown';
+import { languages } from '@codemirror/language-data';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { focusModeCompartment, focusModeExtension } from '../editor/focusMode';
 import '../../styles/editor.css';
@@ -57,7 +58,7 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
         basicSetup,
         oneDark,
         editorTheme,
-        markdown(),
+        markdown({ codeLanguages: languages }),
         keymap.of([indentWithTab]),
         updateListener,
         focusModeCompartment.of([]),
