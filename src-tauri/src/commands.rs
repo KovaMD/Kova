@@ -83,3 +83,25 @@ pub fn load_custom_themes() -> Result<Vec<(String, String)>, String> {
 
     Ok(result)
 }
+
+/// Returns a sorted, deduplicated list of font family names available on the system.
+/// Uses fontconfig (fc-list) on Linux/macOS; returns an empty list if unavailable.
+#[tauri::command]
+pub fn list_system_fonts() -> Vec<String> {
+    let output = std::process::Command::new("fc-list")
+        .arg("--format")
+        .arg("%{family[0]}\n")
+        .output()
+        .unwrap_or_default();
+
+    let mut fonts: Vec<String> = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect();
+
+    fonts.sort_unstable_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+    fonts.dedup();
+    fonts
+}
