@@ -109,6 +109,7 @@ function SlideLayout({ slide }: { slide: Slide }) {
     case 'full-bleed':    return <FullBleedLayout slide={slide} />;
     case 'quote':         return <QuoteLayout slide={slide} />;
     case 'two-column':    return <TwoColumnLayout slide={slide} />;
+    case 'bsp':           return <BspLayout slide={slide} />;
     case 'grid':          return <GridLayout slide={slide} />;
     case 'media':         return <MediaLayout slide={slide} />;
     case 'code':          return <CodeLayout slide={slide} />;
@@ -224,6 +225,60 @@ function TwoColumnLayout({ slide }: { slide: Slide }) {
         <div className="sl-two-col__col">
           <Elements elements={right} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function BspLayout({ slide }: { slide: Slide }) {
+  const body = slide.elements;
+
+  // For 2 elements: if first is visual and second is text, put text on the left
+  const isPureText = (t: string) => t === 'paragraph' || t === 'list';
+  let leftEls: typeof body;
+  let rightEls: typeof body;
+
+  if (body.length === 2) {
+    const firstIsText  = isPureText(body[0].type);
+    const secondIsText = isPureText(body[1].type);
+    if (!firstIsText && secondIsText) {
+      leftEls  = [body[1]];
+      rightEls = [body[0]];
+    } else {
+      leftEls  = [body[0]];
+      rightEls = [body[1]];
+    }
+  } else {
+    // 3 elements: first fills left, remaining two stack on right
+    leftEls  = [body[0]];
+    rightEls = body.slice(1);
+  }
+
+  const isTwo = rightEls.length === 1;
+
+  return (
+    <div className="sl-bsp">
+      {slide.title && <div className="sl-heading sl-bsp__title">{slide.title}</div>}
+      <div className="sl-bsp__body">
+        <div className="sl-bsp__pane">
+          <Elements elements={leftEls} />
+        </div>
+        <div className="sl-bsp__divider-v" />
+        {isTwo ? (
+          <div className="sl-bsp__pane">
+            <Elements elements={rightEls} />
+          </div>
+        ) : (
+          <div className="sl-bsp__right">
+            <div className="sl-bsp__subpane">
+              <Elements elements={[rightEls[0]]} />
+            </div>
+            <div className="sl-bsp__divider-h" />
+            <div className="sl-bsp__subpane">
+              <Elements elements={[rightEls[1]]} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

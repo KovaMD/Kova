@@ -50,11 +50,25 @@ export function detectLayout(
 
   // ── Title + image combinations ────────────────────────────────────────────
 
-  const images = bodyElements.filter((e) => e.type === 'image');
+  const images    = bodyElements.filter((e) => e.type === 'image');
   const nonImages = bodyElements.filter((e) => e.type !== 'image');
 
   if (hasTitle && images.length === 1 && nonImages.length === 0) return 'title-image';
-  if (hasTitle && images.length >= 1 && nonImages.length >= 1) return 'split';
+
+  // Traditional split: exactly 1 image + 1 pure-text element (paragraph/list)
+  const isPureText = (t: string) => t === 'paragraph' || t === 'list';
+  if (hasTitle && images.length === 1 && nonImages.length === 1 && isPureText(nonImages[0].type)) {
+    return 'split';
+  }
+
+  // ── BSP auto-tiling ───────────────────────────────────────────────────────
+  // Trigger for 2–3 elements where the mix is visually diverse enough
+  // to benefit from side-by-side rendering. Skip if everything is plain
+  // paragraph/list (stacked looks better for all-text slides).
+
+  const allPureText = bodyElements.every((e) => isPureText(e.type));
+
+  if (!allPureText && (bodyElements.length === 2 || bodyElements.length === 3)) return 'bsp';
 
   // ── Grid: 4+ distinct content elements ───────────────────────────────────
 

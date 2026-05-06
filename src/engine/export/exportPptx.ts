@@ -59,6 +59,7 @@ function addSlide(s: PS, slide: Slide, t: Theme, meta: Meta, H: number, warnings
     case 'full-bleed':    addFullBleedSlide(s, slide, t, H, warnings); break;
     case 'quote':         addQuoteSlide(s, slide, t, cy, ch); break;
     case 'two-column':    addTwoColumnSlide(s, slide, t, cy, ch, warnings); break;
+    case 'bsp':           addBspSlide(s, slide, t, cy, ch, warnings); break;
     case 'grid':          addGridSlide(s, slide, t, cy, ch, warnings); break;
     case 'media':         addMediaSlide(s, slide, t, cy, ch); break;
     case 'code':          addCodeSlide(s, slide, t, cy, ch); break;
@@ -211,6 +212,55 @@ function addTwoColumnSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number
 
   addElements(s, left,  t, { x: M,               y: bodyY, w: colW, h: bodyH }, warnings);
   addElements(s, right, t, { x: M + colW + 0.3,  y: bodyY, w: colW, h: bodyH }, warnings);
+}
+
+function addBspSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[]) {
+  s.background = { fill: hex(t.colors.background) };
+  const hh = slide.title ? 0.65 : 0;
+  if (slide.title) {
+    s.addText(slide.title, {
+      x: M, y: cy, w: W - M * 2, h: hh,
+      fontSize: 24, bold: true,
+      color: hex(t.colors.primary),
+      fontFace: firstFont(t.fonts.title),
+      wrap: true,
+    });
+  }
+  const bodyY = cy + hh + 0.1;
+  const bodyH = ch - hh - 0.1;
+  const GAP   = 0.3;
+  const colW  = (W - M * 2 - GAP) / 2;
+
+  const isPureText = (type: string) => type === 'paragraph' || type === 'list';
+  const body = slide.elements;
+
+  let leftEls: SlideElement[];
+  let rightEls: SlideElement[];
+
+  if (body.length === 2) {
+    const firstIsText  = isPureText(body[0].type);
+    const secondIsText = isPureText(body[1].type);
+    if (!firstIsText && secondIsText) {
+      leftEls  = [body[1]];
+      rightEls = [body[0]];
+    } else {
+      leftEls  = [body[0]];
+      rightEls = [body[1]];
+    }
+  } else {
+    leftEls  = [body[0]];
+    rightEls = body.slice(1);
+  }
+
+  addElements(s, leftEls, t, { x: M, y: bodyY, w: colW, h: bodyH }, warnings);
+
+  if (rightEls.length === 1) {
+    addElements(s, rightEls, t, { x: M + colW + GAP, y: bodyY, w: colW, h: bodyH }, warnings);
+  } else {
+    const subH = (bodyH - 0.2) / 2;
+    addElements(s, [rightEls[0]], t, { x: M + colW + GAP, y: bodyY,              w: colW, h: subH }, warnings);
+    addElements(s, [rightEls[1]], t, { x: M + colW + GAP, y: bodyY + subH + 0.2, w: colW, h: subH }, warnings);
+  }
 }
 
 function addGridSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[]) {

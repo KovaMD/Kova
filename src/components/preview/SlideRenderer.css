@@ -268,6 +268,59 @@
 .sl-two-col__col { flex: 1; overflow: hidden; padding: 0 3%; }
 .sl-two-col__divider { width: 1px; background: color-mix(in srgb, var(--sl-text) 15%, transparent); align-self: stretch; flex-shrink: 0; }
 
+/* ── BSP auto-tiling ─────────────────────────────────────────────────────── */
+
+.sl-bsp { height: 100%; display: flex; flex-direction: column; }
+.sl-bsp__title { padding-bottom: 2% !important; flex-shrink: 0; }
+.sl-bsp__body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  padding: 0 4% 4%;
+  overflow: hidden;
+  font-size: clamp(8px, 1.8cqi, 16px);
+  font-family: var(--sl-font-body);
+  line-height: 1.6;
+}
+.sl-bsp__pane {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 2%;
+  min-width: 0;
+}
+.sl-bsp__divider-v {
+  width: 1px;
+  background: color-mix(in srgb, var(--sl-text) 15%, transparent);
+  align-self: stretch;
+  flex-shrink: 0;
+  margin: 0 1%;
+}
+.sl-bsp__right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+.sl-bsp__subpane {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 2%;
+  min-height: 0;
+}
+.sl-bsp__divider-h {
+  height: 1px;
+  background: color-mix(in srgb, var(--sl-text) 15%, transparent);
+  flex-shrink: 0;
+  margin: 1.5% 2%;
+}
+
 /* ── Grid ────────────────────────────────────────────────────────────────── */
 
 .sl-grid { height: 100%; display: flex; flex-direction: column; }
