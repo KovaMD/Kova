@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
+import { indentWithTab } from '@codemirror/commands';
 import { EditorState } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { oneDark } from '@codemirror/theme-one-dark';
@@ -57,8 +58,9 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
         oneDark,
         editorTheme,
         markdown(),
+        keymap.of([indentWithTab]),
         updateListener,
-        focusModeCompartment.of([]), // start disabled
+        focusModeCompartment.of([]),
       ],
     });
 
