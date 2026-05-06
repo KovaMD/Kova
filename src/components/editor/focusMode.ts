@@ -53,23 +53,27 @@ function findActiveSlide(doc: Text, cursor: number): SlideRange {
   const length = doc.length;
 
   // Collect positions of '---' slide-delimiter lines (skip frontmatter block)
-  const delimiters: number[] = []; // from position of each delimiter line
+  const delimiters: number[] = [];
   let inFrontmatter = false;
   let afterFrontmatter = false;
+  let frontmatterEndPos = 0; // character position immediately after frontmatter's closing ---
 
   for (let n = 1; n <= doc.lines; n++) {
     const line = doc.line(n);
     const text = line.text.trim();
 
     if (n === 1 && text === '---') { inFrontmatter = true; continue; }
-    if (inFrontmatter && text === '---') { inFrontmatter = false; afterFrontmatter = true; continue; }
+    if (inFrontmatter && text === '---') {
+      inFrontmatter = false;
+      afterFrontmatter = true;
+      frontmatterEndPos = line.to + 1; // position after the newline that follows ---
+      continue;
+    }
     if (!inFrontmatter && text === '---') delimiters.push(line.from);
   }
 
   // Build [from, to] ranges for each slide
-  const starts: number[] = [afterFrontmatter
-    ? (doc.lines > 1 ? doc.line(2).from : 0)  // rough: after first two lines
-    : 0];
+  const starts: number[] = [afterFrontmatter ? frontmatterEndPos : 0];
 
   for (const delimFrom of delimiters) {
     const delimLine = doc.lineAt(delimFrom);

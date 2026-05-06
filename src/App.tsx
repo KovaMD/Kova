@@ -12,6 +12,7 @@ import { InspectorPanel } from './components/layout/InspectorPanel';
 import { StatusBar } from './components/layout/StatusBar';
 import { PresentationOverlay } from './components/presentation/PresentationOverlay';
 
+import yaml from 'js-yaml';
 import { parseDocument } from './engine/parser/markdownToSlides';
 import { exportToPptx } from './engine/export/exportPptx';
 import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml } from './engine/theme';
@@ -176,6 +177,7 @@ export default function App() {
   }, []);
 
   const handleOpenFile = useCallback(async () => {
+    if (isDirty && !window.confirm('Discard unsaved changes?')) return;
     try {
       const selected = await open({
         filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
@@ -183,13 +185,24 @@ export default function App() {
       });
       if (!selected || typeof selected !== 'string') return;
       const text: string = await invoke('read_file', { path: selected });
+      // Apply theme declared in frontmatter, if any
+      const fmMatch = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+      if (fmMatch) {
+        try {
+          const fm = yaml.load(fmMatch[1]) as Record<string, unknown>;
+          if (typeof fm?.theme === 'string') {
+            const found = allThemes.find((t) => t.id === fm.theme);
+            if (found) { setActiveThemeId(found.id); setThemeOverrides({}); }
+          }
+        } catch { /* ignore bad yaml */ }
+      }
       setFilePath(selected);
       setContent(text);
       setIsDirty(false);
       setCurrentSlideIndex(0);
       await invoke('start_watching', { path: selected }).catch(console.error);
     } catch (err) { console.error('Open failed:', err); }
-  }, []);
+  }, [isDirty, allThemes]);
 
   const handleSave = useCallback(async () => {
     if (!filePath) return;
