@@ -42,8 +42,10 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
       }
       if (update.selectionSet || update.docChanged) {
         const pos = update.state.selection.main.head;
-        const text = update.state.doc.toString().slice(0, pos);
-        const slideIndex = (text.match(/^---$/gm) || []).length;
+        const raw = update.state.doc.toString().slice(0, pos);
+        // Strip frontmatter block so its --- delimiters aren't counted as slide separators
+        const stripped = raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
+        const slideIndex = (stripped.match(/^---$/gm) ?? []).length;
         onCursorSlideRef.current?.(slideIndex);
       }
     });

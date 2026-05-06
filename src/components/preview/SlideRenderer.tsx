@@ -367,8 +367,9 @@ function YoutubeEmbed({ embed }: { embed: Extract<SlideElement, { type: 'youtube
   const { isThumbnail } = useContext(SlideCtx);
   const thumb = youtubeThumb(embed.url);
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
     if (isThumbnail) return;
+    e.stopPropagation(); // prevent click bubbling to PresentationOverlay navigation handler
     openUrl(embed.url).catch(() => {});
   };
 

@@ -62,7 +62,10 @@ function preprocess(content: string): Preprocessed {
     const t = line.trim();
 
     if (t === '|||') {
-      preExtracted.push({ type: 'column-break' });
+      // Use an HTML comment so remark preserves position in the node tree.
+      // If we pushed to preExtracted instead, the break would always end up
+      // at the tail of elements and leave the right column empty.
+      cleanLines.push('<!-- column-break -->');
       continue;
     }
 
@@ -168,10 +171,16 @@ function convertRoot(tree: Root): ConvertResult {
         break;
       }
 
-      case 'html':
+      case 'html': {
+        const htmlNode = node as { type: 'html'; value: string };
+        if (htmlNode.value.trim() === '<!-- column-break -->') {
+          elements.push({ type: 'column-break' });
+        }
+        break;
+      }
       case 'yaml':
       case 'thematicBreak':
-        break; // already handled or irrelevant
+        break;
 
       default:
         break;
