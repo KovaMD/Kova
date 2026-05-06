@@ -291,13 +291,6 @@
   padding: 0 2%;
   min-width: 0;
 }
-.sl-bsp__divider-v {
-  width: 1px;
-  background: color-mix(in srgb, var(--sl-text) 15%, transparent);
-  align-self: stretch;
-  flex-shrink: 0;
-  margin: 0 1%;
-}
 .sl-bsp__right {
   flex: 1;
   display: flex;
@@ -314,13 +307,6 @@
   padding: 0 2%;
   min-height: 0;
 }
-.sl-bsp__divider-h {
-  height: 1px;
-  background: color-mix(in srgb, var(--sl-text) 15%, transparent);
-  flex-shrink: 0;
-  margin: 1.5% 2%;
-}
-
 /* ── Grid ────────────────────────────────────────────────────────────────── */
 
 .sl-grid { height: 100%; display: flex; flex-direction: column; }

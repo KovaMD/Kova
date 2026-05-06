@@ -263,7 +263,6 @@ function BspLayout({ slide }: { slide: Slide }) {
         <div className="sl-bsp__pane">
           <Elements elements={leftEls} />
         </div>
-        <div className="sl-bsp__divider-v" />
         {isTwo ? (
           <div className="sl-bsp__pane">
             <Elements elements={rightEls} />
@@ -273,7 +272,6 @@ function BspLayout({ slide }: { slide: Slide }) {
             <div className="sl-bsp__subpane">
               <Elements elements={[rightEls[0]]} />
             </div>
-            <div className="sl-bsp__divider-h" />
             <div className="sl-bsp__subpane">
               <Elements elements={[rightEls[1]]} />
             </div>
