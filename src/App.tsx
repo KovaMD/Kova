@@ -7,7 +7,6 @@ import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, usePanelRef
 
 import { ThumbnailPanel } from './components/layout/ThumbnailPanel';
 import { EditorPanel } from './components/layout/EditorPanel';
-import { PreviewPanel } from './components/layout/PreviewPanel';
 import { InspectorPanel } from './components/layout/InspectorPanel';
 import { StatusBar } from './components/layout/StatusBar';
 import { PresentationOverlay } from './components/presentation/PresentationOverlay';
@@ -317,24 +316,12 @@ export default function App() {
 
           <PanelResizeHandle />
 
-          <Panel defaultSize={42} minSize={20}>
+          <Panel defaultSize={72} minSize={20}>
             <EditorPanel
               content={content}
               onChange={handleContentChange}
               onCursorSlide={setCurrentSlideIndex}
               focusMode={focusMode}
-            />
-          </Panel>
-
-          <PanelResizeHandle />
-
-          <Panel defaultSize={30} minSize={15}>
-            <PreviewPanel
-              slides={slides}
-              currentIndex={currentSlideIndex}
-              theme={activeTheme}
-              docTitle={frontmatter.title}
-              aspectRatio={aspectRatio}
             />
           </Panel>
 
