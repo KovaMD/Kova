@@ -26,9 +26,8 @@ export function detectLayout(
     ? elements.filter((e) => e.type !== 'column-break')
     : elements;
 
-  if (has('mermaid')) return 'code'; // mermaid treated as code layout for now
-
-  if (bodyElements.length > 0 && bodyElements.every((e) => e.type === 'code')) {
+  // Code layout only when the slide is code/mermaid-only (no other content to split with)
+  if (bodyElements.length > 0 && bodyElements.every((e) => e.type === 'code' || e.type === 'mermaid')) {
     return 'code';
   }
 
