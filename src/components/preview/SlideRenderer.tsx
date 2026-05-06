@@ -1,7 +1,16 @@
+import { createContext, useContext, useEffect, useId, useState } from 'react';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
+import mermaid from 'mermaid';
 import type { Slide, SlideElement, ListItem } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import { themeToVars, resolveTemplate, DEFAULT_THEME } from '../../engine/theme';
 import './SlideRenderer.css';
+
+mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+
+// Passed via context so child components can skip heavy work in thumbnails
+const SlideScaleCtx = createContext(1);
 
 interface Props {
   slide: Slide;
@@ -30,6 +39,7 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
     !theme.footer.show;
 
   return (
+    <SlideScaleCtx.Provider value={scale}>
     <div
       className={`slide-frame layout-${slide.layout}`}
       style={{ ...vars, ...(scale !== 1 ? { transform: `scale(${scale})`, transformOrigin: 'top left' } : {}) }}
@@ -74,6 +84,7 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
         </div>
       )}
     </div>
+    </SlideScaleCtx.Provider>
   );
 }
 
@@ -249,11 +260,11 @@ function CodeLayout({ slide }: { slide: Slide }) {
           {codeEl.type === 'code' && (
             <>
               {codeEl.lang && <div className="sl-code__lang">{codeEl.lang}</div>}
-              <pre><code>{codeEl.value}</code></pre>
+              <CodeBlock lang={codeEl.lang} value={codeEl.value} />
             </>
           )}
           {codeEl.type === 'mermaid' && (
-            <pre className="sl-code__mermaid"><code>{codeEl.value}</code></pre>
+            <MermaidDiagram value={codeEl.value} />
           )}
         </div>
       )}
@@ -310,7 +321,7 @@ function ElementNode({ el }: { el: SlideElement }) {
       return (
         <div className="sl-code-inline">
           {el.lang && <span className="sl-code__lang">{el.lang}</span>}
-          <pre><code>{el.value}</code></pre>
+          <CodeBlock lang={el.lang} value={el.value} />
         </div>
       );
 
@@ -385,4 +396,58 @@ function extractYoutubeId(url: string): string | null {
     if (m) return m[1];
   }
   return null;
+}
+
+// ── Syntax-highlighted code block ─────────────────────────────────────────────
+
+function CodeBlock({ lang, value }: { lang: string; value: string }) {
+  const highlighted = lang && hljs.getLanguage(lang)
+    ? hljs.highlight(value, { language: lang }).value
+    : hljs.highlightAuto(value).value;
+
+  return (
+    <pre>
+      <code
+        className={lang ? `language-${lang}` : ''}
+        dangerouslySetInnerHTML={{ __html: highlighted }}
+      />
+    </pre>
+  );
+}
+
+// ── Mermaid diagram ───────────────────────────────────────────────────────────
+
+function MermaidDiagram({ value }: { value: string }) {
+  const scale = useContext(SlideScaleCtx);
+  const rawId = useId();
+  const id    = `mermaid-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
+  const [svg, setSvg] = useState('');
+
+  useEffect(() => {
+    if (scale < 1) return; // skip async render in thumbnails
+    let cancelled = false;
+    mermaid.render(id, value)
+      .then(({ svg: out }) => { if (!cancelled) setSvg(out); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [id, value, scale]);
+
+  if (scale < 1 || !svg) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100%', fontSize: 'clamp(7px, 1.5cqi, 12px)',
+        color: 'var(--sl-accent)', opacity: 0.7,
+      }}>
+        ◇ Diagram
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="sl-mermaid"
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  );
 }

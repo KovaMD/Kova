@@ -20,6 +20,22 @@ import type { Theme } from './engine/theme';
 
 import './styles/global.css';
 
+const STARTER = `---
+title: My Presentation
+date: ${new Date().getFullYear()}
+---
+
+# My Presentation
+
+---
+
+## First Slide
+
+- Point one
+- Point two
+- Point three
+`;
+
 function countWords(text: string): number {
   return (text.match(/\b\w+\b/g) ?? []).length;
 }
@@ -121,8 +137,18 @@ export default function App() {
     });
   }, [thumbPanelRef, inspectorPanelRef]);
 
-  const handlePresentEnter = useCallback(async () => {
+  const handleNewFile = useCallback(async () => {
+    if (isDirty && !window.confirm('Discard unsaved changes?')) return;
+    await invoke('stop_watching').catch(() => {});
+    setFilePath(null);
+    setContent(STARTER);
+    setIsDirty(false);
+    setCurrentSlideIndex(0);
+  }, [isDirty]);
+
+  const handlePresentEnter = useCallback(async (e?: React.MouseEvent) => {
     if (slides.length === 0) return;
+    if (!e?.altKey) setCurrentSlideIndex(0);
     setPresentMode(true);
     await getCurrentWindow().setFullscreen(true).catch(() => {});
   }, [slides.length]);
@@ -205,6 +231,7 @@ export default function App() {
     const handler = (e: KeyboardEvent) => {
       if (presentMode) return; // PresentationOverlay handles keys while presenting
       const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.key === 'n') { e.preventDefault(); handleNewFile(); }
       if (mod && e.key === 'o') { e.preventDefault(); handleOpenFile(); }
       if (mod && !e.shiftKey && e.key === 's') { e.preventDefault(); handleSave(); }
       if (mod && e.shiftKey && e.key === 's') { e.preventDefault(); handleSaveAs(); }
@@ -212,7 +239,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [presentMode, handleOpenFile, handleSave, handleSaveAs, toggleFocusMode]);
+  }, [presentMode, handleNewFile, handleOpenFile, handleSave, handleSaveAs, toggleFocusMode]);
 
   return (
     <div className="app">
@@ -228,6 +255,7 @@ export default function App() {
       )}
       <div className="app-toolbar">
         <span className="toolbar-title">DeckMD</span>
+        <button className="btn" onClick={handleNewFile} title="New (Ctrl+N)">New</button>
         <button className="btn" onClick={handleOpenFile} title="Open (Ctrl+O)">Open</button>
         <button className="btn" onClick={handleSave} disabled={!filePath || !isDirty} title="Save (Ctrl+S)">Save</button>
         <button className="btn" onClick={handleSaveAs} disabled={!content} title="Save As (Ctrl+Shift+S)">Save As</button>
@@ -246,7 +274,7 @@ export default function App() {
           className="btn btn-primary"
           onClick={handlePresentEnter}
           disabled={slides.length === 0}
-          title="Present fullscreen (requires an open file)"
+          title="Present from slide 1 (Alt+click to start from current slide)"
         >▶ Present</button>
       </div>
 
