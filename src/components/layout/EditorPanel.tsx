@@ -1,12 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { indentWithTab } from '@codemirror/commands';
-import { EditorState } from '@codemirror/state';
+import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { focusModeCompartment, focusModeExtension } from '../editor/focusMode';
+import { EditorContextMenu } from '../editor/EditorContextMenu';
+import type { MenuEntry } from '../editor/EditorContextMenu';
 import '../../styles/editor.css';
 
 interface Props {
@@ -25,11 +27,14 @@ const editorTheme = EditorView.theme({
   '.cm-cursor': { borderLeftColor: '#c07a30' },
 });
 
+interface ContextMenuState { x: number; y: number; hasSelection: boolean }
+
 export function EditorPanel({ content, onChange, onCursorSlide, focusMode = false }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   const onCursorSlideRef = useRef(onCursorSlide);
+  const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
 
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { onCursorSlideRef.current = onCursorSlide; }, [onCursorSlide]);
@@ -92,7 +97,102 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
     });
   }, [focusMode]);
 
+  // ── Context menu ────────────────────────────────────────────────────────────
+
+  function handleContextMenu(e: React.MouseEvent) {
+    e.preventDefault();
+    const view = viewRef.current;
+    if (!view) return;
+    const { from, to } = view.state.selection.main;
+    setCtxMenu({ x: e.clientX, y: e.clientY, hasSelection: from !== to });
+  }
+
+  function doCopy() {
+    const view = viewRef.current;
+    if (!view) return;
+    const { from, to } = view.state.selection.main;
+    if (from !== to) navigator.clipboard.writeText(view.state.sliceDoc(from, to));
+  }
+
+  function doCut() {
+    const view = viewRef.current;
+    if (!view) return;
+    const { from, to } = view.state.selection.main;
+    if (from === to) return;
+    navigator.clipboard.writeText(view.state.sliceDoc(from, to));
+    view.dispatch({ changes: { from, to, insert: '' } });
+    view.focus();
+  }
+
+  async function doPaste() {
+    const view = viewRef.current;
+    if (!view) return;
+    const text = await navigator.clipboard.readText();
+    if (!text) return;
+    const { from, to } = view.state.selection.main;
+    view.dispatch({
+      changes: { from, to, insert: text },
+      selection: EditorSelection.cursor(from + text.length),
+    });
+    view.focus();
+  }
+
+  function doInsert(snippet: string, cursorOffset: number) {
+    const view = viewRef.current;
+    if (!view) return;
+    const { from, to } = view.state.selection.main;
+    view.dispatch({
+      changes: { from, to, insert: snippet },
+      selection: EditorSelection.cursor(from + cursorOffset),
+    });
+    view.focus();
+  }
+
+  function doWrap(before: string, after: string, placeholder: string) {
+    const view = viewRef.current;
+    if (!view) return;
+    const { from, to } = view.state.selection.main;
+    if (from === to) {
+      const insert = `${before}${placeholder}${after}`;
+      view.dispatch({
+        changes: { from, insert },
+        selection: EditorSelection.range(from + before.length, from + before.length + placeholder.length),
+      });
+    } else {
+      const selected = view.state.sliceDoc(from, to);
+      const insert = `${before}${selected}${after}`;
+      view.dispatch({
+        changes: { from, to, insert },
+        selection: EditorSelection.cursor(from + insert.length),
+      });
+    }
+    view.focus();
+  }
+
+  function buildMenuEntries(): MenuEntry[] {
+    const hasSel = ctxMenu?.hasSelection ?? false;
+    return [
+      { type: 'header', label: 'Clipboard' },
+      { type: 'item', label: 'Copy',  shortcut: 'Ctrl+C', action: doCopy,  disabled: !hasSel },
+      { type: 'item', label: 'Cut',   shortcut: 'Ctrl+X', action: doCut,   disabled: !hasSel },
+      { type: 'item', label: 'Paste', shortcut: 'Ctrl+V', action: doPaste },
+      { type: 'divider' },
+      { type: 'header', label: 'Format' },
+      { type: 'item', label: 'Bold',   shortcut: 'Ctrl+B', action: () => doWrap('**', '**', 'bold text') },
+      { type: 'item', label: 'Italic', shortcut: 'Ctrl+I', action: () => doWrap('*', '*', 'italic text') },
+      { type: 'divider' },
+      { type: 'header', label: 'Insert' },
+      { type: 'item', label: 'Code Block',     action: () => doInsert('```\n\n```', 3) },
+      { type: 'item', label: 'Blockquote',     action: () => doInsert('> ', 2) },
+      { type: 'item', label: 'Table',          action: () => doInsert('| Header | Header |\n| ------ | ------ |\n| Cell   | Cell   |', 2) },
+      { type: 'item', label: 'Horizontal Rule', action: () => doInsert('\n---\n', 5) },
+      { type: 'item', label: 'Image',          action: () => doInsert('![alt text](url)', 2) },
+      { type: 'item', label: 'Link',           action: () => doInsert('[link text](url)', 1) },
+    ];
+  }
+
   return (
+    <>
     <div className="editor-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="panel-header">
         Editor
@@ -103,7 +203,7 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
         )}
       </div>
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-        <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+        <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} onContextMenu={handleContextMenu} />
         {!content && (
           <div style={{
             position: 'absolute', inset: 0,
@@ -117,5 +217,14 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
         )}
       </div>
     </div>
+    {ctxMenu && (
+      <EditorContextMenu
+        x={ctxMenu.x}
+        y={ctxMenu.y}
+        entries={buildMenuEntries()}
+        onClose={() => setCtxMenu(null)}
+      />
+    )}
+    </>
   );
 }
