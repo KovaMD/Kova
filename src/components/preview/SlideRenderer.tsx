@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useId, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useMemo, useState } from 'react';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
 import mermaid from 'mermaid';
@@ -11,8 +11,9 @@ import './SlideRenderer.css';
 
 mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
 
-// Passed via context so child components can skip heavy work in thumbnails
-const SlideScaleCtx = createContext(1);
+// Context passed to child components so they can adapt for thumbnail vs full rendering
+interface SlideCtxValue { isThumbnail: boolean; textColor: string }
+const SlideCtx = createContext<SlideCtxValue>({ isThumbnail: false, textColor: '#1a1a1a' });
 
 interface Props {
   slide: Slide;
@@ -40,8 +41,13 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
     !theme.header.show &&
     !theme.footer.show;
 
+  const ctxValue = useMemo<SlideCtxValue>(
+    () => ({ isThumbnail: scale !== 1, textColor: theme.colors.text }),
+    [scale, theme.colors.text],
+  );
+
   return (
-    <SlideScaleCtx.Provider value={scale}>
+    <SlideCtx.Provider value={ctxValue}>
     <div
       className={`slide-frame layout-${slide.layout}`}
       style={{ ...vars, ...(scale !== 1 ? { transform: `scale(${scale})`, transformOrigin: 'top left' } : {}) }}
@@ -86,7 +92,7 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
         </div>
       )}
     </div>
-    </SlideScaleCtx.Provider>
+    </SlideCtx.Provider>
   );
 }
 
@@ -358,34 +364,34 @@ function ListItemNode({ item }: { item: ListItem }) {
 // ── Media embeds ──────────────────────────────────────────────────────────────
 
 function YoutubeEmbed({ embed }: { embed: Extract<SlideElement, { type: 'youtube' }> }) {
-  const scale = useContext(SlideScaleCtx);
+  const { isThumbnail } = useContext(SlideCtx);
   const thumb = youtubeThumb(embed.url);
 
   const handleClick = () => {
-    if (scale < 1) return;
+    if (isThumbnail) return;
     openUrl(embed.url).catch(() => {});
   };
 
   return (
     <div
-      className={`sl-youtube${scale >= 1 ? ' sl-youtube--clickable' : ''}`}
+      className={`sl-youtube${!isThumbnail ? ' sl-youtube--clickable' : ''}`}
       onClick={handleClick}
-      title={scale >= 1 ? `Open in browser: ${embed.url}` : undefined}
+      title={!isThumbnail ? `Open in browser: ${embed.url}` : undefined}
     >
       {thumb
         ? <img src={thumb} alt={embed.label} className="sl-youtube__thumb" />
         : <div className="sl-youtube__placeholder">▶ YouTube</div>
       }
       <div className="sl-youtube__label">{embed.label}</div>
-      {scale >= 1 && <div className="sl-youtube__open-hint">Click to open in browser</div>}
+      {!isThumbnail && <div className="sl-youtube__open-hint">Click to open in browser</div>}
     </div>
   );
 }
 
 function PollEmbed({ embed }: { embed: Extract<SlideElement, { type: 'poll' }> }) {
-  const scale = useContext(SlideScaleCtx);
+  const { isThumbnail, textColor } = useContext(SlideCtx);
 
-  if (scale < 1) {
+  if (isThumbnail) {
     return (
       <div className="sl-poll">
         <div className="sl-poll__icon">📊</div>
@@ -397,7 +403,7 @@ function PollEmbed({ embed }: { embed: Extract<SlideElement, { type: 'poll' }> }
   return (
     <div className="sl-poll">
       <div className="sl-poll__qr">
-        <QRCode value={embed.url} size={160} bgColor="transparent" fgColor="var(--sl-text)" />
+        <QRCode value={embed.url} size={160} bgColor="transparent" fgColor={textColor} />
       </div>
       <div className="sl-poll__label">{embed.label}</div>
       <div className="sl-poll__url">{embed.url}</div>
@@ -426,9 +432,12 @@ function extractYoutubeId(url: string): string | null {
 // ── Syntax-highlighted code block ─────────────────────────────────────────────
 
 function CodeBlock({ lang, value }: { lang: string; value: string }) {
-  const highlighted = lang && hljs.getLanguage(lang)
-    ? hljs.highlight(value, { language: lang }).value
-    : hljs.highlightAuto(value).value;
+  const highlighted = useMemo(
+    () => lang && hljs.getLanguage(lang)
+      ? hljs.highlight(value, { language: lang }).value
+      : hljs.highlightAuto(value).value,
+    [lang, value],
+  );
 
   return (
     <pre>
@@ -443,21 +452,21 @@ function CodeBlock({ lang, value }: { lang: string; value: string }) {
 // ── Mermaid diagram ───────────────────────────────────────────────────────────
 
 function MermaidDiagram({ value }: { value: string }) {
-  const scale = useContext(SlideScaleCtx);
+  const { isThumbnail } = useContext(SlideCtx);
   const rawId = useId();
   const id    = `mermaid-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
   const [svg, setSvg] = useState('');
 
   useEffect(() => {
-    if (scale < 1) return; // skip async render in thumbnails
+    if (isThumbnail) return;
     let cancelled = false;
     mermaid.render(id, value)
-      .then(({ svg: out }) => { if (!cancelled) setSvg(out); })
+      .then(({ svg: out }: { svg: string }) => { if (!cancelled) setSvg(out); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [id, value, scale]);
+  }, [id, value, isThumbnail]);
 
-  if (scale < 1 || !svg) {
+  if (isThumbnail || !svg) {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',

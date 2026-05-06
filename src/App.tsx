@@ -21,7 +21,8 @@ import type { Theme } from './engine/theme';
 
 import './styles/global.css';
 
-const STARTER = `---
+function makeStarter() {
+  return `---
 title: My Presentation
 date: ${new Date().getFullYear()}
 ---
@@ -36,6 +37,7 @@ date: ${new Date().getFullYear()}
 - Point two
 - Point three
 `;
+}
 
 function countWords(text: string): number {
   return (text.match(/\b\w+\b/g) ?? []).length;
@@ -147,7 +149,7 @@ export default function App() {
     if (isDirty && !window.confirm('Discard unsaved changes?')) return;
     await invoke('stop_watching').catch(() => {});
     setFilePath(null);
-    setContent(STARTER);
+    setContent(makeStarter());
     setIsDirty(false);
     setCurrentSlideIndex(0);
   }, [isDirty]);
@@ -214,7 +216,7 @@ export default function App() {
   const handleExport = useCallback(async () => {
     if (slides.length === 0) return;
     try {
-      const base64 = await exportToPptx(slides, frontmatter, activeTheme);
+      const { base64, warnings } = await exportToPptx(slides, frontmatter, activeTheme);
       const defaultPath = filePath
         ? filePath.replace(/\.(md|markdown)$/i, '.pptx')
         : 'presentation.pptx';
@@ -224,6 +226,9 @@ export default function App() {
       });
       if (!target) return;
       await invoke('write_file_bytes', { path: target, data: base64 });
+      if (warnings.length > 0) {
+        window.alert(`Export complete with ${warnings.length} warning(s):\n\n${warnings.join('\n')}`);
+      }
     } catch (err) { console.error('Export failed:', err); }
   }, [slides, frontmatter, activeTheme, filePath]);
 
