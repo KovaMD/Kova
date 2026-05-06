@@ -9,11 +9,41 @@ import type { Theme } from '../../engine/theme';
 import { themeToVars, resolveTemplate, DEFAULT_THEME } from '../../engine/theme';
 import './SlideRenderer.css';
 
-mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'loose' });
 
 // Context passed to child components so they can adapt for thumbnail vs full rendering
-interface SlideCtxValue { isThumbnail: boolean; textColor: string }
-const SlideCtx = createContext<SlideCtxValue>({ isThumbnail: false, textColor: '#1a1a1a' });
+interface SlideCtxValue { isThumbnail: boolean; textColor: string; mermaidInit: string }
+const SlideCtx = createContext<SlideCtxValue>({ isThumbnail: false, textColor: '#1a1a1a', mermaidInit: '' });
+
+function buildMermaidInit(theme: Theme): string {
+  const c = theme.colors;
+  const firstFont = (stack: string) => stack.split(',')[0].trim().replace(/['"]/g, '');
+  const vars = {
+    primaryColor:          c.primary,
+    primaryTextColor:      c.title_text,
+    primaryBorderColor:    c.primary,
+    lineColor:             c.accent,
+    secondaryColor:        c.section_bg,
+    tertiaryColor:         c.code_bg,
+    background:            c.background,
+    mainBkg:               c.primary,
+    nodeBorder:            c.primary,
+    clusterBkg:            c.code_bg,
+    titleColor:            c.text,
+    edgeLabelBackground:   c.background,
+    fontFamily:            firstFont(theme.fonts.body),
+    pie1:                  c.primary,
+    pie2:                  c.accent,
+    pie3:                  c.section_bg,
+    pie4:                  c.code_bg,
+    pieTitleTextColor:     c.text,
+    pieSectionTextColor:   c.title_text,
+    pieStrokeColor:        c.background,
+    pieStrokeWidth:        '2px',
+    pieOpacity:            '0.85',
+  };
+  return `%%{init: ${JSON.stringify({ theme: 'base', themeVariables: vars })}}%%\n`;
+}
 
 interface Props {
   slide: Slide;
@@ -42,8 +72,8 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
     !theme.footer.show;
 
   const ctxValue = useMemo<SlideCtxValue>(
-    () => ({ isThumbnail: scale !== 1, textColor: theme.colors.text }),
-    [scale, theme.colors.text],
+    () => ({ isThumbnail: scale !== 1, textColor: theme.colors.text, mermaidInit: buildMermaidInit(theme) }),
+    [scale, theme],
   );
 
   return (
@@ -508,7 +538,7 @@ function CodeBlock({ lang, value }: { lang: string; value: string }) {
 // ── Mermaid diagram ───────────────────────────────────────────────────────────
 
 function MermaidDiagram({ value }: { value: string }) {
-  const { isThumbnail } = useContext(SlideCtx);
+  const { isThumbnail, mermaidInit } = useContext(SlideCtx);
   const rawId = useId();
   const id    = `mermaid-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
   const [svg, setSvg] = useState('');
@@ -516,11 +546,13 @@ function MermaidDiagram({ value }: { value: string }) {
   useEffect(() => {
     if (isThumbnail) return;
     let cancelled = false;
-    mermaid.render(id, value)
+    // Prepend theme init unless the user has already written their own %%{init:…}%%
+    const src = value.trimStart().startsWith('%%{') ? value : mermaidInit + value;
+    mermaid.render(id, src)
       .then(({ svg: out }: { svg: string }) => { if (!cancelled) setSvg(out); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [id, value, isThumbnail]);
+  }, [id, value, isThumbnail, mermaidInit]);
 
   if (isThumbnail || !svg) {
     return (
