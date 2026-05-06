@@ -38,6 +38,7 @@ function buildMermaidInit(theme: Theme): string {
     pie4:                  c.code_bg,
     pieTitleTextColor:     c.text,
     pieSectionTextColor:   c.title_text,
+    pieLegendTextColor:    c.text,
     pieStrokeColor:        c.background,
     pieStrokeWidth:        '2px',
     pieOpacity:            '0.85',
