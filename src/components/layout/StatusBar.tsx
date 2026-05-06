@@ -35,10 +35,10 @@ export function StatusBar({ currentSlide, totalSlides, wordCount, isDirty, fileP
       <Divider />
       <Cell>{wordCount.toLocaleString()} words</Cell>
       <div style={{ flex: 1 }} />
-      {filePath && (
+      {(filePath || isDirty) && (
         <>
           <Cell style={{ color: isDirty ? '#c07a30' : '#555' }}>
-            {isDirty ? 'Unsaved' : 'Saved'}
+            {isDirty ? (filePath ? 'Unsaved' : 'New — unsaved') : 'Saved'}
           </Cell>
           <Divider />
         </>

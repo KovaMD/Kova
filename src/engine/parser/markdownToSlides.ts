@@ -224,8 +224,8 @@ function inlineToHtml(children: Node[]): string {
       case 'emphasis':    return `<em>${inlineToHtml(node.children)}</em>`;
       case 'delete':      return `<del>${inlineToHtml(node.children)}</del>`;
       case 'inlineCode':  return `<code>${escHtml(node.value as string)}</code>`;
-      case 'link':        return `<a href="${node.url}">${inlineToHtml(node.children)}</a>`;
-      case 'image':       return `<img src="${node.url}" alt="${escHtml(node.alt ?? '')}" />`;
+      case 'link':        return `<a href="${escUrl(node.url as string)}">${inlineToHtml(node.children)}</a>`;
+      case 'image':       return `<img src="${escUrl(node.url as string)}" alt="${escHtml(node.alt ?? '')}" />`;
       case 'break':       return '<br>';
       default:            return node.children ? inlineToHtml(node.children) : '';
     }
@@ -234,6 +234,10 @@ function inlineToHtml(children: Node[]): string {
 
 function escHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function escUrl(url: string): string {
+  return url.replace(/"/g, '%22');
 }
 
 export type { Frontmatter };

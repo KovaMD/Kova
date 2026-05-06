@@ -32,14 +32,6 @@ export function detectLayout(
     return 'code';
   }
 
-  if (!hasTitle && bodyElements.length === 1 && bodyElements[0].type === 'code') {
-    return 'code';
-  }
-
-  if (hasTitle && bodyElements.length === 1 && bodyElements[0].type === 'code') {
-    return 'code';
-  }
-
   // ── No-title layouts ──────────────────────────────────────────────────────
 
   if (!hasTitle) {

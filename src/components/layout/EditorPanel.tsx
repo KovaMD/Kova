@@ -99,7 +99,20 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
           </span>
         )}
       </div>
-      <div ref={containerRef} style={{ flex: 1, overflow: 'hidden' }} />
+      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+        {!content && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            gap: 10, color: '#444', fontSize: 13, pointerEvents: 'none', userSelect: 'none',
+          }}>
+            <span style={{ fontSize: 28, opacity: 0.3 }}>📄</span>
+            <span>Ctrl+N — new presentation</span>
+            <span>Ctrl+O — open file</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
