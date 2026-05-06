@@ -3,8 +3,7 @@ import type { Slide, SlideElement, Frontmatter } from '../types';
 import type { Theme } from '../theme';
 import { resolveTemplate } from '../theme';
 
-const W = 10;      // slide width  (inches, LAYOUT_WIDE)
-const H = 5.625;   // slide height
+const W = 10; // slide width is always 10" regardless of ratio
 const M = 0.5;     // standard margin
 const HEAD_H = 0.4;
 const FOOT_H = 0.35;
@@ -20,7 +19,9 @@ export async function exportToPptx(
   theme: Theme,
 ): Promise<string> {
   const pres = new PptxGenJS();
-  pres.layout = 'LAYOUT_WIDE';
+  const is4x3 = (frontmatter.aspect_ratio as string | undefined) === '4:3';
+  pres.layout = is4x3 ? 'LAYOUT_4x3' : 'LAYOUT_WIDE';
+  const H = is4x3 ? 7.5 : 5.625;
 
   const docTitle = frontmatter.title ?? '';
   const docDate  = frontmatter.date != null ? String(frontmatter.date) : '';
@@ -28,7 +29,7 @@ export async function exportToPptx(
   for (let i = 0; i < slides.length; i++) {
     const pSlide = pres.addSlide();
     const meta: Meta = { docTitle, docDate, slideNum: i + 1, totalSlides: slides.length };
-    addSlide(pSlide, slides[i], theme, meta);
+    addSlide(pSlide, slides[i], theme, meta, H);
   }
 
   return (await pres.write({ outputType: 'base64' })) as string;
@@ -41,6 +42,7 @@ function addSlide(
   slide: Slide,
   t: Theme,
   meta: Meta,
+  H: number,
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const s = pSlide as any;
@@ -55,7 +57,7 @@ function addSlide(
     case 'title-content': addTitleContentSlide(s, slide, t, cy, ch); break;
     case 'title-image':   addTitleImageSlide(s, slide, t, cy, ch); break;
     case 'split':         addSplitSlide(s, slide, t, cy, ch); break;
-    case 'full-bleed':    addFullBleedSlide(s, slide, t); break;
+    case 'full-bleed':    addFullBleedSlide(s, slide, t, H); break;
     case 'quote':         addQuoteSlide(s, slide, t, cy, ch); break;
     case 'two-column':    addTwoColumnSlide(s, slide, t, cy, ch); break;
     case 'grid':          addGridSlide(s, slide, t, cy, ch); break;
@@ -65,7 +67,7 @@ function addSlide(
   }
 
   if (hasHead) addHeaderBar(s, t, meta);
-  if (hasFoot) addFooterBar(s, t, meta);
+  if (hasFoot) addFooterBar(s, t, meta, H);
 }
 
 // ── Layout renderers ──────────────────────────────────────────────────────────
@@ -159,7 +161,7 @@ function addSplitSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) {
   addElements(s, rest, t, { x: M + colW + 0.3, y: bodyY, w: colW, h: bodyH });
 }
 
-function addFullBleedSlide(s: PS, slide: Slide, t: Theme) {
+function addFullBleedSlide(s: PS, slide: Slide, t: Theme, H: number) {
   s.background = { fill: hex(t.colors.primary) };
   const img = slide.elements.find((e) => e.type === 'image');
   if (img && img.type === 'image') {
@@ -350,7 +352,7 @@ function addHeaderBar(s: PS, t: Theme, meta: Meta) {
   }
 }
 
-function addFooterBar(s: PS, t: Theme, meta: Meta) {
+function addFooterBar(s: PS, t: Theme, meta: Meta, H: number) {
   const footY = H - FOOT_H;
   s.addShape('rect', {
     x: 0, y: footY, w: W, h: FOOT_H,

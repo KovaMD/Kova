@@ -28,9 +28,9 @@
   position: relative;
   width: min(
     100vw,
-    calc((100vh - var(--pres-hud-h, 40px) - var(--pres-notes-h, 0px)) * 16 / 9)
+    calc((100vh - var(--pres-hud-h, 40px) - var(--pres-notes-h, 0px)) * var(--pres-ar-w, 16) / var(--pres-ar-h, 9))
   );
-  aspect-ratio: 16 / 9;
+  aspect-ratio: var(--pres-ar-w, 16) / var(--pres-ar-h, 9);
   overflow: hidden;
   flex-shrink: 0;
 }

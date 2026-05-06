@@ -40,6 +40,13 @@ export interface Slide {
   layoutOverride?: LayoutType;
 }
 
+export interface AspectRatio { w: number; h: number }
+
+export function parseAspectRatio(ar?: string): AspectRatio {
+  if (ar === '4:3') return { w: 4, h: 3 };
+  return { w: 16, h: 9 }; // 16:9 default
+}
+
 export interface Frontmatter {
   title?: string;
   author?: string;

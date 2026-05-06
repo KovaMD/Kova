@@ -16,6 +16,7 @@ import { parseDocument } from './engine/parser/markdownToSlides';
 import { exportToPptx } from './engine/export/exportPptx';
 import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml } from './engine/theme';
 import type { Slide, Frontmatter } from './engine/types';
+import { parseAspectRatio } from './engine/types';
 import type { Theme } from './engine/theme';
 
 import './styles/global.css';
@@ -76,6 +77,11 @@ export default function App() {
     try { return parseDocument(content); }
     catch { return { slides: EMPTY_SLIDES, frontmatter: EMPTY_FM }; }
   }, [content]);
+
+  const aspectRatio = useMemo(
+    () => parseAspectRatio(frontmatter.aspect_ratio as string | undefined),
+    [frontmatter.aspect_ratio],
+  );
 
   const wordCount = countWords(content);
   const filePathRef = useRef(filePath);
@@ -249,6 +255,7 @@ export default function App() {
           currentIndex={currentSlideIndex}
           theme={activeTheme}
           docTitle={frontmatter.title}
+          aspectRatio={aspectRatio}
           onNavigate={setCurrentSlideIndex}
           onExit={handlePresentExit}
         />
@@ -287,6 +294,7 @@ export default function App() {
               onSelect={setCurrentSlideIndex}
               theme={activeTheme}
               docTitle={frontmatter.title}
+              aspectRatio={aspectRatio}
             />
           </Panel>
 
@@ -309,6 +317,7 @@ export default function App() {
               currentIndex={currentSlideIndex}
               theme={activeTheme}
               docTitle={frontmatter.title}
+              aspectRatio={aspectRatio}
             />
           </Panel>
 

@@ -1,4 +1,4 @@
-import type { Slide } from '../../engine/types';
+import type { Slide, AspectRatio } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import { DEFAULT_THEME } from '../../engine/theme';
 import { SlideRenderer } from '../preview/SlideRenderer';
@@ -9,9 +9,10 @@ interface Props {
   currentIndex: number;
   theme?: Theme;
   docTitle?: string;
+  aspectRatio?: AspectRatio;
 }
 
-export function PreviewPanel({ slides, currentIndex, theme = DEFAULT_THEME, docTitle }: Props) {
+export function PreviewPanel({ slides, currentIndex, theme = DEFAULT_THEME, docTitle, aspectRatio = { w: 16, h: 9 } }: Props) {
   const slide = slides[currentIndex] ?? null;
 
   return (
@@ -42,7 +43,7 @@ export function PreviewPanel({ slides, currentIndex, theme = DEFAULT_THEME, docT
               position: 'relative',
               width: '100%',
               maxWidth: '960px',
-              aspectRatio: '16 / 9',
+              aspectRatio: `${aspectRatio.w} / ${aspectRatio.h}`,
               boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
               borderRadius: 4,
               overflow: 'hidden',

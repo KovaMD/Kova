@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import type { Slide } from '../../engine/types';
+import type { Slide, AspectRatio } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import { DEFAULT_THEME } from '../../engine/theme';
 import { SlideRenderer } from '../preview/SlideRenderer';
@@ -10,13 +10,14 @@ interface Props {
   onSelect: (index: number) => void;
   theme?: Theme;
   docTitle?: string;
+  aspectRatio?: AspectRatio;
 }
 
 const SLIDE_W = 960;
-const SLIDE_H = 540;
-const THUMB_W = 140; // target thumbnail width in px
+const THUMB_W = 140;
 
-export function ThumbnailPanel({ slides, currentIndex, onSelect, theme = DEFAULT_THEME, docTitle }: Props) {
+export function ThumbnailPanel({ slides, currentIndex, onSelect, theme = DEFAULT_THEME, docTitle, aspectRatio = { w: 16, h: 9 } }: Props) {
+  const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1a1a1a' }}>
       <div className="panel-header">Slides</div>
@@ -35,6 +36,7 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, theme = DEFAULT
               onClick={() => onSelect(i)}
               theme={theme}
               docTitle={docTitle}
+              slideH={slideH}
             />
           ))
         )}
@@ -50,9 +52,10 @@ interface ThumbnailProps {
   onClick: () => void;
   theme: Theme;
   docTitle?: string;
+  slideH: number;
 }
 
-function Thumbnail({ slide, index, isActive, onClick, theme, docTitle }: ThumbnailProps) {
+function Thumbnail({ slide, index, isActive, onClick, theme, docTitle, slideH }: ThumbnailProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(THUMB_W / SLIDE_W);
 
@@ -67,7 +70,7 @@ function Thumbnail({ slide, index, isActive, onClick, theme, docTitle }: Thumbna
     return () => obs.disconnect();
   }, []);
 
-  const thumbH = Math.round(SLIDE_H * scale);
+  const thumbH = Math.round(slideH * scale);
 
   return (
     <div
@@ -90,7 +93,7 @@ function Thumbnail({ slide, index, isActive, onClick, theme, docTitle }: Thumbna
         <div
           style={{
             width: SLIDE_W,
-            height: SLIDE_H,
+            height: slideH,
             transform: `scale(${scale})`,
             transformOrigin: 'top left',
             pointerEvents: 'none',

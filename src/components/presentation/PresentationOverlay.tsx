@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
-import type { Slide } from '../../engine/types';
+import type { Slide, AspectRatio } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import { SlideRenderer } from '../preview/SlideRenderer';
 import './PresentationOverlay.css';
@@ -9,6 +9,7 @@ interface Props {
   currentIndex: number;
   theme: Theme;
   docTitle?: string;
+  aspectRatio?: AspectRatio;
   onNavigate: (index: number) => void;
   onExit: () => void;
 }
@@ -17,7 +18,7 @@ const HUD_H  = 40;  // px — HUD bar height
 const NOTE_H = 160; // px — speaker notes panel height
 
 export function PresentationOverlay({
-  slides, currentIndex, theme, docTitle, onNavigate, onExit,
+  slides, currentIndex, theme, docTitle, aspectRatio = { w: 16, h: 9 }, onNavigate, onExit,
 }: Props) {
   const slide = slides[currentIndex];
   const total = slides.length;
@@ -84,7 +85,12 @@ export function PresentationOverlay({
   return (
     <div
       className="pres-overlay"
-      style={{ '--pres-notes-h': `${notesH}px`, '--pres-hud-h': `${HUD_H}px` } as React.CSSProperties}
+      style={{
+        '--pres-notes-h': `${notesH}px`,
+        '--pres-hud-h': `${HUD_H}px`,
+        '--pres-ar-w': aspectRatio.w,
+        '--pres-ar-h': aspectRatio.h,
+      } as React.CSSProperties}
       onMouseMove={resetIdle}
     >
       {/* ── Slide area ── */}
