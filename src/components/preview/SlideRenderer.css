@@ -339,6 +339,42 @@
 
 .slide-frame .hljs { background: transparent; }
 
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+
+.sl-progress { padding: 0.35em 0; }
+
+.sl-progress__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.35em;
+}
+
+.sl-progress__label {
+  font-size: clamp(7px, 1.6cqi, 15px);
+  font-weight: 600;
+  color: var(--sl-text);
+}
+
+.sl-progress__pct {
+  font-size: clamp(6px, 1.4cqi, 13px);
+  font-weight: 700;
+  color: var(--sl-accent);
+}
+
+.sl-progress__track {
+  height: clamp(4px, 0.9cqi, 9px);
+  background: color-mix(in srgb, var(--sl-text) 12%, transparent);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.sl-progress__fill {
+  height: 100%;
+  background: var(--sl-accent);
+  border-radius: 999px;
+}
+
 /* ── Mermaid diagram ─────────────────────────────────────────────────────── */
 
 .sl-mermaid {

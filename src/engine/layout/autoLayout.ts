@@ -55,7 +55,7 @@ export function detectLayout(
   if (hasTitle && images.length === 1 && nonImages.length === 0) return 'title-image';
 
   // Traditional split: exactly 1 image + 1 pure-text element (paragraph/list)
-  const isPureText = (t: string) => t === 'paragraph' || t === 'list';
+  const isPureText = (t: string) => t === 'paragraph' || t === 'list' || t === 'progress';
   if (hasTitle && images.length === 1 && nonImages.length === 1 && isPureText(nonImages[0].type)) {
     return 'split';
   }

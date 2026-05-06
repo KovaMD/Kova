@@ -51,8 +51,9 @@ interface Preprocessed {
   preExtracted: SlideElement[];
 }
 
-const YOUTUBE_RE = /^!youtube\[([^\]]*)\]\(([^)]*)\)$/;
-const POLL_RE = /^!poll\[([^\]]*)\]\(([^)]*)\)$/;
+const YOUTUBE_RE  = /^!youtube\[([^\]]*)\]\(([^)]*)\)$/;
+const POLL_RE     = /^!poll\[([^\]]*)\]\(([^)]*)\)$/;
+const PROGRESS_RE = /^!progress\[([^\]]*)\]\((\d+(?:\.\d+)?)\)$/;
 
 function preprocess(content: string): Preprocessed {
   const preExtracted: SlideElement[] = [];
@@ -78,6 +79,12 @@ function preprocess(content: string): Preprocessed {
     const poll = t.match(POLL_RE);
     if (poll) {
       preExtracted.push({ type: 'poll', label: poll[1], url: poll[2] });
+      continue;
+    }
+
+    const progress = t.match(PROGRESS_RE);
+    if (progress) {
+      preExtracted.push({ type: 'progress', label: progress[1], value: parseFloat(progress[2]) });
       continue;
     }
 

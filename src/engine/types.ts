@@ -26,8 +26,9 @@ export type SlideElement =
   | { type: 'mermaid'; value: string }
   | { type: 'blockquote'; text: string; attribution?: string }
   | { type: 'table'; headers: string[]; rows: string[][] }
-  | { type: 'youtube'; label: string; url: string }
-  | { type: 'poll'; label: string; url: string }
+  | { type: 'youtube';  label: string; url: string }
+  | { type: 'poll';     label: string; url: string }
+  | { type: 'progress'; label: string; value: number }
   | { type: 'column-break' };
 
 export interface Slide {

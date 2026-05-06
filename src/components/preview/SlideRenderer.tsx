@@ -423,6 +423,9 @@ function ElementNode({ el }: { el: SlideElement }) {
     case 'poll':
       return <PollEmbed embed={el} />;
 
+    case 'progress':
+      return <ProgressBar el={el} />;
+
     case 'column-break':
       return null;
 
@@ -533,6 +536,23 @@ function CodeBlock({ lang, value }: { lang: string; value: string }) {
         dangerouslySetInnerHTML={{ __html: highlighted }}
       />
     </pre>
+  );
+}
+
+// ── Progress bar ──────────────────────────────────────────────────────────────
+
+function ProgressBar({ el }: { el: Extract<SlideElement, { type: 'progress' }> }) {
+  const pct = Math.max(0, Math.min(100, el.value));
+  return (
+    <div className="sl-progress">
+      <div className="sl-progress__header">
+        <span className="sl-progress__label">{el.label}</span>
+        <span className="sl-progress__pct">{pct}%</span>
+      </div>
+      <div className="sl-progress__track">
+        <div className="sl-progress__fill" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
   );
 }
 
