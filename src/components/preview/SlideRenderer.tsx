@@ -340,8 +340,10 @@ function ElementNode({ el }: { el: SlideElement }) {
       return <PollEmbed embed={el} />;
 
     case 'column-break':
-    case 'mermaid':
       return null;
+
+    case 'mermaid':
+      return <MermaidDiagram value={el.value} />;
 
     default:
       return null;
