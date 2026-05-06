@@ -1,0 +1,18 @@
+<svg width="600" height="200" viewBox="0 0 600 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="600" height="200" rx="16" fill="#111111"/>
+  <!-- shadow rect -->
+  <rect x="120" y="100" width="76" height="54" rx="8" fill="#8C2800" opacity="0.8"/>
+  <!-- front rect -->
+  <rect x="96"  y="76"  width="76" height="54" rx="8" fill="#2a1008" stroke="#FF6B2B" stroke-width="2"/>
+  <!-- lines -->
+  <line x1="112" y1="95"  x2="158" y2="95"  stroke="#FF8C52" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="112" y1="106" x2="146" y2="106" stroke="#FF6B2B" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="112" y1="118" x2="158" y2="118" stroke="#FF8C52" stroke-width="1.5" stroke-dasharray="6 4" stroke-linecap="round" opacity="0.5"/>
+  <line x1="112" y1="126" x2="138" y2="126" stroke="#FF6B2B" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  <!-- wordmark -->
+  <text x="202" y="120" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="500" letter-spacing="-2" fill="white">kova</text>
+  <!-- .md -->
+  <text x="205" y="148" font-family="ui-monospace, monospace" font-size="18" fill="#FF6B2B" letter-spacing="0.04em">.md</text>
+  <!-- tagline -->
+  <text x="300" y="182" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#444444" letter-spacing="0.12em">MARKDOWN-POWERED PRESENTATIONS</text>
+</svg>

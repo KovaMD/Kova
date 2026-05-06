@@ -43,7 +43,7 @@ export function StatusBar({ currentSlide, totalSlides, wordCount, isDirty, fileP
           <Divider />
         </>
       )}
-      <Cell>DeckMD v0.1</Cell>
+      <Cell>kova v0.1</Cell>
     </div>
   );
 }

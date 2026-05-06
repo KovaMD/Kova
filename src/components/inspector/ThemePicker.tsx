@@ -19,7 +19,7 @@ export function ThemePicker({ themes, activeId, onSelect }: Props) {
             gap: 8,
             padding: '5px 8px',
             background: t.id === activeId ? '#2e2e2e' : 'transparent',
-            border: `1px solid ${t.id === activeId ? '#c07a30' : '#333'}`,
+            border: `1px solid ${t.id === activeId ? '#D94F00' : '#333'}`,
             borderRadius: 4,
             cursor: 'pointer',
             color: '#ccc',
@@ -36,7 +36,7 @@ export function ThemePicker({ themes, activeId, onSelect }: Props) {
           </div>
           <span style={{ flex: 1 }}>{t.name}</span>
           {t.id === activeId && (
-            <span style={{ color: '#c07a30', fontSize: 10 }}>✓</span>
+            <span style={{ color: '#D94F00', fontSize: 10 }}>✓</span>
           )}
         </button>
       ))}

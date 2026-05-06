@@ -90,7 +90,7 @@ export default function App() {
   const filePathRef = useRef(filePath);
   useEffect(() => { filePathRef.current = filePath; }, [filePath]);
 
-  // Load custom themes from ~/.deckmd/themes/ on startup
+  // Load custom themes from ~/.kova/themes/ on startup
   useEffect(() => {
     invoke<Array<[string, string]>>('load_custom_themes')
       .then((entries) => {
@@ -104,8 +104,8 @@ export default function App() {
 
   // Window title
   useEffect(() => {
-    const name = frontmatter.title ?? filePath?.split('/').pop() ?? 'DeckMD';
-    getCurrentWindow().setTitle(isDirty ? `${name} • — DeckMD` : `${name} — DeckMD`).catch(() => {});
+    const name = frontmatter.title ?? filePath?.split('/').pop() ?? 'kova';
+    getCurrentWindow().setTitle(isDirty ? `${name} • — kova` : `${name} — kova`).catch(() => {});
   }, [filePath, frontmatter.title, isDirty]);
 
   // File-changed event from Rust watcher → reload
@@ -279,7 +279,7 @@ export default function App() {
         />
       )}
       <div className="app-toolbar">
-        <span className="toolbar-title">DeckMD</span>
+        <img src="/kova-lockup-dark.svg" alt="kova" className="toolbar-logo" />
         <button className="btn" onClick={handleNewFile} title="New (Ctrl+N)">New</button>
         <button className="btn" onClick={handleOpenFile} title="Open (Ctrl+O)">Open</button>
         <button className="btn" onClick={handleSave} disabled={!filePath || !isDirty} title="Save (Ctrl+S)">Save</button>

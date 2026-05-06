@@ -79,7 +79,7 @@ function Thumbnail({ slide, index, isActive, onClick, theme, docTitle, slideH }:
         marginBottom: 8,
         cursor: 'pointer',
         borderRadius: 4,
-        border: `2px solid ${isActive ? '#c07a30' : '#333'}`,
+        border: `2px solid ${isActive ? '#D94F00' : '#333'}`,
         overflow: 'hidden',
         position: 'relative',
         userSelect: 'none',

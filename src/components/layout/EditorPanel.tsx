@@ -24,7 +24,7 @@ const editorTheme = EditorView.theme({
   '.cm-content': { padding: '16px 24px', maxWidth: '720px', margin: '0 auto' },
   '.cm-gutters': { background: '#1e1e1e', borderRight: '1px solid #2a2a2a' },
   '.cm-activeLine': { background: 'rgba(255,255,255,0.03)' },
-  '.cm-cursor': { borderLeftColor: '#c07a30' },
+  '.cm-cursor': { borderLeftColor: '#D94F00' },
 });
 
 interface ContextMenuState { x: number; y: number; hasSelection: boolean }
@@ -197,7 +197,7 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
       <div className="panel-header">
         Editor
         {focusMode && (
-          <span style={{ marginLeft: 'auto', fontSize: 10, color: '#c07a30', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+          <span style={{ marginLeft: 'auto', fontSize: 10, color: '#D94F00', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
             Focus Mode
           </span>
         )}

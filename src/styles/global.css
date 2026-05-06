@@ -14,7 +14,7 @@
   --text-primary: #e8e8e8;
   --text-secondary: #999999;
   --text-muted: #666666;
-  --accent: #c07a30;
+  --accent: #D94F00;
   --accent-hover: #d98c3a;
   --btn-bg: #2e2e2e;
   --btn-bg-hover: #383838;
@@ -57,12 +57,11 @@ html, body, #root {
   user-select: none;
 }
 
-.toolbar-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: 0.02em;
+.toolbar-logo {
+  height: 20px;
+  width: auto;
   margin-right: 4px;
+  flex-shrink: 0;
 }
 
 .toolbar-filename {

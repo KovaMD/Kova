@@ -52,12 +52,12 @@ pub fn write_file_bytes(path: String, data: String) -> Result<(), String> {
     file_io::write_bytes(&path, &bytes)
 }
 
-/// Returns the YAML contents of every .yaml/.yml file in ~/.deckmd/themes/.
+/// Returns the YAML contents of every .yaml/.yml file in ~/.kova/themes/.
 /// Each entry is (filename_without_extension, yaml_content).
 #[tauri::command]
 pub fn load_custom_themes() -> Result<Vec<(String, String)>, String> {
     let home = std::env::var("HOME").map_err(|_| "HOME not set".to_string())?;
-    let themes_dir = std::path::PathBuf::from(home).join(".deckmd").join("themes");
+    let themes_dir = std::path::PathBuf::from(home).join(".kova").join("themes");
 
     if !themes_dir.exists() {
         return Ok(vec![]);

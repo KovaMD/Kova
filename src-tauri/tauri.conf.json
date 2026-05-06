@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "DeckMD",
+  "productName": "kova",
   "version": "0.1.0",
-  "identifier": "com.deckmd.app",
+  "identifier": "md.kova.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "DeckMD",
+        "title": "kova",
         "width": 1400,
         "height": 860,
         "minWidth": 900,
