@@ -9,6 +9,7 @@
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
+    "dialog:allow-message",
     "core:window:allow-set-fullscreen",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",

@@ -251,7 +251,7 @@ function convertListItem(item: MdastListItem): ListItem {
 function inlineToHtml(children: Node[]): string {
   return (children as any[]).map((node) => {
     switch (node.type) {
-      case 'text':        return escHtml(node.value as string);
+      case 'text':        return escHtml(node.value as string).replace(/\n/g, '<br>');
       case 'strong':      return `<strong>${inlineToHtml(node.children)}</strong>`;
       case 'emphasis':    return `<em>${inlineToHtml(node.children)}</em>`;
       case 'delete':      return `<del>${inlineToHtml(node.children)}</del>`;

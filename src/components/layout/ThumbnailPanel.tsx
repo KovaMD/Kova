@@ -32,6 +32,7 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, theme = DEFAULT
               key={i}
               slide={slide}
               index={i}
+              totalSlides={slides.length}
               isActive={i === currentIndex}
               onClick={() => onSelect(i)}
               theme={theme}
@@ -48,6 +49,7 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, theme = DEFAULT
 interface ThumbnailProps {
   slide: Slide;
   index: number;
+  totalSlides: number;
   isActive: boolean;
   onClick: () => void;
   theme: Theme;
@@ -55,7 +57,7 @@ interface ThumbnailProps {
   slideH: number;
 }
 
-function Thumbnail({ slide, index, isActive, onClick, theme, docTitle, slideH }: ThumbnailProps) {
+function Thumbnail({ slide, index, totalSlides, isActive, onClick, theme, docTitle, slideH }: ThumbnailProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(THUMB_W / SLIDE_W);
 
@@ -99,7 +101,14 @@ function Thumbnail({ slide, index, isActive, onClick, theme, docTitle, slideH }:
             pointerEvents: 'none',
           }}
         >
-          <SlideRenderer slide={slide} theme={theme} docTitle={docTitle} />
+          <SlideRenderer
+            slide={slide}
+            theme={theme}
+            docTitle={docTitle}
+            slideNumber={index + 1}
+            totalSlides={totalSlides}
+            isThumbnail
+          />
         </div>
       </div>
 

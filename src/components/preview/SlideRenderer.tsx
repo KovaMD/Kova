@@ -52,11 +52,11 @@ interface Props {
   slideNumber?: number;
   totalSlides?: number;
   docTitle?: string;
-  /** Uniform scale applied to the slide frame, used for thumbnail rendering */
   scale?: number;
+  isThumbnail?: boolean;
 }
 
-export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, docTitle = '', scale = 1 }: Props) {
+export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, docTitle = '', scale = 1, isThumbnail: isThumbnailProp }: Props) {
   const vars = themeToVars(theme);
 
   const headerText = theme.header.show
@@ -76,8 +76,8 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
   const showFloatingLogo = theme.logo && !logoInHeader && !logoInFooter;
 
   const ctxValue = useMemo<SlideCtxValue>(
-    () => ({ isThumbnail: scale !== 1, textColor: theme.colors.text, mermaidInit: buildMermaidInit(theme) }),
-    [scale, theme],
+    () => ({ isThumbnail: isThumbnailProp ?? scale !== 1, textColor: theme.colors.text, mermaidInit: buildMermaidInit(theme) }),
+    [isThumbnailProp, scale, theme],
   );
 
   return (

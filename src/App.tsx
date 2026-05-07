@@ -60,6 +60,7 @@ export default function App() {
   const [presentMode, setPresentMode]     = useState(false);
   const [settings, setSettings]           = useState<AppSettings>(loadSettings);
   const [showSettings, setShowSettings]   = useState(false);
+  const [confirmCloseAction, setConfirmCloseAction] = useState<(() => void) | null>(null);
   const [keybindings, setKeybindings]     = useState<Keybindings>({ path: '', combos: {} });
 
   // Theme state: active theme id + per-session overrides
@@ -165,14 +166,23 @@ export default function App() {
     });
   }, [thumbPanelRef, inspectorPanelRef]);
 
-  const handleNewFile = useCallback(async () => {
-    if (isDirty && settings.confirmOnClose && !window.confirm('Discard unsaved changes?')) return;
-    await invoke('stop_watching').catch(() => {});
-    setFilePath(null);
-    setContent(makeStarter());
-    setIsDirty(false);
-    setCurrentSlideIndex(0);
+  const guardDirty = useCallback((action: () => void) => {
+    if (isDirty && settings.confirmOnClose) {
+      setConfirmCloseAction(() => action);
+    } else {
+      action();
+    }
   }, [isDirty, settings.confirmOnClose]);
+
+  const handleNewFile = useCallback(() => {
+    guardDirty(async () => {
+      await invoke('stop_watching').catch(() => {});
+      setFilePath(null);
+      setContent(makeStarter());
+      setIsDirty(false);
+      setCurrentSlideIndex(0);
+    });
+  }, [guardDirty]);
 
   const handlePresentEnter = useCallback(async (e?: React.MouseEvent) => {
     if (slides.length === 0) return;
@@ -195,9 +205,8 @@ export default function App() {
     setThemeOverrides((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  const handleOpenFile = useCallback(async () => {
-    if (isDirty && settings.confirmOnClose && !window.confirm('Discard unsaved changes?')) return;
-    try {
+  const handleOpenFile = useCallback(() => {
+    guardDirty(async () => { try {
       const selected = await open({
         filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
         multiple: false,
@@ -220,8 +229,8 @@ export default function App() {
       setIsDirty(false);
       setCurrentSlideIndex(0);
       await invoke('start_watching', { path: selected }).catch(console.error);
-    } catch (err) { console.error('Open failed:', err); }
-  }, [isDirty, settings.confirmOnClose, allThemes]);
+    } catch (err) { console.error('Open failed:', err); }});
+  }, [guardDirty, allThemes]);
 
   const handleSave = useCallback(async () => {
     if (!filePath) return;
@@ -360,8 +369,7 @@ export default function App() {
             className="wm-btn wm-btn--close"
             onMouseDown={(e) => {
               e.preventDefault();
-              if (settings.confirmOnClose && isDirty && !window.confirm('Close without saving?')) return;
-              getCurrentWindow().close();
+              guardDirty(() => getCurrentWindow().close());
             }}
             title="Close"
           >
@@ -429,6 +437,36 @@ export default function App() {
           onChange={handleSettingsChange}
           onClose={() => setShowSettings(false)}
         />
+      )}
+
+      {confirmCloseAction && (
+        <>
+          <div
+            onClick={() => setConfirmCloseAction(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 2000 }}
+          />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            background: '#242424', border: '1px solid #333', borderRadius: 8,
+            boxShadow: '0 16px 48px rgba(0,0,0,0.6)', zIndex: 2001,
+            padding: '24px 28px', width: 320, maxWidth: '90vw',
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#e8e8e8', marginBottom: 8 }}>
+              Unsaved changes
+            </div>
+            <div style={{ fontSize: 13, color: '#999', marginBottom: 20, lineHeight: 1.5 }}>
+              You have unsaved changes. Close anyway?
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button className="btn" onClick={() => setConfirmCloseAction(null)}>Cancel</button>
+              <button
+                className="btn"
+                style={{ background: '#c0392b', borderColor: '#c0392b', color: '#fff' }}
+                onClick={() => { const a = confirmCloseAction; setConfirmCloseAction(null); a(); }}
+              >Close anyway</button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
