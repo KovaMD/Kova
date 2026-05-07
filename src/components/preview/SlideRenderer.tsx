@@ -67,10 +67,8 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
     ? resolveTemplate(theme.footer.text, { title: docTitle, slideNumber, totalSlides })
     : null;
 
-  // BUG-20: show floating logo whenever the logo's position doesn't match
-  // a currently-visible bar (header or footer). Previously the condition
-  // required BOTH to be hidden, making the logo disappear when, e.g.,
-  // header.show=true but logo_position='bottom-right'.
+  // Show the floating logo whenever its position doesn't match a visible bar —
+  // e.g. logo_position='bottom-right' with only header.show=true still floats.
   const logoInHeader = theme.header.show && theme.logo && ['top-left', 'top-right'].includes(theme.logo_position);
   const logoInFooter = theme.footer.show && theme.logo && ['bottom-left', 'bottom-right'].includes(theme.logo_position);
   const showFloatingLogo = theme.logo && !logoInHeader && !logoInFooter;
@@ -275,8 +273,7 @@ function TwoColumnLayout({ slide }: { slide: Slide }) {
 function BspLayout({ slide }: { slide: Slide }) {
   const body = slide.elements;
 
-  // BUG-12: guard against <!-- layout: bsp --> override with fewer than 2
-  // body elements — accessing body[0]/body[1] on an empty array would throw.
+  // Guard against a layout:bsp override on a slide with fewer than 2 elements.
   if (body.length < 2) return <TitleContentLayout slide={slide} />;
 
   // For 2 elements: if first is visual and second is text, put text on the left
@@ -329,8 +326,8 @@ function BspLayout({ slide }: { slide: Slide }) {
 }
 
 function GridLayout({ slide }: { slide: Slide }) {
-  // BUG-13: filter column-break elements — they produce empty cells when a
-  // <!-- layout: grid --> override is applied to a slide that also contains |||
+  // Filter column-break elements — a layout:grid override on a slide that also
+  // uses ||| would otherwise produce empty grid cells.
   const cells = slide.elements.filter((e) => e.type !== 'column-break');
   return (
     <div className="sl-grid">
@@ -361,7 +358,6 @@ function MediaLayout({ slide }: { slide: Slide }) {
 }
 
 function CodeLayout({ slide }: { slide: Slide }) {
-  // BUG-09: render ALL code/mermaid elements, not just the first one.
   const codeEls = slide.elements.filter((e) => e.type === 'code' || e.type === 'mermaid');
   return (
     <div className="sl-code">
@@ -581,9 +577,8 @@ function MermaidDiagram({ value }: { value: string }) {
   const { isThumbnail, mermaidInit } = useContext(SlideCtx);
   const rawId  = useId();
   const baseId = `mermaid-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
-  // BUG-14: mermaid.render rejects a second call with the same element id
-  // because it tries to reuse a DOM node from the previous render. Appending
-  // a monotonically-increasing counter forces a fresh id each time.
+  // mermaid.render rejects a second call with the same id because it tries to
+  // reuse a DOM node from the previous render. A counter forces a fresh id.
   const counter = useRef(0);
   const [svg, setSvg] = useState('');
 

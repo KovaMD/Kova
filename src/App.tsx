@@ -89,9 +89,8 @@ export default function App() {
     catch { return { slides: EMPTY_SLIDES, frontmatter: EMPTY_FM }; }
   }, [content]);
 
-  // BUG-27/28: compute a safe index in the same render as slides so children
-  // never receive an out-of-bounds index, even for the one frame before the
-  // clamp useEffect fires when slides shrink.
+  // Compute a safe index in the same render as slides so children never receive
+  // an out-of-bounds value during the frame before the clamp useEffect fires.
   const safeSlideIndex = slides.length > 0
     ? Math.min(currentSlideIndex, slides.length - 1)
     : 0;

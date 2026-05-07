@@ -12,7 +12,6 @@ import { extractSpeakerNotes } from './speakerNotes';
 const processor = unified().use(remarkParse).use(remarkGfm);
 
 export function parseDocument(rawContent: string): ParsedDocument {
-  // BUG-01: normalise line endings so mixed CRLF/LF files parse correctly
   const normalised = rawContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const { frontmatter, body } = extractFrontmatter(normalised);
   const rawSlides = body.split(/^---$/m).map((s) => s.trim()).filter(Boolean);
@@ -29,10 +28,9 @@ function parseSlide(raw: string, index: number): Slide {
     ? (layoutOverrideMatch[1] as LayoutType)
     : undefined;
 
-  // BUG-05: preprocess before speaker-notes extraction so ??? inside !youtube
-  // URLs is never seen by extractSpeakerNotes.
-  // BUG-03: preprocess replaces specials with inline placeholders so their
-  // position in the element list is preserved (not appended at the tail).
+  // Preprocess before speaker-notes extraction so ??? inside custom URLs is not
+  // misinterpreted as speaker-note markers. Custom elements become inline HTML
+  // comment placeholders so remark preserves their position in the element list.
   const { cleanContent, placeholders } = preprocess(raw);
   const { content, notes } = extractSpeakerNotes(cleanContent);
 
@@ -56,9 +54,6 @@ const POLL_RE     = /^!poll\[([^\]]*)\]\(([^)]*)\)$/;
 const PROGRESS_RE = /^!progress\[([^\]]*)\]\((\d+(?:\.\d+)?)\)$/;
 
 function preprocess(content: string): PreprocessResult {
-  // BUG-03: instead of collecting specials into a separate array appended at
-  // the end, replace each line with an HTML comment placeholder so remark
-  // preserves their position in the AST (same approach as column-break).
   const placeholders = new Map<number, SlideElement>();
   let nextIdx = 0;
   const cleanLines: string[] = [];
@@ -190,13 +185,11 @@ function convertRoot(tree: Root, placeholders: Map<number, SlideElement>): Conve
         if (v === '<!-- column-break -->') {
           elements.push({ type: 'column-break' });
         } else {
-          // BUG-03: resolve inline placeholder → its original SlideElement
           const m = v.match(/^<!-- kova-el:(\d+) -->$/);
           if (m) {
             const el = placeholders.get(Number(m[1]));
             if (el) elements.push(el);
           } else if (v === '<hr>' || v === '<hr/>' || v === '<hr />') {
-            // BUG-29: <hr> inserted by editor renders as a visual separator
             elements.push({ type: 'paragraph', text: '', html: '<hr>' });
           }
         }
@@ -204,7 +197,7 @@ function convertRoot(tree: Root, placeholders: Map<number, SlideElement>): Conve
       }
 
       case 'thematicBreak':
-        // *** renders as a visual separator; --- is a slide separator (never reaches here)
+        // --- is intercepted as a slide separator before parsing; thematicBreak here means *** or ___
         elements.push({ type: 'paragraph', text: '', html: '<hr>' });
         break;
 
@@ -227,8 +220,8 @@ function convertParagraph(p: Paragraph): SlideElement | null {
   }
 
   const text = toString(p);
-  // BUG-08: discard whitespace-only paragraphs so section slides aren't
-  // accidentally reclassified as title-content by a trailing blank line.
+  // Discard whitespace-only paragraphs — a trailing blank line would otherwise
+  // reclassify a section slide as title-content.
   if (!text.trim()) return null;
   const html = inlineToHtml(p.children);
   return { type: 'paragraph', text, html };

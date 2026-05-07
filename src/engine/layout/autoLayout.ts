@@ -63,8 +63,7 @@ export function detectLayout(
   // paragraph/list (stacked looks better for all-text slides).
 
   const allPureText = bodyElements.every((e) => isPureText(e.type));
-  // BUG-07: tables don't render well in a constrained bsp pane — fall through
-  // to title-content or grid so the table gets a full-width area.
+  // Tables need a full-width area; bsp panes are too narrow for them.
   const hasTable = bodyElements.some((e) => e.type === 'table');
 
   if (!allPureText && !hasTable && (bodyElements.length === 2 || bodyElements.length === 3)) return 'bsp';
