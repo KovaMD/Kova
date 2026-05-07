@@ -12,7 +12,9 @@ import { extractSpeakerNotes } from './speakerNotes';
 const processor = unified().use(remarkParse).use(remarkGfm);
 
 export function parseDocument(rawContent: string): ParsedDocument {
-  const { frontmatter, body } = extractFrontmatter(rawContent);
+  // BUG-01: normalise line endings so mixed CRLF/LF files parse correctly
+  const normalised = rawContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const { frontmatter, body } = extractFrontmatter(normalised);
   const rawSlides = body.split(/^---$/m).map((s) => s.trim()).filter(Boolean);
   const slides = rawSlides.map((raw, index) => parseSlide(raw, index));
   return { slides, frontmatter };
@@ -21,23 +23,21 @@ export function parseDocument(rawContent: string): ParsedDocument {
 // ── Per-slide parser ─────────────────────────────────────────────────────────
 
 function parseSlide(raw: string, index: number): Slide {
-  const { content, notes } = extractSpeakerNotes(raw);
-
-  // Extract layout override from HTML comment before remark sees it
-  const layoutOverrideMatch = content.match(/<!--\s*layout:\s*(\S+)\s*-->/);
+  // Extract layout override from HTML comment before anything else
+  const layoutOverrideMatch = raw.match(/<!--\s*layout:\s*(\S+)\s*-->/);
   const layoutOverride = layoutOverrideMatch
     ? (layoutOverrideMatch[1] as LayoutType)
     : undefined;
 
-  // Pre-process: extract custom syntax lines before feeding to remark.
-  // remark can't parse !youtube[...]() or !poll[...]() as special nodes.
-  const { cleanContent, preExtracted } = preprocess(content);
+  // BUG-05: preprocess before speaker-notes extraction so ??? inside !youtube
+  // URLs is never seen by extractSpeakerNotes.
+  // BUG-03: preprocess replaces specials with inline placeholders so their
+  // position in the element list is preserved (not appended at the tail).
+  const { cleanContent, placeholders } = preprocess(raw);
+  const { content, notes } = extractSpeakerNotes(cleanContent);
 
-  const tree = processor.parse(cleanContent) as Root;
-  const { title, titleLevel, elements: mdElements } = convertRoot(tree);
-
-  // Merge pre-extracted specials at the end (order within layout rules is by type, not position)
-  const elements: SlideElement[] = [...mdElements, ...preExtracted];
+  const tree = processor.parse(content) as Root;
+  const { title, titleLevel, elements } = convertRoot(tree, placeholders);
 
   const layout = layoutOverride ?? detectLayout(elements, titleLevel, !!title);
 
@@ -46,45 +46,52 @@ function parseSlide(raw: string, index: number): Slide {
 
 // ── Custom syntax pre-processor ──────────────────────────────────────────────
 
-interface Preprocessed {
+interface PreprocessResult {
   cleanContent: string;
-  preExtracted: SlideElement[];
+  placeholders: Map<number, SlideElement>;
 }
 
 const YOUTUBE_RE  = /^!youtube\[([^\]]*)\]\(([^)]*)\)$/;
 const POLL_RE     = /^!poll\[([^\]]*)\]\(([^)]*)\)$/;
 const PROGRESS_RE = /^!progress\[([^\]]*)\]\((\d+(?:\.\d+)?)\)$/;
 
-function preprocess(content: string): Preprocessed {
-  const preExtracted: SlideElement[] = [];
+function preprocess(content: string): PreprocessResult {
+  // BUG-03: instead of collecting specials into a separate array appended at
+  // the end, replace each line with an HTML comment placeholder so remark
+  // preserves their position in the AST (same approach as column-break).
+  const placeholders = new Map<number, SlideElement>();
+  let nextIdx = 0;
   const cleanLines: string[] = [];
 
   for (const line of content.split('\n')) {
     const t = line.trim();
 
     if (t === '|||') {
-      // Use an HTML comment so remark preserves position in the node tree.
-      // If we pushed to preExtracted instead, the break would always end up
-      // at the tail of elements and leave the right column empty.
       cleanLines.push('<!-- column-break -->');
       continue;
     }
 
     const yt = t.match(YOUTUBE_RE);
     if (yt) {
-      preExtracted.push({ type: 'youtube', label: yt[1], url: yt[2] });
+      const idx = nextIdx++;
+      placeholders.set(idx, { type: 'youtube', label: yt[1], url: yt[2] });
+      cleanLines.push(`<!-- kova-el:${idx} -->`);
       continue;
     }
 
     const poll = t.match(POLL_RE);
     if (poll) {
-      preExtracted.push({ type: 'poll', label: poll[1], url: poll[2] });
+      const idx = nextIdx++;
+      placeholders.set(idx, { type: 'poll', label: poll[1], url: poll[2] });
+      cleanLines.push(`<!-- kova-el:${idx} -->`);
       continue;
     }
 
     const progress = t.match(PROGRESS_RE);
     if (progress) {
-      preExtracted.push({ type: 'progress', label: progress[1], value: parseFloat(progress[2]) });
+      const idx = nextIdx++;
+      placeholders.set(idx, { type: 'progress', label: progress[1], value: parseFloat(progress[2]) });
+      cleanLines.push(`<!-- kova-el:${idx} -->`);
       continue;
     }
 
@@ -94,7 +101,7 @@ function preprocess(content: string): Preprocessed {
     cleanLines.push(line);
   }
 
-  return { cleanContent: cleanLines.join('\n').trim(), preExtracted };
+  return { cleanContent: cleanLines.join('\n').trim(), placeholders };
 }
 
 // ── mdast → SlideElement converter ───────────────────────────────────────────
@@ -105,7 +112,7 @@ interface ConvertResult {
   elements: SlideElement[];
 }
 
-function convertRoot(tree: Root): ConvertResult {
+function convertRoot(tree: Root, placeholders: Map<number, SlideElement>): ConvertResult {
   let title = '';
   let titleLevel = 0;
   const elements: SlideElement[] = [];
@@ -118,11 +125,10 @@ function convertRoot(tree: Root): ConvertResult {
           title = toString(h);
           titleLevel = h.depth;
         } else {
-          // Subsequent headings become subheading paragraphs
           elements.push({
             type: 'paragraph',
             text: toString(h),
-            html: `<strong>${inlineToHtml(h.children)}</strong>`,
+            html: `<h${h.depth}>${inlineToHtml(h.children)}</h${h.depth}>`,
           });
         }
         break;
@@ -180,13 +186,29 @@ function convertRoot(tree: Root): ConvertResult {
 
       case 'html': {
         const htmlNode = node as { type: 'html'; value: string };
-        if (htmlNode.value.trim() === '<!-- column-break -->') {
+        const v = htmlNode.value.trim();
+        if (v === '<!-- column-break -->') {
           elements.push({ type: 'column-break' });
+        } else {
+          // BUG-03: resolve inline placeholder → its original SlideElement
+          const m = v.match(/^<!-- kova-el:(\d+) -->$/);
+          if (m) {
+            const el = placeholders.get(Number(m[1]));
+            if (el) elements.push(el);
+          } else if (v === '<hr>' || v === '<hr/>' || v === '<hr />') {
+            // BUG-29: <hr> inserted by editor renders as a visual separator
+            elements.push({ type: 'paragraph', text: '', html: '<hr>' });
+          }
         }
         break;
       }
-      case 'yaml':
+
       case 'thematicBreak':
+        // *** renders as a visual separator; --- is a slide separator (never reaches here)
+        elements.push({ type: 'paragraph', text: '', html: '<hr>' });
+        break;
+
+      case 'yaml':
         break;
 
       default:
@@ -205,6 +227,9 @@ function convertParagraph(p: Paragraph): SlideElement | null {
   }
 
   const text = toString(p);
+  // BUG-08: discard whitespace-only paragraphs so section slides aren't
+  // accidentally reclassified as title-content by a trailing blank line.
+  if (!text.trim()) return null;
   const html = inlineToHtml(p.children);
   return { type: 'paragraph', text, html };
 }

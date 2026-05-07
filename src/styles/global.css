@@ -46,6 +46,7 @@ html, body, #root {
 
 /* ── Toolbar ── */
 .app-toolbar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -64,22 +65,54 @@ html, body, #root {
   flex-shrink: 0;
 }
 
-.toolbar-filename {
-  font-size: 12px;
-  color: var(--text-secondary);
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.toolbar-filename.dirty::after {
-  content: ' •';
-  color: var(--accent);
-}
-
 .toolbar-spacer {
   flex: 1;
+  height: 100%;
+}
+
+.toolbar-doctitle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  pointer-events: none;
+  letter-spacing: 0.01em;
+}
+
+/* ── Window controls ── */
+.wm-controls {
+  display: flex;
+  align-items: stretch;
+  margin-left: 4px;
+  margin-right: -12px; /* bleed to toolbar edge */
+  height: 38px;
+}
+
+.wm-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+
+.wm-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.wm-btn--close:hover {
+  background: #c0392b;
+  color: #fff;
 }
 
 .btn {

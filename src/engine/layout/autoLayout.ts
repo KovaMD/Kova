@@ -11,22 +11,22 @@ export function detectLayout(
 ): LayoutType {
   const has = (t: SlideElement['type']) => elements.some((e) => e.type === t);
 
+  // ── H1 always produces a title/hero slide ────────────────────────────────
+  // Paragraph elements are treated as subtitles; other content is ignored
+  // in layout detection (TitleLayout renders them as subtitle lines).
+  if (hasTitle && titleLevel === 1) return 'title';
+
   // ── Highest-priority special types ───────────────────────────────────────
 
-  // Media: YouTube or poll present anywhere on the slide
   if (has('youtube') || has('poll')) return 'media';
-
-  // Two-column: column-break separator present
   if (has('column-break')) return 'two-column';
 
   // ── Code-only ────────────────────────────────────────────────────────────
 
-  // Code block (with or without a title heading)
   const bodyElements = hasTitle
     ? elements.filter((e) => e.type !== 'column-break')
     : elements;
 
-  // Code layout only when the slide is code/mermaid-only (no other content to split with)
   if (bodyElements.length > 0 && bodyElements.every((e) => e.type === 'code' || e.type === 'mermaid')) {
     return 'code';
   }
@@ -41,11 +41,8 @@ export function detectLayout(
     if (bodyElements.length === 0) return 'title'; // empty slide fallback
   }
 
-  // ── Title-only ────────────────────────────────────────────────────────────
-
-  if (hasTitle && bodyElements.length === 0) {
-    return titleLevel <= 1 ? 'title' : 'section';
-  }
+  // ── H2 section break ─────────────────────────────────────────────────────
+  if (hasTitle && titleLevel === 2 && bodyElements.length === 0) return 'section';
 
   // ── Title + image combinations ────────────────────────────────────────────
 
@@ -66,8 +63,11 @@ export function detectLayout(
   // paragraph/list (stacked looks better for all-text slides).
 
   const allPureText = bodyElements.every((e) => isPureText(e.type));
+  // BUG-07: tables don't render well in a constrained bsp pane — fall through
+  // to title-content or grid so the table gets a full-width area.
+  const hasTable = bodyElements.some((e) => e.type === 'table');
 
-  if (!allPureText && (bodyElements.length === 2 || bodyElements.length === 3)) return 'bsp';
+  if (!allPureText && !hasTable && (bodyElements.length === 2 || bodyElements.length === 3)) return 'bsp';
 
   // ── Grid: 4+ distinct content elements ───────────────────────────────────
 

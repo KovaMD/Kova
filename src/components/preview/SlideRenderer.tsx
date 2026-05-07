@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useId, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
 import mermaid from 'mermaid';
@@ -67,10 +67,13 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
     ? resolveTemplate(theme.footer.text, { title: docTitle, slideNumber, totalSlides })
     : null;
 
-  const showFloatingLogo =
-    theme.logo &&
-    !theme.header.show &&
-    !theme.footer.show;
+  // BUG-20: show floating logo whenever the logo's position doesn't match
+  // a currently-visible bar (header or footer). Previously the condition
+  // required BOTH to be hidden, making the logo disappear when, e.g.,
+  // header.show=true but logo_position='bottom-right'.
+  const logoInHeader = theme.header.show && theme.logo && ['top-left', 'top-right'].includes(theme.logo_position);
+  const logoInFooter = theme.footer.show && theme.logo && ['bottom-left', 'bottom-right'].includes(theme.logo_position);
+  const showFloatingLogo = theme.logo && !logoInHeader && !logoInFooter;
 
   const ctxValue = useMemo<SlideCtxValue>(
     () => ({ isThumbnail: scale !== 1, textColor: theme.colors.text, mermaidInit: buildMermaidInit(theme) }),
@@ -151,9 +154,17 @@ function SlideLayout({ slide }: { slide: Slide }) {
 // ── Layout components ─────────────────────────────────────────────────────────
 
 function TitleLayout({ slide }: { slide: Slide }) {
+  const subtitles = slide.elements.filter((e): e is Extract<SlideElement, { type: 'paragraph' }> => e.type === 'paragraph');
   return (
     <div className="sl-title">
       <div className="sl-title__text">{slide.title}</div>
+      {subtitles.length > 0 && (
+        <div className="sl-title__subtitles">
+          {subtitles.map((el, i) => (
+            <p key={i} className="sl-title__subtitle" dangerouslySetInnerHTML={{ __html: el.html }} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -264,6 +275,10 @@ function TwoColumnLayout({ slide }: { slide: Slide }) {
 function BspLayout({ slide }: { slide: Slide }) {
   const body = slide.elements;
 
+  // BUG-12: guard against <!-- layout: bsp --> override with fewer than 2
+  // body elements — accessing body[0]/body[1] on an empty array would throw.
+  if (body.length < 2) return <TitleContentLayout slide={slide} />;
+
   // For 2 elements: if first is visual and second is text, put text on the left
   const isPureText = (t: string) => t === 'paragraph' || t === 'list';
   let leftEls: typeof body;
@@ -314,11 +329,14 @@ function BspLayout({ slide }: { slide: Slide }) {
 }
 
 function GridLayout({ slide }: { slide: Slide }) {
+  // BUG-13: filter column-break elements — they produce empty cells when a
+  // <!-- layout: grid --> override is applied to a slide that also contains |||
+  const cells = slide.elements.filter((e) => e.type !== 'column-break');
   return (
     <div className="sl-grid">
       {slide.title && <div className="sl-heading sl-grid__title">{slide.title}</div>}
       <div className="sl-grid__cells">
-        {slide.elements.map((el, i) => (
+        {cells.map((el, i) => (
           <div key={i} className="sl-grid__cell">
             <Elements elements={[el]} />
           </div>
@@ -343,12 +361,13 @@ function MediaLayout({ slide }: { slide: Slide }) {
 }
 
 function CodeLayout({ slide }: { slide: Slide }) {
-  const codeEl = slide.elements.find((e) => e.type === 'code' || e.type === 'mermaid');
+  // BUG-09: render ALL code/mermaid elements, not just the first one.
+  const codeEls = slide.elements.filter((e) => e.type === 'code' || e.type === 'mermaid');
   return (
     <div className="sl-code">
       {slide.title && <div className="sl-heading sl-code__title">{slide.title}</div>}
-      {codeEl && (
-        <div className="sl-code__block">
+      {codeEls.map((codeEl, i) => (
+        <div key={i} className="sl-code__block">
           {codeEl.type === 'code' && (
             <>
               {codeEl.lang && <div className="sl-code__lang">{codeEl.lang}</div>}
@@ -359,7 +378,7 @@ function CodeLayout({ slide }: { slide: Slide }) {
             <MermaidDiagram value={codeEl.value} />
           )}
         </div>
-      )}
+      ))}
     </div>
   );
 }
@@ -560,20 +579,24 @@ function ProgressBar({ el }: { el: Extract<SlideElement, { type: 'progress' }> }
 
 function MermaidDiagram({ value }: { value: string }) {
   const { isThumbnail, mermaidInit } = useContext(SlideCtx);
-  const rawId = useId();
-  const id    = `mermaid-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
+  const rawId  = useId();
+  const baseId = `mermaid-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
+  // BUG-14: mermaid.render rejects a second call with the same element id
+  // because it tries to reuse a DOM node from the previous render. Appending
+  // a monotonically-increasing counter forces a fresh id each time.
+  const counter = useRef(0);
   const [svg, setSvg] = useState('');
 
   useEffect(() => {
     if (isThumbnail) return;
     let cancelled = false;
-    // Prepend theme init unless the user has already written their own %%{init:…}%%
     const src = value.trimStart().startsWith('%%{') ? value : mermaidInit + value;
-    mermaid.render(id, src)
+    const renderId = `${baseId}-${++counter.current}`;
+    mermaid.render(renderId, src)
       .then(({ svg: out }: { svg: string }) => { if (!cancelled) setSvg(out); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [id, value, isThumbnail, mermaidInit]);
+  }, [baseId, value, isThumbnail, mermaidInit]);
 
   if (isThumbnail || !svg) {
     return (

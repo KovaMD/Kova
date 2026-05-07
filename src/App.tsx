@@ -10,6 +10,11 @@ import { EditorPanel } from './components/layout/EditorPanel';
 import { InspectorPanel } from './components/layout/InspectorPanel';
 import { StatusBar } from './components/layout/StatusBar';
 import { PresentationOverlay } from './components/presentation/PresentationOverlay';
+import { SettingsModal } from './components/SettingsModal';
+import { loadSettings, saveSettings } from './store/settings';
+import type { AppSettings } from './store/settings';
+import { loadKeybindings, matchShortcut, getCombo, formatCombo } from './engine/keybindings';
+import type { Keybindings } from './engine/keybindings';
 
 import yaml from 'js-yaml';
 import { parseDocument } from './engine/parser/markdownToSlides';
@@ -53,6 +58,9 @@ export default function App() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [focusMode, setFocusMode]         = useState(false);
   const [presentMode, setPresentMode]     = useState(false);
+  const [settings, setSettings]           = useState<AppSettings>(loadSettings);
+  const [showSettings, setShowSettings]   = useState(false);
+  const [keybindings, setKeybindings]     = useState<Keybindings>({ path: '', combos: {} });
 
   // Theme state: active theme id + per-session overrides
   const [allThemes, setAllThemes]         = useState<Theme[]>(BUILT_IN_THEMES);
@@ -80,6 +88,13 @@ export default function App() {
     catch { return { slides: EMPTY_SLIDES, frontmatter: EMPTY_FM }; }
   }, [content]);
 
+  // BUG-27/28: compute a safe index in the same render as slides so children
+  // never receive an out-of-bounds index, even for the one frame before the
+  // clamp useEffect fires when slides shrink.
+  const safeSlideIndex = slides.length > 0
+    ? Math.min(currentSlideIndex, slides.length - 1)
+    : 0;
+
   const aspectRatio = useMemo(
     () => parseAspectRatio(frontmatter.aspect_ratio as string | undefined),
     [frontmatter.aspect_ratio],
@@ -99,6 +114,11 @@ export default function App() {
         if (custom.length > 0) setAllThemes([...BUILT_IN_THEMES, ...custom]);
       })
       .catch(() => {}); // silently ignore if dir doesn't exist
+  }, []);
+
+  // Load keybindings from ~/.kova/keybindings.yaml on startup
+  useEffect(() => {
+    loadKeybindings().then(setKeybindings).catch(() => {});
   }, []);
 
   // Window title
@@ -146,13 +166,13 @@ export default function App() {
   }, [thumbPanelRef, inspectorPanelRef]);
 
   const handleNewFile = useCallback(async () => {
-    if (isDirty && !window.confirm('Discard unsaved changes?')) return;
+    if (isDirty && settings.confirmOnClose && !window.confirm('Discard unsaved changes?')) return;
     await invoke('stop_watching').catch(() => {});
     setFilePath(null);
     setContent(makeStarter());
     setIsDirty(false);
     setCurrentSlideIndex(0);
-  }, [isDirty]);
+  }, [isDirty, settings.confirmOnClose]);
 
   const handlePresentEnter = useCallback(async (e?: React.MouseEvent) => {
     if (slides.length === 0) return;
@@ -176,7 +196,7 @@ export default function App() {
   }, []);
 
   const handleOpenFile = useCallback(async () => {
-    if (isDirty && !window.confirm('Discard unsaved changes?')) return;
+    if (isDirty && settings.confirmOnClose && !window.confirm('Discard unsaved changes?')) return;
     try {
       const selected = await open({
         filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
@@ -201,7 +221,7 @@ export default function App() {
       setCurrentSlideIndex(0);
       await invoke('start_watching', { path: selected }).catch(console.error);
     } catch (err) { console.error('Open failed:', err); }
-  }, [isDirty, allThemes]);
+  }, [isDirty, settings.confirmOnClose, allThemes]);
 
   const handleSave = useCallback(async () => {
     if (!filePath) return;
@@ -249,27 +269,38 @@ export default function App() {
     setIsDirty(true);
   }, []);
 
-  // Keyboard shortcuts
+  const handleSettingsChange = useCallback((s: AppSettings) => {
+    setSettings(s);
+    saveSettings(s);
+  }, []);
+
+  // Autosave — only when enabled, a file path exists, and there are unsaved changes
   useEffect(() => {
+    if (!settings.autosave || !filePath || !isDirty) return;
+    const id = setInterval(handleSave, settings.autosaveIntervalSeconds * 1000);
+    return () => clearInterval(id);
+  }, [settings.autosave, settings.autosaveIntervalSeconds, filePath, isDirty, handleSave]);
+
+  useEffect(() => {
+    const sc = (id: string) => getCombo(keybindings.combos, id);
     const handler = (e: KeyboardEvent) => {
-      if (presentMode) return; // PresentationOverlay handles keys while presenting
-      const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.key === 'n') { e.preventDefault(); handleNewFile(); }
-      if (mod && e.key === 'o') { e.preventDefault(); handleOpenFile(); }
-      if (mod && !e.shiftKey && e.key === 's') { e.preventDefault(); handleSave(); }
-      if (mod && e.shiftKey && e.key === 's') { e.preventDefault(); handleSaveAs(); }
-      if (mod && e.shiftKey && e.key === 'F') { e.preventDefault(); toggleFocusMode(); }
+      if (presentMode) return;
+      if (matchShortcut(e, sc('newFile')))   { e.preventDefault(); handleNewFile(); }
+      if (matchShortcut(e, sc('openFile')))  { e.preventDefault(); handleOpenFile(); }
+      if (matchShortcut(e, sc('save')))      { e.preventDefault(); handleSave(); }
+      if (matchShortcut(e, sc('saveAs')))    { e.preventDefault(); handleSaveAs(); }
+      if (matchShortcut(e, sc('focusMode'))) { e.preventDefault(); toggleFocusMode(); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [presentMode, handleNewFile, handleOpenFile, handleSave, handleSaveAs, toggleFocusMode]);
+  }, [presentMode, keybindings.combos, handleNewFile, handleOpenFile, handleSave, handleSaveAs, toggleFocusMode]);
 
   return (
     <div className="app">
       {presentMode && (
         <PresentationOverlay
           slides={slides}
-          currentIndex={currentSlideIndex}
+          currentIndex={safeSlideIndex}
           theme={activeTheme}
           docTitle={frontmatter.title}
           aspectRatio={aspectRatio}
@@ -277,19 +308,19 @@ export default function App() {
           onExit={handlePresentExit}
         />
       )}
-      <div className="app-toolbar" data-tauri-drag-region>
-        <button className="btn" onClick={handleNewFile} title="New (Ctrl+N)">New</button>
-        <button className="btn" onClick={handleOpenFile} title="Open (Ctrl+O)">Open</button>
-        <button className="btn" onClick={handleSave} disabled={!filePath || !isDirty} title="Save (Ctrl+S)">Save</button>
-        <button className="btn" onClick={handleSaveAs} disabled={!content} title="Save As (Ctrl+Shift+S)">Save As</button>
-        <span className={`toolbar-filename${isDirty ? ' dirty' : ''}`}>
-          {filePath ? filePath.split('/').pop() : ''}
-        </span>
-        <div className="toolbar-spacer" />
+      <div className="app-toolbar">
+        <button className="btn" onClick={handleNewFile} title={`New (${formatCombo(getCombo(keybindings.combos, 'newFile'))})`}>New</button>
+        <button className="btn" onClick={handleOpenFile} title={`Open (${formatCombo(getCombo(keybindings.combos, 'openFile'))})`}>Open</button>
+        <button className="btn" onClick={handleSave} disabled={!filePath || !isDirty} title={`Save (${formatCombo(getCombo(keybindings.combos, 'save'))})`}>Save</button>
+        <button className="btn" onClick={handleSaveAs} disabled={!content} title={`Save As (${formatCombo(getCombo(keybindings.combos, 'saveAs'))})`}>Save As</button>
+        <div className="toolbar-spacer" data-tauri-drag-region />
+        <div className="toolbar-doctitle" data-tauri-drag-region>
+          {filePath ? filePath.split('/').pop() : 'Untitled.md'}{isDirty ? ' *' : ''}
+        </div>
         <button
           className={`btn${focusMode ? ' btn-primary' : ''}`}
           onClick={toggleFocusMode}
-          title="Focus Mode (Ctrl+Shift+F)"
+          title={`Focus Mode (${formatCombo(getCombo(keybindings.combos, 'focusMode'))})`}
         >
           Focus
         </button>
@@ -299,15 +330,45 @@ export default function App() {
           disabled={slides.length === 0}
           title="Present from slide 1 (Alt+click to start from current slide)"
         >▶ Present</button>
+        <button
+          className="wm-btn"
+          onClick={() => setShowSettings(true)}
+          title="Settings"
+          style={{ marginLeft: 4 }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
         <div className="wm-controls">
-          <button className="wm-btn" onClick={() => getCurrentWindow().minimize()} title="Minimise">
-            <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
+          <button
+            className="wm-btn"
+            onMouseDown={(e) => { e.preventDefault(); getCurrentWindow().minimize(); }}
+            title="Minimise"
+          >
+            <svg width="12" height="2" viewBox="0 0 12 2"><rect width="12" height="2" rx="1" fill="currentColor"/></svg>
           </button>
-          <button className="wm-btn" onClick={() => getCurrentWindow().toggleMaximize()} title="Maximise">
-            <svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor"/></svg>
+          <button
+            className="wm-btn"
+            onMouseDown={(e) => { e.preventDefault(); getCurrentWindow().toggleMaximize(); }}
+            title="Maximise / Restore"
+          >
+            <svg width="11" height="11" viewBox="0 0 11 11"><rect x="1" y="1" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg>
           </button>
-          <button className="wm-btn wm-btn--close" onClick={() => getCurrentWindow().close()} title="Close">
-            <svg width="10" height="10" viewBox="0 0 10 10"><line x1="0" y1="0" x2="10" y2="10" stroke="currentColor" strokeWidth="1.5"/><line x1="10" y1="0" x2="0" y2="10" stroke="currentColor" strokeWidth="1.5"/></svg>
+          <button
+            className="wm-btn wm-btn--close"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              if (settings.confirmOnClose && isDirty && !window.confirm('Close without saving?')) return;
+              getCurrentWindow().close();
+            }}
+            title="Close"
+          >
+            <svg width="11" height="11" viewBox="0 0 11 11">
+              <line x1="1" y1="1" x2="10" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="10" y1="1" x2="1" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
           </button>
         </div>
       </div>
@@ -317,7 +378,7 @@ export default function App() {
           <Panel panelRef={thumbPanelRef} defaultSize={14} minSize={8} collapsible>
             <ThumbnailPanel
               slides={slides}
-              currentIndex={currentSlideIndex}
+              currentIndex={safeSlideIndex}
               onSelect={setCurrentSlideIndex}
               theme={activeTheme}
               docTitle={frontmatter.title}
@@ -354,12 +415,21 @@ export default function App() {
       </div>
 
       <StatusBar
-        currentSlide={currentSlideIndex + 1}
+        currentSlide={safeSlideIndex + 1}
         totalSlides={slides.length}
         wordCount={wordCount}
         isDirty={isDirty}
         filePath={filePath}
       />
+
+      {showSettings && (
+        <SettingsModal
+          settings={settings}
+          keybindingsPath={keybindings.path}
+          onChange={handleSettingsChange}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   );
 }

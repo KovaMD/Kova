@@ -109,6 +109,7 @@
   color: var(--sl-text);
   line-height: 1.2;
   padding: 6% 7% 2%;
+  text-align: var(--sl-heading-ta, left);
 }
 
 .sl-body {
@@ -168,9 +169,14 @@
 .sl-title {
   height: 100%;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--sl-primary);
+  flex-direction: column;
+  align-items: var(--sl-title-ax, center);
+  justify-content: var(--sl-title-ay, center);
+  background-color: var(--sl-primary);
+  background-image: var(--sl-deco-img, none);
+  background-size: var(--sl-deco-size, auto);
+  padding: 8% 10% var(--sl-title-pb, 8%) 10%;
+  gap: clamp(8px, 2cqi, 20px);
 }
 
 .sl-title__text {
@@ -178,10 +184,44 @@
   font-size: clamp(16px, 5cqi, 48px);
   font-weight: 800;
   color: var(--sl-title-text);
-  text-align: center;
-  padding: 8%;
+  text-align: var(--sl-title-ta, center);
   line-height: 1.15;
   letter-spacing: -0.01em;
+}
+
+.sl-title__subtitles {
+  display: flex;
+  flex-direction: column;
+  align-items: var(--sl-title-ax, center);
+  gap: clamp(4px, 0.8cqi, 8px);
+}
+
+.sl-title__subtitle {
+  font-family: var(--sl-font-body);
+  font-size: clamp(9px, 2.2cqi, 20px);
+  font-weight: 400;
+  color: color-mix(in srgb, var(--sl-title-text) 75%, transparent);
+  text-align: var(--sl-title-ta, center);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.sl-title__subtitle h2 {
+  font-family: var(--sl-font-title);
+  font-size: clamp(10px, 2.8cqi, 26px);
+  font-weight: 600;
+  color: color-mix(in srgb, var(--sl-title-text) 90%, transparent);
+  letter-spacing: -0.01em;
+}
+
+.sl-title__subtitle h3,
+.sl-title__subtitle h4 {
+  font-family: var(--sl-font-body);
+  font-size: clamp(8px, 1.8cqi, 16px);
+  font-weight: 500;
+  color: color-mix(in srgb, var(--sl-title-text) 65%, transparent);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 /* ── Section layout ──────────────────────────────────────────────────────── */
@@ -189,9 +229,11 @@
 .sl-section {
   height: 100%;
   display: flex;
-  align-items: center;
+  align-items: var(--sl-title-ax, center);
   justify-content: center;
-  background: var(--sl-section-bg);
+  background-color: var(--sl-section-bg);
+  background-image: var(--sl-deco-img, none);
+  background-size: var(--sl-deco-size, auto);
 }
 
 .sl-section__text {
@@ -199,8 +241,8 @@
   font-size: clamp(13px, 3.5cqi, 34px);
   font-weight: 700;
   color: var(--sl-title-text);
-  text-align: center;
-  padding: 8%;
+  text-align: var(--sl-title-ta, center);
+  padding: 8% 10%;
   line-height: 1.3;
 }
 

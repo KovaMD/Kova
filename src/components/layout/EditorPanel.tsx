@@ -227,12 +227,44 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
       { type: 'item', label: 'Italic', shortcut: 'Ctrl+I', action: () => doWrap('*', '*', 'italic text') },
       { type: 'divider' },
       { type: 'header', label: 'Insert' },
-      { type: 'item', label: 'Code Block',     action: () => doInsert('```\n\n```', 3) },
-      { type: 'item', label: 'Blockquote',     action: () => doInsert('> ', 2) },
-      { type: 'item', label: 'Table',          action: () => doInsert('| Header | Header |\n| ------ | ------ |\n| Cell   | Cell   |', 2) },
-      { type: 'item', label: 'Horizontal Rule', action: () => doInsert('\n---\n', 5) },
-      { type: 'item', label: 'Image',          action: () => doInsert('![alt text](url)', 2) },
-      { type: 'item', label: 'Link',           action: () => doInsert('[link text](url)', 1) },
+      { type: 'item', label: 'Code Block',      action: () => doInsert('```\n\n```', 3) },
+      { type: 'item', label: 'Blockquote',      action: () => doInsert('> ', 2) },
+      { type: 'item', label: 'Table',           action: () => doInsert('| Header | Header |\n| ------ | ------ |\n| Cell   | Cell   |', 2) },
+      { type: 'item', label: 'Horizontal Rule', action: () => doInsert('\n<hr>\n', 5) },
+      { type: 'item', label: 'Image',           action: () => doInsert('![alt text](url)', 2) },
+      { type: 'item', label: 'Link',            action: () => doInsert('[link text](url)', 1) },
+      { type: 'divider' },
+      { type: 'header', label: 'Charts' },
+      {
+        type: 'item', label: 'Pie Chart',
+        action: () => doInsert(
+          '\n```mermaid\npie title Distribution\n    "Category A" : 40\n    "Category B" : 35\n    "Category C" : 25\n```\n',
+          22,  // lands on "Distribution"
+        ),
+      },
+      {
+        type: 'item', label: 'Bar Chart',
+        action: () => doInsert(
+          '\n```mermaid\nxychart-beta\n    title "Sales by Quarter"\n    x-axis [Q1, Q2, Q3, Q4]\n    y-axis 0 --> 100\n    bar [40, 65, 55, 80]\n```\n',
+          36,  // lands on "Sales by Quarter"
+        ),
+      },
+      {
+        type: 'item', label: 'Line Chart',
+        action: () => doInsert(
+          '\n```mermaid\nxychart-beta\n    title "Trend Over Time"\n    x-axis [Jan, Feb, Mar, Apr, May]\n    y-axis 0 --> 100\n    line [30, 45, 60, 55, 75]\n```\n',
+          36,  // lands on "Trend Over Time"
+        ),
+      },
+      { type: 'divider' },
+      { type: 'header', label: 'Diagrams' },
+      {
+        type: 'item', label: 'Progress Bars',
+        action: () => doInsert(
+          '\n!progress[Task Complete](75)\n!progress[In Progress](40)\n!progress[Planned](10)\n',
+          11,  // lands on "Task Complete"
+        ),
+      },
     ];
   }
 

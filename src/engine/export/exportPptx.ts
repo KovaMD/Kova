@@ -62,7 +62,7 @@ function addSlide(s: PS, slide: Slide, t: Theme, meta: Meta, H: number, warnings
     case 'bsp':           addBspSlide(s, slide, t, cy, ch, warnings); break;
     case 'grid':          addGridSlide(s, slide, t, cy, ch, warnings); break;
     case 'media':         addMediaSlide(s, slide, t, cy, ch); break;
-    case 'code':          addCodeSlide(s, slide, t, cy, ch); break;
+    case 'code':          addCodeSlide(s, slide, t, cy, ch, warnings); break;
     default:              addTitleContentSlide(s, slide, t, cy, ch, warnings);
   }
 
@@ -74,13 +74,31 @@ function addSlide(s: PS, slide: Slide, t: Theme, meta: Meta, H: number, warnings
 
 function addTitleSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) {
   s.background = { fill: hex(t.colors.primary) };
+  // BUG-22: export subtitle paragraphs below the title
+  const subtitles = slide.elements.filter((e) => e.type === 'paragraph') as Extract<SlideElement, { type: 'paragraph' }>[];
+  const hasSubs   = subtitles.length > 0;
+  const titleH    = hasSubs ? ch * 0.55 : ch;
+
   if (slide.title) {
     s.addText(slide.title, {
-      x: M, y: cy, w: W - M * 2, h: ch,
+      x: M, y: cy, w: W - M * 2, h: titleH,
       fontSize: 40, bold: true,
       color: hex(t.colors.title_text),
       fontFace: firstFont(t.fonts.title),
-      align: 'center', valign: 'middle', wrap: true,
+      align: 'center', valign: hasSubs ? 'bottom' : 'middle', wrap: true,
+    });
+  }
+
+  if (hasSubs) {
+    const runs = subtitles.map((el) => ({
+      text: el.text,
+      options: { fontSize: 20, breakLine: true },
+    }));
+    s.addText(runs, {
+      x: M, y: cy + titleH + 0.15, w: W - M * 2, h: ch - titleH - 0.15,
+      color: hex(t.colors.title_text),
+      fontFace: firstFont(t.fonts.body),
+      align: 'center', valign: 'top', wrap: true,
     });
   }
 }
@@ -159,7 +177,9 @@ function addSplitSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, wa
 }
 
 function addFullBleedSlide(s: PS, slide: Slide, t: Theme, H: number, warnings: string[]) {
-  s.background = { fill: hex(t.colors.primary) };
+  // BUG-25: use background colour as fallback — primary (usually dark) looked
+  // like a broken title slide when the image failed to load.
+  s.background = { fill: hex(t.colors.background) };
   const img = slide.elements.find((e) => e.type === 'image');
   if (img && img.type === 'image') {
     tryAddImage(s, img.src, { x: 0, y: 0, w: W, h: H }, warnings);
@@ -279,11 +299,13 @@ function addGridSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, war
   const bodyH = ch - hh - 0.1;
   const GAP   = 0.2;
   const cols  = 2;
-  const rows  = Math.ceil(slide.elements.length / cols);
+  // BUG-23: filter column-break elements before computing grid geometry
+  const gridEls = slide.elements.filter((e) => e.type !== 'column-break');
+  const rows  = Math.ceil(gridEls.length / cols);
   const cellW = (W - M * 2 - GAP * (cols - 1)) / cols;
   const cellH = rows > 0 ? (bodyH - GAP * (rows - 1)) / rows : bodyH;
 
-  slide.elements.forEach((el, i) => {
+  gridEls.forEach((el, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
     addElements(s, [el], t, {
@@ -311,29 +333,36 @@ function addMediaSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) {
   const yt    = slide.elements.find((e) => e.type === 'youtube');
   const poll  = slide.elements.find((e) => e.type === 'poll');
 
+  // BUG-10: render both youtube AND poll when both are present on the same
+  // slide (previously the else-if dropped poll when youtube was also present).
+  const both  = yt && poll;
+  const halfH = (bodyH - 0.2) / 2;
+
   if (yt && yt.type === 'youtube') {
     s.addText([
       { text: '▶ ', options: { fontSize: 30, bold: true } },
       { text: yt.label || 'YouTube Video', options: { fontSize: 20, breakLine: true } },
       { text: yt.url, options: { fontSize: 11, color: hex(t.colors.accent) } },
     ], {
-      x: M, y: bodyY, w: W - M * 2, h: bodyH,
+      x: M, y: bodyY, w: W - M * 2, h: both ? halfH : bodyH,
       color: hex(t.colors.text), fontFace: firstFont(t.fonts.body),
       align: 'center', valign: 'middle', wrap: true,
     });
-  } else if (poll && poll.type === 'poll') {
+  }
+  if (poll && poll.type === 'poll') {
+    const pollY = both ? bodyY + halfH + 0.2 : bodyY;
     s.addText([
       { text: poll.label || 'Poll', options: { fontSize: 20, bold: true, breakLine: true } },
       { text: poll.url, options: { fontSize: 11, color: hex(t.colors.accent) } },
     ], {
-      x: M, y: bodyY, w: W - M * 2, h: bodyH,
+      x: M, y: pollY, w: W - M * 2, h: both ? halfH : bodyH,
       color: hex(t.colors.text), fontFace: firstFont(t.fonts.body),
       align: 'center', valign: 'middle', wrap: true,
     });
   }
 }
 
-function addCodeSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) {
+function addCodeSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[]) {
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.65 : 0;
   if (slide.title) {
@@ -352,6 +381,10 @@ function addCodeSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) {
   const codeH = ch - hh - 0.1;
   const value = codeEl.value;
   const lang  = codeEl.type === 'code' ? codeEl.lang : 'mermaid';
+  // BUG-21: mermaid diagrams export as raw source text — warn the user
+  if (codeEl.type === 'mermaid') {
+    warnings.push(`Slide ${Math.round(cy)}: Mermaid diagram exported as source text (diagrams cannot be rendered in PPTX).`);
+  }
 
   // Code background rectangle
   s.addShape('rect', {
@@ -399,10 +432,12 @@ function addHeaderBar(s: PS, t: Theme, meta: Meta) {
 }
 
 function addFooterBar(s: PS, t: Theme, meta: Meta, H: number) {
+  // BUG-26: the CSS footer is a thin border-top line, not a filled bar.
+  // Use a thin accent-coloured line + body text colour to match the preview.
   const footY = H - FOOT_H;
   s.addShape('rect', {
-    x: 0, y: footY, w: W, h: FOOT_H,
-    fill: { color: hex(t.colors.primary) },
+    x: 0, y: footY, w: W, h: 0.02,
+    fill: { color: hex(t.colors.accent) },
     line: { type: 'none' },
   });
   const showNum = t.footer.show_slide_number;
@@ -412,16 +447,16 @@ function addFooterBar(s: PS, t: Theme, meta: Meta, H: number) {
   });
   if (text) {
     s.addText(text, {
-      x: M, y: footY, w: W - M * 2 - (showNum ? 1.1 : 0), h: FOOT_H,
-      fontSize: 9, color: hex(t.colors.title_text),
+      x: M, y: footY + 0.02, w: W - M * 2 - (showNum ? 1.1 : 0), h: FOOT_H - 0.02,
+      fontSize: 9, color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.body),
       align: 'left', valign: 'middle',
     });
   }
   if (showNum) {
     s.addText(`${meta.slideNum} / ${meta.totalSlides}`, {
-      x: W - M - 1.1, y: footY, w: 1.1, h: FOOT_H,
-      fontSize: 9, color: hex(t.colors.title_text),
+      x: W - M - 1.1, y: footY + 0.02, w: 1.1, h: FOOT_H - 0.02,
+      fontSize: 9, color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.body),
       align: 'right', valign: 'middle',
     });
@@ -577,6 +612,15 @@ function tryAddImage(s: PS, src: string, area: Area, warnings: string[]) {
   if (!src) return;
   if (src.startsWith('asset://') || src.startsWith('tauri://')) {
     warnings.push(`Image skipped (local file paths cannot be embedded in PPTX): ${src}`);
+    return;
+  }
+  // BUG-24: pptxgenjs supports data: URIs natively via the `data` option
+  if (src.startsWith('data:')) {
+    try {
+      s.addImage({ data: src, x: area.x, y: area.y, w: area.w, h: area.h });
+    } catch {
+      warnings.push(`Embedded image could not be added to PPTX: ${src.slice(0, 60)}…`);
+    }
     return;
   }
   if (src.startsWith('http://') || src.startsWith('https://')) {

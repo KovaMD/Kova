@@ -52,12 +52,50 @@ pub fn write_file_bytes(path: String, data: String) -> Result<(), String> {
     file_io::write_bytes(&path, &bytes)
 }
 
+const DEFAULT_KEYBINDINGS: &str = "\
+# Kova — Keyboard Shortcuts
+# ─────────────────────────────────────────────────────────────────────────────
+# Edit this file to customise keyboard shortcuts, then restart Kova.
+#
+# Format:   action: modifier+key
+# Modifiers (combine with +):  ctrl  shift  alt
+#
+# Available actions:
+#   new_file    open_file    save    save_as    focus_mode
+
+new_file:   ctrl+n
+open_file:  ctrl+o
+save:       ctrl+s
+save_as:    ctrl+shift+s
+focus_mode: ctrl+shift+f
+";
+
+/// Reads ~/.kova/keybindings.yaml, creating it from defaults if absent.
+/// Returns (absolute_path, yaml_content).
+#[tauri::command]
+pub fn load_keybindings(app: AppHandle) -> Result<(String, String), String> {
+    use tauri::Manager;
+    let home = app.path().home_dir().map_err(|e| e.to_string())?;
+    let path = home.join(".kova").join("keybindings.yaml");
+
+    if !path.exists() {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        std::fs::write(&path, DEFAULT_KEYBINDINGS).map_err(|e| e.to_string())?;
+    }
+
+    let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    Ok((path.to_string_lossy().into_owned(), content))
+}
+
 /// Returns the YAML contents of every .yaml/.yml file in ~/.kova/themes/.
 /// Each entry is (filename_without_extension, yaml_content).
 #[tauri::command]
-pub fn load_custom_themes() -> Result<Vec<(String, String)>, String> {
-    let home = std::env::var("HOME").map_err(|_| "HOME not set".to_string())?;
-    let themes_dir = std::path::PathBuf::from(home).join(".kova").join("themes");
+pub fn load_custom_themes(app: AppHandle) -> Result<Vec<(String, String)>, String> {
+    use tauri::Manager;
+    let home = app.path().home_dir().map_err(|e| e.to_string())?;
+    let themes_dir = home.join(".kova").join("themes");
 
     if !themes_dir.exists() {
         return Ok(vec![]);

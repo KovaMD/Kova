@@ -1,7 +1,11 @@
 <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
   <rect width="32" height="32" rx="7" fill="#D94F00"/>
-  <rect x="18" y="19" width="12" height="9" rx="2" fill="#8C2800" opacity="0.8"/>
-  <rect x="12" y="13" width="12" height="9" rx="2" fill="white" opacity="0.95"/>
-  <line x1="14" y1="17" x2="22" y2="17" stroke="#D94F00" stroke-width="1.8" stroke-linecap="round"/>
-  <line x1="14" y1="20" x2="20" y2="20" stroke="#FF6B2B" stroke-width="1.3" stroke-linecap="round" opacity="0.65"/>
+  <!-- shadow rect -->
+  <rect x="13" y="14" width="12" height="9" rx="2" fill="#8C2800" opacity="0.8"/>
+  <!-- front rect — centred as a unit with shadow -->
+  <rect x="7" y="8" width="12" height="9" rx="2" fill="white" opacity="0.95"/>
+  <!-- line 1 — solid -->
+  <line x1="9" y1="11" x2="17" y2="11" stroke="#D94F00" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- line 2 — lighter -->
+  <line x1="9" y1="14" x2="15" y2="14" stroke="#FF6B2B" stroke-width="1.3" stroke-linecap="round" opacity="0.65"/>
 </svg>

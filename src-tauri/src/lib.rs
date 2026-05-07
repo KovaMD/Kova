@@ -19,6 +19,7 @@ pub fn run() {
             commands::write_file,
             commands::start_watching,
             commands::stop_watching,
+            commands::load_keybindings,
             commands::load_custom_themes,
             commands::list_system_fonts,
             commands::write_file_bytes,
