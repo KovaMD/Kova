@@ -121,6 +121,13 @@
   font-family: var(--sl-font-body);
 }
 
+/* Vertically centre content when the slide body contains only text elements */
+.sl-body--center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .sl-para { margin: 0 0 0.5em; }
 .sl-para:last-child { margin-bottom: 0; }
 
@@ -129,8 +136,8 @@
 .sl-list--nested { margin-top: 0.15em; margin-bottom: 0; }
 
 /* Image in body context — constrained by wrapper, user can override via title */
-.sl-img-wrap { display: flex; justify-content: center; overflow: hidden; max-height: 28cqi; }
-.sl-img-wrap--user { max-height: unset; }
+.sl-img-wrap { display: flex; justify-content: center; overflow: hidden; max-height: 18cqi; max-width: 60%; }
+.sl-img-wrap--user { max-height: unset; max-width: unset; }
 .sl-img { max-width: 100%; height: auto; object-fit: contain; display: block; }
 .sl-img-fill { width: 100%; height: 100%; object-fit: contain; display: block; }
 .sl-img-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -446,3 +453,19 @@
 .sl-code__block code { font-family: var(--sl-font-code); font-size: clamp(8px, 1.8cqi, 16px); color: #e8e8e8; white-space: pre; display: block; }
 .sl-code__mermaid { background: color-mix(in srgb, #000 40%, var(--sl-code-bg)); }
 .sl-code__lang { font-size: clamp(7px, 1.4cqi, 11px); color: var(--sl-accent); font-family: var(--sl-font-code); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5em; }
+
+/* ── Presentation-mode font scaling ──────────────────────────────────────── */
+/* Thumbnails render at 960px virtual width then scale down via transform,   */
+/* so their cqi-derived sizes are already right. In fullscreen presentation  */
+/* the slide fills the monitor (~1800px) but the 18px/36px clamp maxes hold  */
+/* text tiny. Raise those caps only when data-pres is set.                   */
+
+[data-pres] .sl-body        { font-size: clamp(16px, 1.9cqi, 36px); }
+[data-pres] .sl-heading     { font-size: clamp(24px, 4cqi,   72px); }
+[data-pres] .sl-split__right    { font-size: clamp(16px, 1.8cqi, 34px); }
+[data-pres] .sl-two-col__body   { font-size: clamp(16px, 1.8cqi, 34px); }
+[data-pres] .sl-two-col__col    { font-size: inherit; }
+[data-pres] .sl-bsp__text       { font-size: clamp(16px, 1.8cqi, 34px); }
+[data-pres] .sl-grid__cells     { font-size: clamp(14px, 1.6cqi, 28px); }
+[data-pres] .sl-code__block code { font-size: clamp(14px, 1.8cqi, 28px); }
+[data-pres] .sl-title__subtitle  { font-size: clamp(14px, 2.2cqi, 36px); }

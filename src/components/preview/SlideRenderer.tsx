@@ -63,9 +63,10 @@ interface Props {
   docTitle?: string;
   scale?: number;
   isThumbnail?: boolean;
+  isPresentation?: boolean;
 }
 
-export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, docTitle = '', scale = 1, isThumbnail: isThumbnailProp }: Props) {
+export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, docTitle = '', scale = 1, isThumbnail: isThumbnailProp, isPresentation }: Props) {
   const vars = themeToVars(theme);
 
   const headerText = theme.header.show
@@ -93,6 +94,7 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
       className={`slide-frame layout-${slide.layout}`}
       style={{ ...vars, ...(scale !== 1 ? { transform: `scale(${scale})`, transformOrigin: 'top left' } : {}) }}
       data-layout={slide.layout}
+      data-pres={isPresentation || undefined}
     >
       {/* Header bar */}
       {theme.header.show && (
@@ -185,10 +187,13 @@ function SectionLayout({ slide }: { slide: Slide }) {
 }
 
 function TitleContentLayout({ slide }: { slide: Slide }) {
+  const textOnly = slide.elements.every((e) =>
+    e.type === 'paragraph' || e.type === 'list' || e.type === 'blockquote' || e.type === 'progress',
+  );
   return (
     <div className="sl-title-content">
       {slide.title && <div className="sl-heading">{slide.title}</div>}
-      <div className="sl-body">
+      <div className={`sl-body${textOnly ? ' sl-body--center' : ''}`}>
         <Elements elements={slide.elements} />
       </div>
     </div>
@@ -212,20 +217,30 @@ function TitleImageLayout({ slide }: { slide: Slide }) {
 }
 
 function SplitLayout({ slide }: { slide: Slide }) {
-  const img = slide.elements.find((e) => e.type === 'image');
+  const imgIdx = slide.elements.findIndex((e) => e.type === 'image');
+  const img = imgIdx >= 0 ? slide.elements[imgIdx] : undefined;
   const rest = slide.elements.filter((e) => e.type !== 'image');
+  // Put the image on the right when it appears after text in the source.
+  const imgOnRight = imgIdx > 0;
+
+  const textCol = (
+    <div className="sl-split__right">
+      <Elements elements={rest} />
+    </div>
+  );
+  const imgCol = (
+    <div className="sl-split__left">
+      {img && img.type === 'image' && (
+        <img src={img.src} alt={img.alt} className="sl-img-fill" />
+      )}
+    </div>
+  );
+
   return (
     <div className="sl-split">
       {slide.title && <div className="sl-heading sl-split__title">{slide.title}</div>}
       <div className="sl-split__body">
-        <div className="sl-split__left">
-          {img && img.type === 'image' && (
-            <img src={img.src} alt={img.alt} className="sl-img-fill" />
-          )}
-        </div>
-        <div className="sl-split__right">
-          <Elements elements={rest} />
-        </div>
+        {imgOnRight ? <>{textCol}{imgCol}</> : <>{imgCol}{textCol}</>}
       </div>
     </div>
   );

@@ -111,6 +111,7 @@ export function PresentationOverlay({
             slideNumber={currentIndex + 1}
             totalSlides={total}
             docTitle={docTitle}
+            isPresentation
           />
         </div>
       </div>
