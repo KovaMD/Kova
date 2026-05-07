@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { indentWithTab } from '@codemirror/commands';
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
@@ -16,6 +16,45 @@ interface Props {
   onChange: (value: string) => void;
   onCursorSlide?: (index: number) => void;
   focusMode?: boolean;
+  filePath?: string | null;
+}
+
+// Returns a path to `target` relative to the directory of `docPath`.
+// Falls back to the absolute path if they share no common prefix.
+function makeRelativePath(docPath: string, target: string): string {
+  const sep = docPath.includes('\\') ? '\\' : '/';
+  const docParts = docPath.split(sep).slice(0, -1);
+  const tgtParts = target.split(sep.includes('\\') ? /[/\\]/ : '/');
+  let common = 0;
+  while (common < docParts.length && common < tgtParts.length && docParts[common] === tgtParts[common]) common++;
+  const up = docParts.length - common;
+  const rel = [...Array(up).fill('..'), ...tgtParts.slice(common)].join('/');
+  return rel || target;
+}
+
+function makeDropExtension(filePathRef: React.RefObject<string | null | undefined>) {
+  return EditorView.domEventHandlers({
+    drop(event, view) {
+      const files = [...(event.dataTransfer?.files ?? [])].filter((f) => f.type.startsWith('image/'));
+      if (!files.length) return false;
+      event.preventDefault();
+      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.doc.length;
+      const inserts: string[] = [];
+      for (const file of files) {
+        const fileSrc = (file as File & { path?: string }).path;
+        if (!fileSrc) continue;
+        const docPath = filePathRef.current;
+        const imgPath = docPath ? makeRelativePath(docPath, fileSrc) : fileSrc;
+        const label = file.name.replace(/\.[^.]+$/, '');
+        inserts.push(`![${label}](${imgPath})`);
+      }
+      if (!inserts.length) return false;
+      const insert = inserts.join('\n');
+      view.dispatch({ changes: { from: pos, insert }, selection: { anchor: pos + insert.length } });
+      view.focus();
+      return true;
+    },
+  });
 }
 
 const editorTheme = EditorView.theme({
@@ -87,15 +126,18 @@ function makeHeadingCommand(level: number) {
 
 interface ContextMenuState { x: number; y: number; hasSelection: boolean }
 
-export function EditorPanel({ content, onChange, onCursorSlide, focusMode = false }: Props) {
+export function EditorPanel({ content, onChange, onCursorSlide, focusMode = false, filePath }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   const onCursorSlideRef = useRef(onCursorSlide);
+  const filePathRef = useRef(filePath);
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { onCursorSlideRef.current = onCursorSlide; }, [onCursorSlide]);
+  useEffect(() => { filePathRef.current = filePath; }, [filePath]);
 
   // Create editor once
   useEffect(() => {
@@ -135,6 +177,7 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
           { key: 'Ctrl-6', run: makeHeadingCommand(6) },
         ]),
         updateListener,
+        makeDropExtension(filePathRef),
         focusModeCompartment.of([]),
       ],
     });
@@ -303,8 +346,23 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
           </span>
         )}
       </div>
-      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div
+        style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
+        onDragOver={(e) => { if ([...e.dataTransfer.items].some((i) => i.kind === 'file' && i.type.startsWith('image/'))) { e.preventDefault(); setDragActive(true); } }}
+        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragActive(false); }}
+        onDrop={() => setDragActive(false)}
+      >
         <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} onContextMenu={handleContextMenu} />
+        {dragActive && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none',
+            border: '2px dashed #D94F00', borderRadius: 4,
+            background: 'rgba(217,79,0,0.06)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ color: '#D94F00', fontSize: 13, fontWeight: 500 }}>Drop image to insert</span>
+          </div>
+        )}
         {!content && (
           <div style={{
             position: 'absolute', inset: 0,

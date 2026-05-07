@@ -467,6 +467,7 @@ export default function App() {
               onChange={handleContentChange}
               onCursorSlide={setCurrentSlideIndex}
               focusMode={focusMode}
+              filePath={filePath}
             />
           </Panel>
 
