@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -20,11 +20,26 @@ import yaml from 'js-yaml';
 import { parseDocument } from './engine/parser/markdownToSlides';
 import { exportToPptx } from './engine/export/exportPptx';
 import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml } from './engine/theme';
-import type { Slide, Frontmatter } from './engine/types';
+import type { Slide, Frontmatter, ListItem } from './engine/types';
 import { parseAspectRatio } from './engine/types';
 import type { Theme } from './engine/theme';
 
 import './styles/global.css';
+
+const isMac = /Mac/i.test(navigator.platform);
+
+function resolveImageSrc(src: string, docDir: string): string {
+  if (/^(https?|data|asset|tauri):\/\//i.test(src)) return src;
+  const sep = docDir.includes('\\') ? '\\' : '/';
+  const abs = src.startsWith('/') || /^[A-Za-z]:[/\\]/.test(src)
+    ? src
+    : docDir + (docDir.endsWith(sep) ? '' : sep) + src;
+  return convertFileSrc(abs);
+}
+
+function resolveHtmlSrcs(html: string, docDir: string): string {
+  return html.replace(/src="([^"]*)"/g, (_, src) => `src="${resolveImageSrc(src, docDir)}"`);
+}
 
 function makeStarter() {
   return `---
@@ -83,11 +98,32 @@ export default function App() {
   const thumbPanelRef     = usePanelRef();
   const inspectorPanelRef = usePanelRef();
 
-  const { slides, frontmatter } = useMemo(() => {
+  const { slides: rawSlides, frontmatter } = useMemo(() => {
     if (!content.trim()) return { slides: EMPTY_SLIDES, frontmatter: EMPTY_FM };
     try { return parseDocument(content); }
     catch { return { slides: EMPTY_SLIDES, frontmatter: EMPTY_FM }; }
   }, [content]);
+
+  // Rewrite relative image srcs to asset:// URLs so Tauri's WebView can load them.
+  const slides = useMemo<Slide[]>(() => {
+    if (!filePath) return rawSlides;
+    const lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+    const docDir = filePath.substring(0, lastSlash);
+
+    function resolveItem(item: ListItem): ListItem {
+      return { ...item, html: resolveHtmlSrcs(item.html, docDir), children: item.children.map(resolveItem) };
+    }
+
+    return rawSlides.map((slide) => ({
+      ...slide,
+      elements: slide.elements.map((el) => {
+        if (el.type === 'image')     return { ...el, src: resolveImageSrc(el.src, docDir) };
+        if (el.type === 'paragraph') return { ...el, html: resolveHtmlSrcs(el.html, docDir) };
+        if (el.type === 'list')      return { ...el, items: el.items.map(resolveItem) };
+        return el;
+      }),
+    }));
+  }, [rawSlides, filePath]);
 
   // Compute a safe index in the same render as slides so children never receive
   // an out-of-bounds value during the frame before the clamp useEffect fires.
@@ -317,6 +353,34 @@ export default function App() {
         />
       )}
       <div className="app-toolbar">
+        {isMac && (
+          <div className="wm-controls wm-controls--mac">
+            <button
+              className="wm-btn wm-btn--close"
+              onMouseDown={(e) => { e.preventDefault(); guardDirty(() => getCurrentWindow().close()); }}
+              title="Close"
+            >
+              <svg width="11" height="11" viewBox="0 0 11 11">
+                <line x1="1" y1="1" x2="10" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="10" y1="1" x2="1" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <button
+              className="wm-btn"
+              onMouseDown={(e) => { e.preventDefault(); getCurrentWindow().minimize(); }}
+              title="Minimise"
+            >
+              <svg width="12" height="2" viewBox="0 0 12 2"><rect width="12" height="2" rx="1" fill="currentColor"/></svg>
+            </button>
+            <button
+              className="wm-btn"
+              onMouseDown={(e) => { e.preventDefault(); getCurrentWindow().toggleMaximize(); }}
+              title="Maximise / Restore"
+            >
+              <svg width="11" height="11" viewBox="0 0 11 11"><rect x="1" y="1" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg>
+            </button>
+          </div>
+        )}
         <button className="btn" onClick={handleNewFile} title={`New (${formatCombo(getCombo(keybindings.combos, 'newFile'))})`}>New</button>
         <button className="btn" onClick={handleOpenFile} title={`Open (${formatCombo(getCombo(keybindings.combos, 'openFile'))})`}>Open</button>
         <button className="btn" onClick={handleSave} disabled={!filePath || !isDirty} title={`Save (${formatCombo(getCombo(keybindings.combos, 'save'))})`}>Save</button>
@@ -349,35 +413,37 @@ export default function App() {
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </button>
-        <div className="wm-controls">
-          <button
-            className="wm-btn"
-            onMouseDown={(e) => { e.preventDefault(); getCurrentWindow().minimize(); }}
-            title="Minimise"
-          >
-            <svg width="12" height="2" viewBox="0 0 12 2"><rect width="12" height="2" rx="1" fill="currentColor"/></svg>
-          </button>
-          <button
-            className="wm-btn"
-            onMouseDown={(e) => { e.preventDefault(); getCurrentWindow().toggleMaximize(); }}
-            title="Maximise / Restore"
-          >
-            <svg width="11" height="11" viewBox="0 0 11 11"><rect x="1" y="1" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg>
-          </button>
-          <button
-            className="wm-btn wm-btn--close"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              guardDirty(() => getCurrentWindow().close());
-            }}
-            title="Close"
-          >
-            <svg width="11" height="11" viewBox="0 0 11 11">
-              <line x1="1" y1="1" x2="10" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              <line x1="10" y1="1" x2="1" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
+        {!isMac && (
+          <div className="wm-controls">
+            <button
+              className="wm-btn"
+              onMouseDown={(e) => { e.preventDefault(); getCurrentWindow().minimize(); }}
+              title="Minimise"
+            >
+              <svg width="12" height="2" viewBox="0 0 12 2"><rect width="12" height="2" rx="1" fill="currentColor"/></svg>
+            </button>
+            <button
+              className="wm-btn"
+              onMouseDown={(e) => { e.preventDefault(); getCurrentWindow().toggleMaximize(); }}
+              title="Maximise / Restore"
+            >
+              <svg width="11" height="11" viewBox="0 0 11 11"><rect x="1" y="1" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg>
+            </button>
+            <button
+              className="wm-btn wm-btn--close"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                guardDirty(() => getCurrentWindow().close());
+              }}
+              title="Close"
+            >
+              <svg width="11" height="11" viewBox="0 0 11 11">
+                <line x1="1" y1="1" x2="10" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="10" y1="1" x2="1" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="app-panels">
