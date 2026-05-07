@@ -1,0 +1,98 @@
+name: Release
+
+# Triggers on version tags (e.g. v0.1.0-alpha.1) or a manual run from the Actions tab.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    permissions:
+      contents: write   # needed to create the GitHub release and upload assets
+
+    strategy:
+      fail-fast: false  # keep building other platforms even if one fails
+      matrix:
+        include:
+
+          # macOS — universal binary runs on both Intel and Apple Silicon
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+          # Linux — AppImage (most portable for alpha/testing)
+          - platform: ubuntu-22.04
+            args: ''
+            rust_targets: ''
+
+          # Windows 10/11
+          - platform: windows-latest
+            args: ''
+            rust_targets: ''
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      # Rust build cache — dramatically speeds up subsequent runs
+      - name: Cache Rust build artefacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      # Required system libraries for WebKitGTK on Linux
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build and publish release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Kova ${{ github.ref_name }}'
+          releaseBody: |
+            ## Installation
+
+            | Platform | Download | First-launch note |
+            |---|---|---|
+            | **macOS** (Apple Silicon + Intel) | `.dmg` | Right-click the app → **Open** (app is unsigned) |
+            | **Windows 10/11** | `.msi` or `_x64-setup.exe` | Click **More info → Run anyway** if SmartScreen appears (app is unsigned) |
+            | **Linux** | `.AppImage` | `chmod +x kova_*.AppImage && ./kova_*.AppImage` |
+
+            > **Alpha release** — expect rough edges. Please report bugs via [Issues](../../issues).
+          releaseDraft: true    # appears as a draft; publish manually after reviewing the assets
+          prerelease: true
+          args: ${{ matrix.args }}
