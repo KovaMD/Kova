@@ -9,7 +9,7 @@ import type { Theme } from '../../engine/theme';
 import { themeToVars, resolveTemplate, DEFAULT_THEME } from '../../engine/theme';
 import './SlideRenderer.css';
 
-mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'loose' });
+mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'antiscript' });
 
 // Context passed to child components so they can adapt for thumbnail vs full rendering
 interface SlideCtxValue { isThumbnail: boolean; textColor: string; mermaidInit: string }

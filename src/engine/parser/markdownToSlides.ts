@@ -269,6 +269,8 @@ function escHtml(s: string): string {
 }
 
 function escUrl(url: string): string {
+  const lower = url.trim().toLowerCase();
+  if (lower.startsWith('javascript:') || lower.startsWith('vbscript:')) return '#';
   return url.replace(/"/g, '%22');
 }
 

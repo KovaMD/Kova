@@ -6,7 +6,7 @@ export function extractFrontmatter(content: string): { frontmatter: Frontmatter;
   if (!match) return { frontmatter: {}, body: content };
 
   try {
-    const parsed = yaml.load(match[1]);
+    const parsed = yaml.load(match[1], { schema: yaml.CORE_SCHEMA });
     const frontmatter = (parsed && typeof parsed === 'object' ? parsed : {}) as Frontmatter;
     return { frontmatter, body: match[2] };
   } catch {

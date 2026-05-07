@@ -370,7 +370,7 @@ export function resolveTemplate(
 /** Parse a custom theme from YAML content (uses the same js-yaml already installed). */
 export function parseThemeYaml(id: string, content: string): Theme | null {
   try {
-    const raw = yaml.load(content) as Record<string, unknown>;
+    const raw = yaml.load(content, { schema: yaml.CORE_SCHEMA }) as Record<string, unknown>;
     return normaliseTheme(id, raw);
   } catch {
     return null;
