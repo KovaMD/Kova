@@ -27,6 +27,28 @@ const editorTheme = EditorView.theme({
   '.cm-cursor': { borderLeftColor: '#D94F00' },
 });
 
+function makeWrapCommand(before: string, after: string, placeholder: string) {
+  return (view: EditorView): boolean => {
+    const { from, to } = view.state.selection.main;
+    if (from === to) {
+      const insert = `${before}${placeholder}${after}`;
+      view.dispatch({
+        changes: { from, insert },
+        selection: EditorSelection.range(from + before.length, from + before.length + placeholder.length),
+      });
+    } else {
+      const selected = view.state.sliceDoc(from, to);
+      const insert = `${before}${selected}${after}`;
+      view.dispatch({
+        changes: { from, to, insert },
+        selection: EditorSelection.cursor(from + insert.length),
+      });
+    }
+    view.focus();
+    return true;
+  };
+}
+
 function makeHeadingCommand(level: number) {
   return (view: EditorView): boolean => {
     const { state } = view;
@@ -103,6 +125,8 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
         markdown({ codeLanguages: languages }),
         keymap.of([
           indentWithTab,
+          { key: 'Ctrl-b', run: makeWrapCommand('**', '**', 'bold text') },
+          { key: 'Ctrl-i', run: makeWrapCommand('*',  '*',  'italic text') },
           { key: 'Ctrl-1', run: makeHeadingCommand(1) },
           { key: 'Ctrl-2', run: makeHeadingCommand(2) },
           { key: 'Ctrl-3', run: makeHeadingCommand(3) },

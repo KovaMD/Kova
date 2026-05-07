@@ -23,9 +23,9 @@ export function InspectorPanel({
   filePath, slideCount, frontmatter,
   theme, allThemes, onThemeSelect, onThemeChange, onExport,
 }: Props) {
-  const [open, setOpen] = useState<Section>('theme');
+  const [open, setOpen] = useState<Section | null>('theme');
   const [exporting, setExporting] = useState(false);
-  const toggle = (s: Section) => setOpen((prev) => (prev === s ? 'theme' : s));
+  const toggle = (s: Section) => setOpen((prev) => (prev === s ? null : s));
 
   const handleExport = useCallback(async () => {
     if (!onExport) return;

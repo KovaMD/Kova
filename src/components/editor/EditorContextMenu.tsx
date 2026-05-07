@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 type MenuEntry =
   | { type: 'item'; label: string; shortcut?: string; action: () => void; disabled?: boolean }
@@ -16,7 +16,14 @@ export function EditorContextMenu({ x, y, onClose, entries }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   const cx = Math.min(x, window.innerWidth - 215);
-  const cy = Math.min(y, window.innerHeight - 20);
+  // Start at the raw y; useLayoutEffect corrects before paint if the menu would clip
+  const [cy, setCy] = useState(y);
+  useLayoutEffect(() => {
+    if (ref.current) {
+      const h = ref.current.offsetHeight;
+      setCy(Math.min(y, window.innerHeight - h - 8));
+    }
+  }, [y]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
