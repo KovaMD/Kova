@@ -30,11 +30,12 @@ const isMac = /Mac/i.test(navigator.platform);
 
 function resolveImageSrc(src: string, docDir: string): string {
   if (/^(https?|data|asset|tauri):\/\//i.test(src)) return src;
+  // Already absolute — convert directly, no docDir needed.
+  if (src.startsWith('/') || /^[A-Za-z]:[/\\]/.test(src)) return convertFileSrc(src);
+  // Relative path — only resolvable when we know the document location.
+  if (!docDir) return src;
   const sep = docDir.includes('\\') ? '\\' : '/';
-  const abs = src.startsWith('/') || /^[A-Za-z]:[/\\]/.test(src)
-    ? src
-    : docDir + (docDir.endsWith(sep) ? '' : sep) + src;
-  return convertFileSrc(abs);
+  return convertFileSrc(docDir + (docDir.endsWith(sep) ? '' : sep) + src);
 }
 
 function resolveHtmlSrcs(html: string, docDir: string): string {
@@ -105,10 +106,12 @@ export default function App() {
   }, [content]);
 
   // Rewrite relative image srcs to asset:// URLs so Tauri's WebView can load them.
+  // Always runs — absolute paths need convertFileSrc even when no file is open.
   const slides = useMemo<Slide[]>(() => {
-    if (!filePath) return rawSlides;
-    const lastSlash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
-    const docDir = filePath.substring(0, lastSlash);
+    const lastSlash = filePath
+      ? Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
+      : -1;
+    const docDir = lastSlash >= 0 ? filePath!.substring(0, lastSlash) : '';
 
     function resolveItem(item: ListItem): ListItem {
       return { ...item, html: resolveHtmlSrcs(item.html, docDir), children: item.children.map(resolveItem) };
