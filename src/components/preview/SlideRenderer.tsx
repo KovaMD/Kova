@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
 import mermaid from 'mermaid';
@@ -10,6 +10,15 @@ import { themeToVars, resolveTemplate, DEFAULT_THEME } from '../../engine/theme'
 import './SlideRenderer.css';
 
 mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'antiscript' });
+
+// Parse an image title like "50%" or "300px" into an inline width style.
+// Returning a style disables the default max-height cap on the wrapper.
+function parseSizeHint(title?: string): React.CSSProperties | null {
+  if (!title) return null;
+  const t = title.trim();
+  if (/^\d+(\.\d+)?(px|%|em|rem|cqi|vw)$/.test(t)) return { width: t, height: 'auto' };
+  return null;
+}
 
 // Context passed to child components so they can adapt for thumbnail vs full rendering
 interface SlideCtxValue { isThumbnail: boolean; textColor: string; mermaidInit: string }
@@ -399,8 +408,14 @@ function ElementNode({ el }: { el: SlideElement }) {
         ? <ol className="sl-list">{el.items.map((item, i) => <ListItemNode key={i} item={item} />)}</ol>
         : <ul className="sl-list">{el.items.map((item, i) => <ListItemNode key={i} item={item} />)}</ul>;
 
-    case 'image':
-      return <img src={el.src} alt={el.alt} className="sl-img" />;
+    case 'image': {
+      const size = parseSizeHint(el.title);
+      return (
+        <div className={`sl-img-wrap${size ? ' sl-img-wrap--user' : ''}`}>
+          <img src={el.src} alt={el.alt} className="sl-img" style={size ?? undefined} />
+        </div>
+      );
+    }
 
     case 'blockquote':
       return (
@@ -574,7 +589,7 @@ function ProgressBar({ el }: { el: Extract<SlideElement, { type: 'progress' }> }
 // ── Mermaid diagram ───────────────────────────────────────────────────────────
 
 function MermaidDiagram({ value }: { value: string }) {
-  const { isThumbnail, mermaidInit } = useContext(SlideCtx);
+  const { mermaidInit } = useContext(SlideCtx);
   const rawId  = useId();
   const baseId = `mermaid-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
   // mermaid.render rejects a second call with the same id because it tries to
@@ -583,7 +598,6 @@ function MermaidDiagram({ value }: { value: string }) {
   const [svg, setSvg] = useState('');
 
   useEffect(() => {
-    if (isThumbnail) return;
     let cancelled = false;
     const src = value.trimStart().startsWith('%%{') ? value : mermaidInit + value;
     const renderId = `${baseId}-${++counter.current}`;
@@ -591,9 +605,9 @@ function MermaidDiagram({ value }: { value: string }) {
       .then(({ svg: out }: { svg: string }) => { if (!cancelled) setSvg(out); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [baseId, value, isThumbnail, mermaidInit]);
+  }, [baseId, value, mermaidInit]);
 
-  if (isThumbnail || !svg) {
+  if (!svg) {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',

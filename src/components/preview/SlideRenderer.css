@@ -128,7 +128,10 @@
 .sl-list li { margin-bottom: 0.25em; }
 .sl-list--nested { margin-top: 0.15em; margin-bottom: 0; }
 
-.sl-img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; margin: auto; }
+/* Image in body context — constrained by wrapper, user can override via title */
+.sl-img-wrap { display: flex; justify-content: center; overflow: hidden; max-height: 28cqi; }
+.sl-img-wrap--user { max-height: unset; }
+.sl-img { max-width: 100%; height: auto; object-fit: contain; display: block; }
 .sl-img-fill { width: 100%; height: 100%; object-fit: contain; display: block; }
 .sl-img-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -266,7 +269,7 @@
 
 /* ── Full-bleed image ────────────────────────────────────────────────────── */
 
-.sl-full-bleed { height: 100%; overflow: hidden; }
+.sl-full-bleed { flex: 1; min-height: 0; overflow: hidden; display: flex; }
 
 /* ── Quote ───────────────────────────────────────────────────────────────── */
 
