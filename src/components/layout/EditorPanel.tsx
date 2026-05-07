@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { indentWithTab } from '@codemirror/commands';
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
@@ -32,30 +33,6 @@ function makeRelativePath(docPath: string, target: string): string {
   return rel || target;
 }
 
-function makeDropExtension(filePathRef: React.RefObject<string | null | undefined>) {
-  return EditorView.domEventHandlers({
-    drop(event, view) {
-      const files = [...(event.dataTransfer?.files ?? [])].filter((f) => f.type.startsWith('image/'));
-      if (!files.length) return false;
-      event.preventDefault();
-      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.doc.length;
-      const inserts: string[] = [];
-      for (const file of files) {
-        const fileSrc = (file as File & { path?: string }).path;
-        if (!fileSrc) continue;
-        const docPath = filePathRef.current;
-        const imgPath = docPath ? makeRelativePath(docPath, fileSrc) : fileSrc;
-        const label = file.name.replace(/\.[^.]+$/, '');
-        inserts.push(`![${label}](${imgPath})`);
-      }
-      if (!inserts.length) return false;
-      const insert = inserts.join('\n');
-      view.dispatch({ changes: { from: pos, insert }, selection: { anchor: pos + insert.length } });
-      view.focus();
-      return true;
-    },
-  });
-}
 
 const editorTheme = EditorView.theme({
   '&': { background: '#1e1e1e', height: '100%' },
@@ -177,7 +154,6 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
           { key: 'Ctrl-6', run: makeHeadingCommand(6) },
         ]),
         updateListener,
-        makeDropExtension(filePathRef),
         focusModeCompartment.of([]),
       ],
     });
@@ -190,6 +166,65 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
       viewRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Handle OS file drops via Tauri's drag-drop window event.
+  // The browser File API never exposes paths; this is the only reliable source.
+  useEffect(() => {
+    const IMAGE_EXT = /\.(png|jpe?g|gif|svg|webp|bmp|ico|avif|tiff?)$/i;
+    const dragHasImages = { current: false };
+
+    const unlisten = getCurrentWindow().onDragDropEvent((evt) => {
+      const p = evt.payload;
+
+      if (p.type === 'enter') {
+        dragHasImages.current = p.paths.some((f) => IMAGE_EXT.test(f));
+        return;
+      }
+
+      if (p.type === 'over') {
+        if (!dragHasImages.current) return;
+        const rect = containerRef.current?.getBoundingClientRect();
+        const overEditor = !!rect
+          && p.position.x >= rect.left && p.position.x <= rect.right
+          && p.position.y >= rect.top  && p.position.y <= rect.bottom;
+        setDragActive(overEditor);
+        return;
+      }
+
+      if (p.type === 'leave') {
+        setDragActive(false);
+        dragHasImages.current = false;
+        return;
+      }
+
+      if (p.type === 'drop') {
+        setDragActive(false);
+        dragHasImages.current = false;
+
+        const { x, y } = p.position;
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect || x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return;
+
+        const imagePaths = p.paths.filter((f) => IMAGE_EXT.test(f));
+        if (!imagePaths.length) return;
+
+        const view = viewRef.current;
+        if (!view) return;
+
+        const pos = view.posAtCoords({ x, y }) ?? view.state.doc.length;
+        const inserts = imagePaths.map((abs) => {
+          const imgPath = filePathRef.current ? makeRelativePath(filePathRef.current, abs) : abs;
+          const label = abs.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') ?? 'image';
+          return `![${label}](${imgPath})`;
+        });
+        const insert = inserts.join('\n');
+        view.dispatch({ changes: { from: pos, insert }, selection: { anchor: pos + insert.length } });
+        view.focus();
+      }
+    });
+
+    return () => { unlisten.then((fn) => fn()); };
   }, []);
 
   // Sync external content changes
@@ -346,12 +381,7 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
           </span>
         )}
       </div>
-      <div
-        style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
-        onDragOver={(e) => { if ([...e.dataTransfer.items].some((i) => i.kind === 'file' && i.type.startsWith('image/'))) { e.preventDefault(); setDragActive(true); } }}
-        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragActive(false); }}
-        onDrop={() => setDragActive(false)}
-      >
+      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
         <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} onContextMenu={handleContextMenu} />
         {dragActive && (
           <div style={{
