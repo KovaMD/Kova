@@ -6,6 +6,24 @@ Kova turns plain Markdown into polished slides — with live preview, multiple l
 
 ---
 
+## Download
+
+[![Latest release](https://img.shields.io/github/v/release/KovaMD/Kova?include_prereleases&label=release&color=orange)](https://github.com/KovaMD/Kova/releases/latest)
+
+Pre-built binaries are available for macOS, Windows, and Linux:
+
+| Platform | File | Note |
+|---|---|---|
+| **macOS** (Apple Silicon + Intel) | `.dmg` | Right-click → **Open** on first launch (app is unsigned) |
+| **Windows 10/11** | `.msi` or `_x64-setup.exe` | Click **More info → Run anyway** if SmartScreen appears |
+| **Linux** | `.AppImage` | `chmod +x kova_*.AppImage && ./kova_*.AppImage` |
+
+**[→ Go to the latest release](https://github.com/KovaMD/Kova/releases/latest)**
+
+> **Alpha software.** Expect rough edges. Please [report bugs](https://github.com/KovaMD/Kova/issues) if you find them.
+
+---
+
 ## Features
 
 - **Markdown-first** — write slides in plain text, separated by `---`
@@ -62,7 +80,9 @@ This goes in the right column (two-column layout).
 Speaker notes go here — only visible in presentation mode.
 ```
 
-## Getting started
+## Building from source
+
+These instructions are for contributors and developers. If you just want to use Kova, download a pre-built binary from the [Releases page](https://github.com/KovaMD/Kova/releases/latest) instead.
 
 ### Prerequisites
 
@@ -70,16 +90,16 @@ Speaker notes go here — only visible in presentation mode.
 - [Rust](https://rustup.rs/) (stable)
 - [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your platform
 
-### Install and run
+### Run in development
 
 ```bash
-git clone https://github.com/kovamd/kova.git
-cd kova
+git clone https://github.com/KovaMD/Kova.git
+cd Kova
 npm install
 npm run tauri dev
 ```
 
-### Build
+### Build a release binary
 
 ```bash
 npm run tauri build
