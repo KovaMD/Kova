@@ -87,8 +87,13 @@ html, body, #root {
   display: flex;
   align-items: stretch;
   margin-left: 4px;
-  margin-right: -12px; /* bleed to toolbar edge */
+  margin-right: -12px; /* bleed to right toolbar edge */
   height: 38px;
+}
+
+.wm-controls--mac {
+  margin-left: -12px; /* bleed to left toolbar edge */
+  margin-right: 4px;
 }
 
 .wm-btn {

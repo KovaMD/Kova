@@ -26,6 +26,11 @@ export function PresentationOverlay({
   const [showNotes, setShowNotes] = useState(false);
   const [hudVisible, setHudVisible] = useState(true);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  // Claim focus on mount so keyboard events reach the window after the macOS
+  // fullscreen animation hands control back to the WebView.
+  useEffect(() => { overlayRef.current?.focus(); }, []);
 
   // ── Navigation helpers ─────────────────────────────────────────────────────
 
@@ -85,7 +90,9 @@ export function PresentationOverlay({
   return (
     <div
       className="pres-overlay"
-      style={{
+      ref={overlayRef}
+      tabIndex={-1}
+      style={{ outline: 'none',
         '--pres-notes-h': `${notesH}px`,
         '--pres-hud-h': `${HUD_H}px`,
         '--pres-ar-w': aspectRatio.w,
