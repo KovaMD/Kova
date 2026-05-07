@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { openPath } from '@tauri-apps/plugin-opener';
 import type { AppSettings } from '../store/settings';
 
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.1.1';
 
 const INTERVAL_OPTIONS: { label: string; value: number }[] = [
   { label: '15 sec',  value: 15  },
