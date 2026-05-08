@@ -6,11 +6,15 @@ export interface UpdateResult {
 }
 
 export async function checkForUpdate(): Promise<UpdateResult> {
-  const r = await fetch('https://api.github.com/repos/KovaMD/Kova/releases/latest', {
+  // /tags lists all tags regardless of release/draft status (unlike /releases/latest
+  // which only returns published non-draft releases).
+  const r = await fetch('https://api.github.com/repos/KovaMD/Kova/tags?per_page=1', {
     headers: { Accept: 'application/vnd.github.v3+json' },
   });
   if (!r.ok) throw new Error(`GitHub API returned ${r.status}`);
-  const { tag_name: latestTag } = await r.json() as { tag_name: string };
+  const tags = await r.json() as Array<{ name: string }>;
+  if (!tags.length) return { latestTag: APP_VERSION, hasUpdate: false };
+  const latestTag = tags[0].name;
   return { latestTag, hasUpdate: semverGt(latestTag, APP_VERSION) };
 }
 
