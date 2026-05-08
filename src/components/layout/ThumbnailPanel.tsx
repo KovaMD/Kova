@@ -18,8 +18,27 @@ const THUMB_W = 140;
 
 export function ThumbnailPanel({ slides, currentIndex, onSelect, theme = DEFAULT_THEME, docTitle, aspectRatio = { w: 16, h: 9 } }: Props) {
   const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
+
+  // Observe the outer panel div (no overflow) so a scrollbar appearing in the
+  // inner scroll container never triggers a width change and feedback loop.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(THUMB_W / SLIDE_W);
+
+  useEffect(() => {
+    if (!panelRef.current) return;
+    const obs = new ResizeObserver(([entry]) => {
+      // Subtract the 12px of horizontal padding (6px each side) from the scroll container.
+      const w = Math.max(1, entry.contentRect.width - 12);
+      setScale(w / SLIDE_W);
+    });
+    obs.observe(panelRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const thumbH = Math.round(slideH * scale);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1a1a1a' }}>
+    <div ref={panelRef} style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1a1a1a' }}>
       <div className="panel-header">Slides</div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 6px' }}>
         {slides.length === 0 ? (
@@ -37,7 +56,9 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, theme = DEFAULT
               onClick={() => onSelect(i)}
               theme={theme}
               docTitle={docTitle}
+              scale={scale}
               slideH={slideH}
+              thumbH={thumbH}
             />
           ))
         )}
@@ -55,25 +76,11 @@ interface ThumbnailProps {
   theme: Theme;
   docTitle?: string;
   slideH: number;
+  scale: number;
+  thumbH: number;
 }
 
-function Thumbnail({ slide, index, totalSlides, isActive, onClick, theme, docTitle, slideH }: ThumbnailProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(THUMB_W / SLIDE_W);
-
-  // Recalculate scale when container width changes
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const obs = new ResizeObserver(([entry]) => {
-      const w = entry.contentRect.width;
-      setScale(w / SLIDE_W);
-    });
-    obs.observe(containerRef.current);
-    return () => obs.disconnect();
-  }, []);
-
-  const thumbH = Math.round(slideH * scale);
-
+function Thumbnail({ slide, index, totalSlides, isActive, onClick, theme, docTitle, slideH, scale, thumbH }: ThumbnailProps) {
   return (
     <div
       onClick={onClick}
@@ -89,7 +96,6 @@ function Thumbnail({ slide, index, totalSlides, isActive, onClick, theme, docTit
     >
       {/* Scaled slide render */}
       <div
-        ref={containerRef}
         style={{ width: '100%', height: thumbH, overflow: 'hidden', position: 'relative' }}
       >
         <div
