@@ -2,12 +2,14 @@ export interface AppSettings {
   autosave: boolean;
   autosaveIntervalSeconds: number; // 15 | 30 | 60 | 300
   confirmOnClose: boolean;
+  checkForUpdates: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   autosave: true,
   autosaveIntervalSeconds: 30,
   confirmOnClose: true,
+  checkForUpdates: false,
 };
 
 const KEY = 'kova:settings';

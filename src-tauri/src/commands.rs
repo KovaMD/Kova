@@ -122,6 +122,46 @@ pub fn load_custom_themes(app: AppHandle) -> Result<Vec<(String, String)>, Strin
     Ok(result)
 }
 
+/// Fetches the latest GitHub release tag and compares it against the bundled version.
+/// Returns { latest_tag, has_update }. No unique identifiers are sent — the only
+/// outbound data is the app version in the User-Agent header.
+#[tauri::command]
+pub fn check_for_update(app: AppHandle) -> Result<UpdateInfo, String> {
+    let current = app.package_info().version.to_string();
+    let agent = ureq::AgentBuilder::new()
+        .timeout(std::time::Duration::from_secs(10))
+        .build();
+    let body: serde_json::Value = agent
+        .get("https://api.github.com/repos/KovaMD/Kova/releases/latest")
+        .set("User-Agent", &format!("Kova/{current}"))
+        .set("Accept", "application/vnd.github.v3+json")
+        .call()
+        .map_err(|e| format!("Network error: {e}"))?
+        .into_json()
+        .map_err(|e| format!("Parse error: {e}"))?;
+    let latest_tag = body["tag_name"]
+        .as_str()
+        .ok_or("Unexpected API response")?
+        .to_string();
+    let has_update = semver_gt(&latest_tag, &current);
+    Ok(UpdateInfo { latest_tag, has_update })
+}
+
+#[derive(serde::Serialize)]
+pub struct UpdateInfo {
+    pub latest_tag: String,
+    pub has_update: bool,
+}
+
+fn semver_gt(a: &str, b: &str) -> bool {
+    fn parse(s: &str) -> (u64, u64, u64) {
+        let s = s.trim_start_matches('v').split('-').next().unwrap_or(s);
+        let p: Vec<u64> = s.split('.').filter_map(|n| n.parse().ok()).collect();
+        (p.first().copied().unwrap_or(0), p.get(1).copied().unwrap_or(0), p.get(2).copied().unwrap_or(0))
+    }
+    parse(a) > parse(b)
+}
+
 /// Returns a sorted, deduplicated list of font family names available on the system.
 /// Uses fontconfig (fc-list) on Linux/macOS; returns an empty list if unavailable.
 #[tauri::command]

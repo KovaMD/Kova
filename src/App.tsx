@@ -77,6 +77,7 @@ export default function App() {
   const [settings, setSettings]           = useState<AppSettings>(loadSettings);
   const [showSettings, setShowSettings]   = useState(false);
   const [confirmCloseAction, setConfirmCloseAction] = useState<(() => void) | null>(null);
+  const [availableUpdate, setAvailableUpdate] = useState<string | null>(null);
   const [keybindings, setKeybindings]     = useState<Keybindings>({ path: '', combos: {} });
 
   // Theme state: active theme id + per-session overrides
@@ -159,6 +160,15 @@ export default function App() {
   useEffect(() => {
     loadKeybindings().then(setKeybindings).catch(() => {});
   }, []);
+
+  // Startup update check (only when opt-in setting is enabled)
+  useEffect(() => {
+    if (!settings.checkForUpdates) return;
+    invoke<{ latest_tag: string; has_update: boolean }>('check_for_update')
+      .then((r) => { if (r.has_update) setAvailableUpdate(r.latest_tag); })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally runs once on mount
 
   // Window title
   useEffect(() => {
@@ -408,13 +418,20 @@ export default function App() {
         <button
           className="wm-btn"
           onClick={() => setShowSettings(true)}
-          title="Settings"
-          style={{ marginLeft: 4 }}
+          title={availableUpdate ? `Settings (update ${availableUpdate} available)` : 'Settings'}
+          style={{ marginLeft: 4, position: 'relative' }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
+          {availableUpdate && (
+            <span style={{
+              position: 'absolute', top: 3, right: 3,
+              width: 6, height: 6, borderRadius: '50%',
+              background: '#D94F00', pointerEvents: 'none',
+            }} />
+          )}
         </button>
         {!isMac && (
           <div className="wm-controls">
@@ -503,7 +520,9 @@ export default function App() {
         <SettingsModal
           settings={settings}
           keybindingsPath={keybindings.path}
+          availableUpdate={availableUpdate}
           onChange={handleSettingsChange}
+          onUpdateChecked={setAvailableUpdate}
           onClose={() => setShowSettings(false)}
         />
       )}

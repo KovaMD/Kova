@@ -1,4 +1,7 @@
 import type { ReactNode } from 'react';
+import { useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { openPath } from '@tauri-apps/plugin-opener';
 import type { AppSettings } from '../store/settings';
 
@@ -86,16 +89,35 @@ function Section({ label }: { label: string }) {
 
 // ── Main modal ────────────────────────────────────────────────────────────────
 
+type CheckState = 'idle' | 'checking' | { tag: string; hasUpdate: boolean } | 'error';
+
 interface Props {
   settings: AppSettings;
   keybindingsPath: string;
+  availableUpdate: string | null;
   onChange: (s: AppSettings) => void;
+  onUpdateChecked: (tag: string | null) => void;
   onClose: () => void;
 }
 
-export function SettingsModal({ settings, keybindingsPath, onChange, onClose }: Props) {
+export function SettingsModal({ settings, keybindingsPath, availableUpdate, onChange, onUpdateChecked, onClose }: Props) {
   const set = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) =>
     onChange({ ...settings, [key]: value });
+
+  const [checkState, setCheckState] = useState<CheckState>(
+    availableUpdate ? { tag: availableUpdate, hasUpdate: true } : 'idle',
+  );
+
+  async function runCheck() {
+    setCheckState('checking');
+    try {
+      const result = await invoke<{ latest_tag: string; has_update: boolean }>('check_for_update');
+      setCheckState({ tag: result.latest_tag, hasUpdate: result.has_update });
+      onUpdateChecked(result.has_update ? result.latest_tag : null);
+    } catch {
+      setCheckState('error');
+    }
+  }
 
   return (
     <>
@@ -235,6 +257,58 @@ export function SettingsModal({ settings, keybindingsPath, onChange, onClose }: 
               Open file
             </button>
           </div>
+        </div>
+
+        {/* Updates */}
+        <Section label="Updates" />
+
+        <Row
+          label="Check for updates on launch"
+          description="Fetches the latest release tag from github.com/KovaMD/Kova on startup. No personal data is sent."
+          control={<Toggle checked={settings.checkForUpdates} onChange={(v) => set('checkForUpdates', v)} />}
+        />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 4 }}>
+          <button
+            type="button"
+            onClick={runCheck}
+            disabled={checkState === 'checking'}
+            style={{
+              padding: '5px 14px',
+              fontSize: 11,
+              borderRadius: 4,
+              border: '1px solid #3a3a3a',
+              background: '#2a2a2a',
+              color: checkState === 'checking' ? '#555' : '#ccc',
+              cursor: checkState === 'checking' ? 'default' : 'pointer',
+            }}
+          >
+            {checkState === 'checking' ? 'Checking…' : 'Check now'}
+          </button>
+
+          {checkState === 'error' && (
+            <span style={{ fontSize: 11, color: '#c0392b' }}>Could not reach GitHub</span>
+          )}
+          {typeof checkState === 'object' && !checkState.hasUpdate && (
+            <span style={{ fontSize: 11, color: '#555' }}>Up to date (v{APP_VERSION})</span>
+          )}
+          {typeof checkState === 'object' && checkState.hasUpdate && (
+            <button
+              type="button"
+              onClick={() => openUrl('https://github.com/KovaMD/Kova/releases/latest').catch(() => {})}
+              style={{
+                fontSize: 11,
+                color: '#D94F00',
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
+            >
+              {checkState.tag} available — download
+            </button>
+          )}
         </div>
 
         {/* About */}
