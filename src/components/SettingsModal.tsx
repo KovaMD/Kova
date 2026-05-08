@@ -1,11 +1,9 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { openUrl } from '@tauri-apps/plugin-opener';
-import { openPath } from '@tauri-apps/plugin-opener';
+import { openUrl, openPath } from '@tauri-apps/plugin-opener';
 import type { AppSettings } from '../store/settings';
-
-const APP_VERSION = '0.1.1';
+import { checkForUpdate } from '../engine/updateCheck';
+import { APP_VERSION } from '../version';
 
 const INTERVAL_OPTIONS: { label: string; value: number }[] = [
   { label: '15 sec',  value: 15  },
@@ -111,9 +109,9 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
   async function runCheck() {
     setCheckState('checking');
     try {
-      const result = await invoke<{ latest_tag: string; has_update: boolean }>('check_for_update');
-      setCheckState({ tag: result.latest_tag, hasUpdate: result.has_update });
-      onUpdateChecked(result.has_update ? result.latest_tag : null);
+      const { latestTag, hasUpdate } = await checkForUpdate();
+      setCheckState({ tag: latestTag, hasUpdate });
+      onUpdateChecked(hasUpdate ? latestTag : null);
     } catch {
       setCheckState('error');
     }

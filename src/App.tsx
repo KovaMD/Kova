@@ -18,6 +18,7 @@ import type { Keybindings } from './engine/keybindings';
 
 import yaml from 'js-yaml';
 import { parseDocument } from './engine/parser/markdownToSlides';
+import { checkForUpdate } from './engine/updateCheck';
 import { exportToPptx } from './engine/export/exportPptx';
 import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml } from './engine/theme';
 import type { Slide, Frontmatter, ListItem } from './engine/types';
@@ -164,8 +165,8 @@ export default function App() {
   // Startup update check (only when opt-in setting is enabled)
   useEffect(() => {
     if (!settings.checkForUpdates) return;
-    invoke<{ latest_tag: string; has_update: boolean }>('check_for_update')
-      .then((r) => { if (r.has_update) setAvailableUpdate(r.latest_tag); })
+    checkForUpdate()
+      .then(({ latestTag, hasUpdate }) => { if (hasUpdate) setAvailableUpdate(latestTag); })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally runs once on mount
