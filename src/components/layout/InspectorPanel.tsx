@@ -5,6 +5,8 @@ import { ThemePicker } from '../inspector/ThemePicker';
 import { ColorControls } from '../inspector/ColorControls';
 import { FontControls } from '../inspector/FontControls';
 import { LogoControls } from '../inspector/LogoControls';
+import { FormatControls } from '../inspector/FormatControls';
+import type { FormatCmd } from './EditorPanel';
 
 interface Props {
   filePath: string | null;
@@ -14,16 +16,17 @@ interface Props {
   allThemes: Theme[];
   onThemeSelect: (id: string) => void;
   onThemeChange: (patch: Partial<Theme>) => void;
+  onFormat: (cmd: FormatCmd) => void;
   onExport?: () => Promise<void>;
 }
 
-type Section = 'theme' | 'colours' | 'fonts' | 'branding' | 'export';
+type Section = 'format' | 'theme' | 'colours' | 'fonts' | 'branding';
 
 export function InspectorPanel({
   filePath, slideCount, frontmatter,
-  theme, allThemes, onThemeSelect, onThemeChange, onExport,
+  theme, allThemes, onThemeSelect, onThemeChange, onFormat, onExport,
 }: Props) {
-  const [open, setOpen] = useState<Section | null>('theme');
+  const [open, setOpen] = useState<Section | null>('format');
   const [exporting, setExporting] = useState(false);
   const toggle = (s: Section) => setOpen((prev) => (prev === s ? null : s));
 
@@ -46,6 +49,13 @@ export function InspectorPanel({
           {frontmatter.author && <Row label="Author" value={frontmatter.author} />}
           {frontmatter.date   && <Row label="Date"   value={String(frontmatter.date)} />}
         </InfoSection>
+
+        <Divider />
+
+        {/* Text formatting */}
+        <Accordion label="Format" open={open === 'format'} onToggle={() => toggle('format')}>
+          <FormatControls onFormat={onFormat} />
+        </Accordion>
 
         <Divider />
 

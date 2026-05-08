@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { indentWithTab } from '@codemirror/commands';
 import { EditorSelection, EditorState } from '@codemirror/state';
@@ -101,9 +101,49 @@ function makeHeadingCommand(level: number) {
   };
 }
 
+function makeLinePrefixCommand(prefix: string) {
+  return (view: EditorView): boolean => {
+    const { state } = view;
+    const { from } = state.selection.main;
+    const line = state.doc.lineAt(from);
+    if (line.text.startsWith(prefix)) {
+      view.dispatch({
+        changes: { from: line.from, to: line.from + prefix.length, insert: '' },
+        selection: EditorSelection.cursor(Math.max(line.from, from - prefix.length)),
+      });
+    } else {
+      view.dispatch({
+        changes: { from: line.from, insert: prefix },
+        selection: EditorSelection.cursor(from + prefix.length),
+      });
+    }
+    view.focus();
+    return true;
+  };
+}
+
+export type FormatCmd =
+  | { type: 'heading'; level: 1 | 2 | 3 | 4 | 5 | 6 }
+  | { type: 'bold' }
+  | { type: 'italic' }
+  | { type: 'underline' }
+  | { type: 'strikethrough' }
+  | { type: 'code' }
+  | { type: 'ul' }
+  | { type: 'ol' }
+  | { type: 'blockquote' }
+  | { type: 'hr' };
+
+export interface EditorHandle {
+  runFormat: (cmd: FormatCmd) => void;
+}
+
 interface ContextMenuState { x: number; y: number; hasSelection: boolean }
 
-export function EditorPanel({ content, onChange, onCursorSlide, focusMode = false, filePath }: Props) {
+export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
+  { content, onChange, onCursorSlide, focusMode = false, filePath }: Props,
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -115,6 +155,31 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { onCursorSlideRef.current = onCursorSlide; }, [onCursorSlide]);
   useEffect(() => { filePathRef.current = filePath; }, [filePath]);
+
+  useImperativeHandle(ref, () => ({
+    runFormat(cmd: FormatCmd) {
+      const view = viewRef.current;
+      if (!view) return;
+      switch (cmd.type) {
+        case 'heading':      makeHeadingCommand(cmd.level)(view); break;
+        case 'bold':         makeWrapCommand('**', '**', 'bold text')(view); break;
+        case 'italic':       makeWrapCommand('*', '*', 'italic text')(view); break;
+        case 'underline':    makeWrapCommand('<u>', '</u>', 'underlined text')(view); break;
+        case 'strikethrough':makeWrapCommand('~~', '~~', 'strikethrough text')(view); break;
+        case 'code':         makeWrapCommand('`', '`', 'code')(view); break;
+        case 'ul':           makeLinePrefixCommand('- ')(view); break;
+        case 'ol':           makeLinePrefixCommand('1. ')(view); break;
+        case 'blockquote':   makeLinePrefixCommand('> ')(view); break;
+        case 'hr': {
+          const { from } = view.state.selection.main;
+          const insert = '\n---\n';
+          view.dispatch({ changes: { from, insert }, selection: EditorSelection.cursor(from + insert.length) });
+          view.focus();
+          break;
+        }
+      }
+    },
+  }), []);
 
   // Create editor once
   useEffect(() => {
@@ -416,4 +481,4 @@ export function EditorPanel({ content, onChange, onCursorSlide, focusMode = fals
     )}
     </>
   );
-}
+});

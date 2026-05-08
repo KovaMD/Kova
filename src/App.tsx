@@ -7,6 +7,7 @@ import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, usePanelRef
 
 import { ThumbnailPanel } from './components/layout/ThumbnailPanel';
 import { EditorPanel } from './components/layout/EditorPanel';
+import type { EditorHandle, FormatCmd } from './components/layout/EditorPanel';
 import { InspectorPanel } from './components/layout/InspectorPanel';
 import { StatusBar } from './components/layout/StatusBar';
 import { PresentationOverlay } from './components/presentation/PresentationOverlay';
@@ -77,6 +78,7 @@ export default function App() {
   const [presentMode, setPresentMode]     = useState(false);
   const [settings, setSettings]           = useState<AppSettings>(loadSettings);
   const [showSettings, setShowSettings]   = useState(false);
+  const [showInspector, setShowInspector] = useState(true);
   const [confirmCloseAction, setConfirmCloseAction] = useState<(() => void) | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<string | null>(null);
   const [keybindings, setKeybindings]     = useState<Keybindings>({ path: '', combos: {} });
@@ -100,6 +102,11 @@ export default function App() {
   // Panel refs for Focus Mode collapse
   const thumbPanelRef     = usePanelRef();
   const inspectorPanelRef = usePanelRef();
+  const editorRef         = useRef<EditorHandle>(null);
+
+  const handleFormat = useCallback((cmd: FormatCmd) => {
+    editorRef.current?.runFormat(cmd);
+  }, []);
 
   const { slides: rawSlides, frontmatter } = useMemo(() => {
     if (!content.trim()) return { slides: EMPTY_SLIDES, frontmatter: EMPTY_FM };
@@ -209,11 +216,11 @@ export default function App() {
         inspectorPanelRef.current?.collapse();
       } else {
         thumbPanelRef.current?.expand();
-        inspectorPanelRef.current?.expand();
+        if (showInspector) inspectorPanelRef.current?.expand();
       }
       return next;
     });
-  }, [thumbPanelRef, inspectorPanelRef]);
+  }, [thumbPanelRef, inspectorPanelRef, showInspector]);
 
   const guardDirty = useCallback((action: () => void) => {
     if (isDirty && settings.confirmOnClose) {
@@ -345,13 +352,13 @@ export default function App() {
       if (presentMode) return;
       if (matchShortcut(e, sc('newFile')))   { e.preventDefault(); handleNewFile(); }
       if (matchShortcut(e, sc('openFile')))  { e.preventDefault(); handleOpenFile(); }
-      if (matchShortcut(e, sc('save')))      { e.preventDefault(); handleSave(); }
+      if (matchShortcut(e, sc('save')))      { e.preventDefault(); if (filePath) handleSave(); else handleSaveAs(); }
       if (matchShortcut(e, sc('saveAs')))    { e.preventDefault(); handleSaveAs(); }
       if (matchShortcut(e, sc('focusMode'))) { e.preventDefault(); toggleFocusMode(); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [presentMode, keybindings.combos, handleNewFile, handleOpenFile, handleSave, handleSaveAs, toggleFocusMode]);
+  }, [presentMode, keybindings.combos, filePath, handleNewFile, handleOpenFile, handleSave, handleSaveAs, toggleFocusMode]);
 
   return (
     <div className="app">
@@ -417,10 +424,22 @@ export default function App() {
           title="Present from slide 1 (Alt+click to start from current slide)"
         >▶ Present</button>
         <button
+          className={`wm-btn${showInspector ? ' wm-btn--active' : ''}`}
+          onClick={() => setShowInspector((v) => !v)}
+          title="Toggle inspector"
+          style={{ marginLeft: 4 }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="8" strokeWidth="2"/>
+            <line x1="12" y1="12" x2="12" y2="16"/>
+          </svg>
+        </button>
+        <button
           className="wm-btn"
           onClick={() => setShowSettings(true)}
           title={availableUpdate ? `Settings (update ${availableUpdate} available)` : 'Settings'}
-          style={{ marginLeft: 4, position: 'relative' }}
+          style={{ position: 'relative' }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3"/>
@@ -484,6 +503,7 @@ export default function App() {
 
           <Panel defaultSize={72} minSize={20}>
             <EditorPanel
+              ref={editorRef}
               content={content}
               onChange={handleContentChange}
               onCursorSlide={setCurrentSlideIndex}
@@ -492,20 +512,23 @@ export default function App() {
             />
           </Panel>
 
-          <PanelResizeHandle />
+          {showInspector && <PanelResizeHandle />}
 
-          <Panel panelRef={inspectorPanelRef} defaultSize={14} minSize={8} collapsible>
-            <InspectorPanel
-              filePath={filePath}
-              slideCount={slides.length}
-              frontmatter={frontmatter}
-              theme={activeTheme}
-              allThemes={allThemes}
-              onThemeSelect={handleThemeSelect}
-              onThemeChange={handleThemeChange}
-              onExport={handleExport}
-            />
-          </Panel>
+          {showInspector && (
+            <Panel panelRef={inspectorPanelRef} defaultSize={14} minSize={8} collapsible>
+              <InspectorPanel
+                filePath={filePath}
+                slideCount={slides.length}
+                frontmatter={frontmatter}
+                theme={activeTheme}
+                allThemes={allThemes}
+                onThemeSelect={handleThemeSelect}
+                onThemeChange={handleThemeChange}
+                onFormat={handleFormat}
+                onExport={handleExport}
+              />
+            </Panel>
+          )}
         </PanelGroup>
       </div>
 

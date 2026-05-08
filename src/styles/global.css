@@ -120,6 +120,10 @@ html, body, #root {
   color: #fff;
 }
 
+.wm-btn--active {
+  color: var(--text-primary);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
