@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { openUrl, openPath } from '@tauri-apps/plugin-opener';
-import type { AppSettings } from '../store/settings';
+import type { AppSettings, PresentationMode, NotesFontSize } from '../store/settings';
 import { checkForUpdate } from '../engine/updateCheck';
 import { APP_VERSION } from '../version';
 
@@ -213,6 +213,71 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
           description="Ask for confirmation when closing a file with unsaved changes."
           control={<Toggle checked={settings.confirmOnClose} onChange={(v) => set('confirmOnClose', v)} />}
         />
+
+        {/* Presentation */}
+        <Section label="Presentation" />
+
+        <div style={{ padding: '10px 0' }}>
+          <div style={{ fontSize: 13, color: '#e8e8e8', marginBottom: 4 }}>Display mode</div>
+          <div style={{ fontSize: 11, color: '#777', marginBottom: 10, lineHeight: 1.5 }}>
+            Auto detects connected displays at presentation time — dual presenter view if a second screen is found, single screen otherwise. Mirror shows the same slide on both displays.
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([
+              { value: 'auto',   label: 'Auto'          },
+              { value: 'single', label: 'Single screen' },
+              { value: 'dual',   label: 'Dual screen'   },
+              { value: 'mirror', label: 'Mirror'        },
+            ] as { value: PresentationMode; label: string }[]).map(({ value, label }) => {
+              const active = settings.presentationMode === value;
+              return (
+                <button key={value} type="button" onClick={() => set('presentationMode', value)} style={{
+                  flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 4,
+                  border: `1px solid ${active ? '#D94F00' : '#3a3a3a'}`,
+                  background: active ? 'rgba(217,79,0,0.15)' : '#2a2a2a',
+                  color: active ? '#D94F00' : '#aaa',
+                  cursor: 'pointer', fontWeight: active ? 600 : 400, transition: 'all 0.12s',
+                }}>{label}</button>
+              );
+            })}
+          </div>
+        </div>
+
+        {settings.presentationMode === 'dual' && (
+          <>
+            <Row
+              label="Show next slide preview"
+              description="Displays a preview of the upcoming slide in the presenter view."
+              control={<Toggle checked={settings.presenterShowNextSlide} onChange={(v) => set('presenterShowNextSlide', v)} />}
+            />
+            <Row
+              label="Show elapsed timer"
+              description="Displays a running clock from the moment the presentation starts."
+              control={<Toggle checked={settings.presenterShowTimer} onChange={(v) => set('presenterShowTimer', v)} />}
+            />
+            <div style={{ padding: '6px 0 10px' }}>
+              <div style={{ fontSize: 11, color: '#777', marginBottom: 8 }}>Notes font size</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {([
+                  { value: 'sm', label: 'Small'  },
+                  { value: 'md', label: 'Medium' },
+                  { value: 'lg', label: 'Large'  },
+                ] as { value: NotesFontSize; label: string }[]).map(({ value, label }) => {
+                  const active = settings.presenterNotesFontSize === value;
+                  return (
+                    <button key={value} type="button" onClick={() => set('presenterNotesFontSize', value)} style={{
+                      flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 4,
+                      border: `1px solid ${active ? '#D94F00' : '#3a3a3a'}`,
+                      background: active ? 'rgba(217,79,0,0.15)' : '#2a2a2a',
+                      color: active ? '#D94F00' : '#aaa',
+                      cursor: 'pointer', fontWeight: active ? 600 : 400, transition: 'all 0.12s',
+                    }}>{label}</button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Keyboard Shortcuts */}
         <Section label="Keyboard Shortcuts" />

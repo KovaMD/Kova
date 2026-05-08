@@ -44,9 +44,11 @@ export interface Slide {
 
 export interface AspectRatio { w: number; h: number }
 
-export function parseAspectRatio(ar?: string): AspectRatio {
-  if (ar === '4:3') return { w: 4, h: 3 };
-  return { w: 16, h: 9 }; // 16:9 default
+export function parseAspectRatio(ar?: string, fallback?: string): AspectRatio {
+  const value = ar ?? fallback;
+  if (value === '4:3')   return { w: 4,  h: 3 };
+  if (value === '16:10') return { w: 16, h: 10 };
+  return { w: 16, h: 9 };
 }
 
 export interface Frontmatter {

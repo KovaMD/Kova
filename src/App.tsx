@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
-import { listen } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { emit, listen } from '@tauri-apps/api/event';
+import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, usePanelRef } from 'react-resizable-panels';
 
 import { ThumbnailPanel } from './components/layout/ThumbnailPanel';
@@ -11,6 +12,8 @@ import type { EditorHandle, FormatCmd } from './components/layout/EditorPanel';
 import { InspectorPanel } from './components/layout/InspectorPanel';
 import { StatusBar } from './components/layout/StatusBar';
 import { PresentationOverlay } from './components/presentation/PresentationOverlay';
+import { PresenterOverlay } from './components/presentation/PresenterOverlay';
+import type { PresentInitPayload } from './AudienceApp';
 import { SettingsModal } from './components/SettingsModal';
 import { loadSettings, saveSettings } from './store/settings';
 import type { AppSettings } from './store/settings';
@@ -79,6 +82,7 @@ export default function App() {
   const [settings, setSettings]           = useState<AppSettings>(loadSettings);
   const [showSettings, setShowSettings]   = useState(false);
   const [showInspector, setShowInspector] = useState(true);
+  const [presenterMode, setPresenterMode] = useState(false);
   const [confirmCloseAction, setConfirmCloseAction] = useState<(() => void) | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<string | null>(null);
   const [keybindings, setKeybindings]     = useState<Keybindings>({ path: '', combos: {} });
@@ -242,13 +246,69 @@ export default function App() {
 
   const handlePresentEnter = useCallback(async (e?: React.MouseEvent) => {
     if (slides.length === 0) return;
+    const startIndex = e?.altKey ? safeSlideIndex : 0;
     if (!e?.altKey) setCurrentSlideIndex(0);
+
+    // Resolve 'auto': detect monitors first, then pick mode
+    let all: Awaited<ReturnType<typeof availableMonitors>> = [];
+    let primary: Awaited<ReturnType<typeof primaryMonitor>> = null;
+    try { [all, primary] = await Promise.all([availableMonitors(), primaryMonitor()]); } catch { /* ignore */ }
+    const external = all.length > 1
+      ? (all.find((m) => m.name !== primary?.name) ?? all[all.length - 1])
+      : null;
+
+    const rawMode = settings.presentationMode;
+    const mode: Exclude<typeof rawMode, 'auto'> =
+      rawMode === 'auto' ? (external ? 'dual' : 'single') : rawMode;
+
+    if (mode === 'dual' || mode === 'mirror') {
+
+      if (external) {
+        const initPayload: PresentInitPayload = {
+          slides,
+          theme: activeTheme,
+          index: startIndex,
+          aspectRatio,
+          docTitle: frontmatter.title,
+        };
+
+        // Register ready listener BEFORE creating the window to avoid missing the event
+        const unlistenReady = await listen('present:ready', async () => {
+          unlistenReady();
+          await emit('present:init', initPayload);
+        });
+
+        new WebviewWindow('audience', {
+          url: '/#audience',
+          x: external.position.x,
+          y: external.position.y,
+          width: external.size.width,
+          height: external.size.height,
+          fullscreen: true,
+          decorations: false,
+          title: 'Kova — Presentation',
+          resizable: false,
+          focus: false, // keep focus on presenter window
+        });
+
+        if (mode === 'dual') {
+          setPresenterMode(true);
+          return; // don't fullscreen the main window — it shows the presenter view
+        }
+        // Mirror: audience window shows slide, main window also fullscreens with normal overlay
+      }
+      // Fall through to single if no external monitor
+    }
+
     setPresentMode(true);
     await getCurrentWindow().setFullscreen(true).catch(() => {});
-  }, [slides.length]);
+  }, [slides, safeSlideIndex, activeTheme, aspectRatio, frontmatter.title, settings.presentationMode]);
 
   const handlePresentExit = useCallback(async () => {
+    // Close audience window if open
+    await emit('present:exit', null).catch(() => {});
     setPresentMode(false);
+    setPresenterMode(false);
     await getCurrentWindow().setFullscreen(false).catch(() => {});
   }, []);
 
@@ -369,6 +429,20 @@ export default function App() {
           theme={activeTheme}
           docTitle={frontmatter.title}
           aspectRatio={aspectRatio}
+          onNavigate={setCurrentSlideIndex}
+          onExit={handlePresentExit}
+        />
+      )}
+      {presenterMode && (
+        <PresenterOverlay
+          slides={slides}
+          currentIndex={safeSlideIndex}
+          theme={activeTheme}
+          docTitle={frontmatter.title}
+          aspectRatio={aspectRatio}
+          showNextSlide={settings.presenterShowNextSlide}
+          showTimer={settings.presenterShowTimer}
+          notesFontSize={settings.presenterNotesFontSize}
           onNavigate={setCurrentSlideIndex}
           onExit={handlePresentExit}
         />

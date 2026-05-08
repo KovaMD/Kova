@@ -1,0 +1,201 @@
+/* ── Root ──────────────────────────────────────────────────────────────────── */
+
+.pres-presenter {
+  position: fixed;
+  inset: 0;
+  background: #111;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  z-index: 9999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── Main area (current slide + right column) ─────────────────────────────── */
+
+.pres-presenter__main {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Current slide ─────────────────────────────────────────────────────────── */
+
+.pres-presenter__current {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a0a0a;
+  border-radius: 6px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Constrain to both available width and height while preserving aspect ratio */
+.pres-presenter__current-frame {
+  position: relative;
+  width: min(
+    calc(100vw - var(--presenter-right-w, 280px) - 12px - 24px),
+    calc((100vh - var(--presenter-hud-h, 56px) - 24px) * var(--pres-ar-w, 16) / var(--pres-ar-h, 9))
+  );
+  aspect-ratio: var(--pres-ar-w, 16) / var(--pres-ar-h, 9);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* ── Right column ─────────────────────────────────────────────────────────── */
+
+.pres-presenter__right {
+  width: var(--presenter-right-w, 280px);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+/* ── Next slide preview ────────────────────────────────────────────────────── */
+
+.pres-presenter__next {
+  flex-shrink: 0;
+}
+
+.pres-presenter__next-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+.pres-presenter__next-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--pres-ar-w, 16) / var(--pres-ar-h, 9);
+  overflow: hidden;
+  border-radius: 4px;
+  border: 1px solid #222;
+  opacity: 0.75;
+}
+
+/* ── Speaker notes ─────────────────────────────────────────────────────────── */
+
+.pres-presenter__notes {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #1a1a1a;
+  border-radius: 6px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.pres-presenter__notes-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.pres-presenter__notes-text {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0;
+  line-height: 1.6;
+  color: #ccc;
+  white-space: pre-wrap;
+}
+.pres-presenter__notes-text--sm { font-size: 12px; }
+.pres-presenter__notes-text--md { font-size: 14px; }
+.pres-presenter__notes-text--lg { font-size: 17px; }
+
+.pres-presenter__notes-empty {
+  color: #333;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* ── HUD bar ──────────────────────────────────────────────────────────────── */
+
+.pres-presenter__hud {
+  height: var(--presenter-hud-h, 56px);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #0d0d0d;
+  border-top: 1px solid #1e1e1e;
+  padding: 0 16px;
+}
+
+.pres-presenter__hud-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pres-presenter__hud-divider {
+  width: 1px;
+  height: 20px;
+  background: #2a2a2a;
+  margin: 0 4px;
+}
+
+.pres-presenter__counter {
+  font-size: 13px;
+  color: #666;
+  font-variant-numeric: tabular-nums;
+  min-width: 56px;
+  text-align: center;
+}
+
+.pres-presenter__timer {
+  font-size: 13px;
+  color: #555;
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', monospace;
+  min-width: 60px;
+  text-align: center;
+}
+
+.pres-presenter__btn {
+  background: none;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  color: #777;
+  font-size: 13px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.pres-presenter__btn:hover:not(:disabled) {
+  color: #ddd;
+  border-color: #555;
+}
+
+.pres-presenter__btn:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.pres-presenter__btn--exit {
+  margin-left: 8px;
+  color: #555;
+}
+
+.pres-presenter__btn--exit:hover {
+  color: #e05050 !important;
+  border-color: #e05050 !important;
+}

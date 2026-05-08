@@ -1,8 +1,16 @@
+export type PresentationMode  = 'auto' | 'single' | 'dual' | 'mirror';
+export type NotesFontSize     = 'sm' | 'md' | 'lg';
+
 export interface AppSettings {
   autosave: boolean;
   autosaveIntervalSeconds: number; // 15 | 30 | 60 | 300
   confirmOnClose: boolean;
   checkForUpdates: boolean;
+  // Presentation
+  presentationMode: PresentationMode;
+  presenterShowNextSlide: boolean;
+  presenterShowTimer: boolean;
+  presenterNotesFontSize: NotesFontSize;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -10,6 +18,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   autosaveIntervalSeconds: 30,
   confirmOnClose: true,
   checkForUpdates: false,
+  presentationMode: 'auto',
+  presenterShowNextSlide: true,
+  presenterShowTimer: true,
+  presenterNotesFontSize: 'md',
 };
 
 const KEY = 'kova:settings';
