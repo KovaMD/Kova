@@ -14,8 +14,9 @@ interface Props {
   onExit: () => void;
 }
 
-const HUD_H  = 40;  // px — HUD bar height
-const NOTE_H = 160; // px — speaker notes panel height
+const HUD_H   = 40;   // px — HUD bar height
+const NOTE_H  = 160;  // px — speaker notes panel height
+const SLIDE_W = 960;  // virtual slide width (matches ThumbnailPanel)
 
 export function PresentationOverlay({
   slides, currentIndex, theme, docTitle, aspectRatio = { w: 16, h: 9 }, onNavigate, onExit,
@@ -25,12 +26,27 @@ export function PresentationOverlay({
 
   const [showNotes, setShowNotes] = useState(false);
   const [hudVisible, setHudVisible] = useState(true);
+  const [scale, setScale] = useState(1);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+
+  const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
 
   // Claim focus on mount so keyboard events reach the window after the macOS
   // fullscreen animation hands control back to the WebView.
   useEffect(() => { overlayRef.current?.focus(); }, []);
+
+  // Track the frame's actual rendered width so we can scale the virtual
+  // slide to fill it — same technique as ThumbnailPanel.
+  useEffect(() => {
+    if (!frameRef.current) return;
+    const obs = new ResizeObserver(([entry]) => {
+      setScale(entry.contentRect.width / SLIDE_W);
+    });
+    obs.observe(frameRef.current);
+    return () => obs.disconnect();
+  }, []);
 
   // ── Navigation helpers ─────────────────────────────────────────────────────
 
@@ -104,15 +120,23 @@ export function PresentationOverlay({
       <div className="pres-slide-area" onClick={handleClick}
         style={{ cursor: hudVisible ? 'default' : 'none' }}
       >
-        <div className="pres-slide-frame">
-          <SlideRenderer
-            slide={slide}
-            theme={theme}
-            slideNumber={currentIndex + 1}
-            totalSlides={total}
-            docTitle={docTitle}
-            isPresentation
-          />
+        <div ref={frameRef} className="pres-slide-frame">
+          <div
+            style={{
+              width: SLIDE_W,
+              height: slideH,
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left',
+            }}
+          >
+            <SlideRenderer
+              slide={slide}
+              theme={theme}
+              slideNumber={currentIndex + 1}
+              totalSlides={total}
+              docTitle={docTitle}
+            />
+          </div>
         </div>
       </div>
 

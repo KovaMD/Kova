@@ -63,10 +63,9 @@ interface Props {
   docTitle?: string;
   scale?: number;
   isThumbnail?: boolean;
-  isPresentation?: boolean;
 }
 
-export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, docTitle = '', scale = 1, isThumbnail: isThumbnailProp, isPresentation }: Props) {
+export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, docTitle = '', scale = 1, isThumbnail: isThumbnailProp }: Props) {
   const vars = themeToVars(theme);
 
   const headerText = theme.header.show
@@ -94,7 +93,6 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
       className={`slide-frame layout-${slide.layout}`}
       style={{ ...vars, ...(scale !== 1 ? { transform: `scale(${scale})`, transformOrigin: 'top left' } : {}) }}
       data-layout={slide.layout}
-      data-pres={isPresentation || undefined}
     >
       {/* Header bar */}
       {theme.header.show && (
