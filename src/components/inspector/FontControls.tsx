@@ -79,9 +79,9 @@ function FontSelect({ value, groups, onChange }: {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          background: '#2a2a2a',
-          color: '#e8e8e8',
-          border: '1px solid #444',
+          background: 'var(--bg-input)',
+          color: 'var(--text-primary)',
+          border: '1px solid var(--border-input)',
           borderRadius: 4,
           padding: '4px 8px',
           fontSize: 11,
@@ -105,8 +105,8 @@ function FontSelect({ value, groups, onChange }: {
           left: 0,
           right: 0,
           zIndex: 9999,
-          background: '#222',
-          border: '1px solid #444',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-input)',
           borderRadius: 4,
           marginTop: 2,
           maxHeight: 220,
@@ -118,7 +118,7 @@ function FontSelect({ value, groups, onChange }: {
               <div style={{
                 padding: '5px 8px 2px',
                 fontSize: 10,
-                color: '#555',
+                color: 'var(--text-dim)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
                 userSelect: 'none',
@@ -132,14 +132,14 @@ function FontSelect({ value, groups, onChange }: {
                   style={{
                     padding: '5px 12px',
                     fontSize: 11,
-                    color: opt.value === value ? '#D94F00' : '#e8e8e8',
+                    color: opt.value === value ? 'var(--accent)' : 'var(--text-primary)',
                     background: 'transparent',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                   }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#333'; }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-hover)'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
                 >
                   {opt.label}
@@ -189,7 +189,7 @@ export function FontControls({ fonts, onChange }: Props) {
 
         return (
           <div key={key}>
-            <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 3 }}>
+            <label style={{ fontSize: 11, color: 'var(--text-label)', display: 'block', marginBottom: 3 }}>
               {label}
             </label>
             <FontSelect value={current} groups={groups} onChange={(v) => onChange(key, v)} />

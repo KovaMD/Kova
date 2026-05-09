@@ -12,6 +12,18 @@ const INTERVAL_OPTIONS: { label: string; value: number }[] = [
   { label: '5 min',   value: 300 },
 ];
 
+// ── Shared button group style ─────────────────────────────────────────────────
+
+function groupBtnStyle(active: boolean): React.CSSProperties {
+  return {
+    flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 4,
+    border: `1px solid ${active ? 'var(--accent)' : 'var(--border-alt)'}`,
+    background: active ? 'var(--accent-bg)' : 'var(--bg-input)',
+    color: active ? 'var(--accent)' : 'var(--text-secondary)',
+    cursor: 'pointer', fontWeight: active ? 600 : 400, transition: 'all 0.12s',
+  };
+}
+
 // ── Toggle switch ─────────────────────────────────────────────────────────────
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -28,7 +40,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
         height: 20,
         borderRadius: 10,
         border: 'none',
-        background: checked ? '#D94F00' : '#444',
+        background: checked ? 'var(--accent)' : 'var(--btn-border)',
         cursor: 'pointer',
         transition: 'background 0.18s',
         padding: 0,
@@ -55,9 +67,9 @@ function Row({ label, description, control }: { label: string; description?: str
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '10px 0' }}>
       <div>
-        <div style={{ fontSize: 13, color: '#e8e8e8', lineHeight: 1.4 }}>{label}</div>
+        <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.4 }}>{label}</div>
         {description && (
-          <div style={{ fontSize: 11, color: '#777', marginTop: 2, lineHeight: 1.4 }}>{description}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>{description}</div>
         )}
       </div>
       {control}
@@ -72,12 +84,12 @@ function Section({ label }: { label: string }) {
     <div style={{
       fontSize: 10,
       fontWeight: 600,
-      color: '#555',
+      color: 'var(--text-dim)',
       textTransform: 'uppercase',
       letterSpacing: '0.1em',
       paddingTop: 20,
       paddingBottom: 6,
-      borderTop: '1px solid #2e2e2e',
+      borderTop: '1px solid var(--border)',
       marginTop: 4,
     }}>
       {label}
@@ -124,7 +136,7 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
         onClick={onClose}
         style={{
           position: 'fixed', inset: 0,
-          background: 'rgba(0,0,0,0.55)',
+          background: 'var(--backdrop)',
           zIndex: 1000,
         }}
       />
@@ -138,8 +150,8 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
         maxWidth: '92vw',
         maxHeight: '85vh',
         overflowY: 'auto',
-        background: '#242424',
-        border: '1px solid #333',
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border)',
         borderRadius: 8,
         boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
         zIndex: 1001,
@@ -148,12 +160,12 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, color: '#e8e8e8' }}>Settings</h2>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>Settings</h2>
           <button
             type="button"
             onClick={onClose}
             style={{
-              background: 'none', border: 'none', color: '#666', cursor: 'pointer',
+              background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer',
               padding: 4, borderRadius: 4, lineHeight: 1,
             }}
           >
@@ -162,6 +174,22 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
               <line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           </button>
+        </div>
+
+        {/* Appearance */}
+        <Section label="Appearance" />
+
+        <div style={{ padding: '10px 0' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>App theme</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {(['dark', 'light'] as const).map((value) => (
+              <button key={value} type="button" onClick={() => set('uiTheme', value)}
+                style={groupBtnStyle(settings.uiTheme === value)}
+              >
+                {value === 'dark' ? 'Dark' : 'Light'}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Saving */}
@@ -175,32 +203,18 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
 
         {settings.autosave && (
           <div style={{ paddingBottom: 6 }}>
-            <div style={{ fontSize: 11, color: '#888', marginBottom: 8 }}>Save every</div>
+            <div style={{ fontSize: 11, color: 'var(--text-label)', marginBottom: 8 }}>Save every</div>
             <div style={{ display: 'flex', gap: 6 }}>
-              {INTERVAL_OPTIONS.map(({ label, value }) => {
-                const active = settings.autosaveIntervalSeconds === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => set('autosaveIntervalSeconds', value)}
-                    style={{
-                      flex: 1,
-                      padding: '5px 0',
-                      fontSize: 11,
-                      borderRadius: 4,
-                      border: `1px solid ${active ? '#D94F00' : '#3a3a3a'}`,
-                      background: active ? 'rgba(217,79,0,0.15)' : '#2a2a2a',
-                      color: active ? '#D94F00' : '#aaa',
-                      cursor: 'pointer',
-                      fontWeight: active ? 600 : 400,
-                      transition: 'all 0.12s',
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+              {INTERVAL_OPTIONS.map(({ label, value }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => set('autosaveIntervalSeconds', value)}
+                  style={groupBtnStyle(settings.autosaveIntervalSeconds === value)}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -218,8 +232,8 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
         <Section label="Presentation" />
 
         <div style={{ padding: '10px 0' }}>
-          <div style={{ fontSize: 13, color: '#e8e8e8', marginBottom: 4 }}>Display mode</div>
-          <div style={{ fontSize: 11, color: '#777', marginBottom: 10, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 4 }}>Display mode</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
             Auto detects connected displays at presentation time — dual presenter view if a second screen is found, single screen otherwise. Mirror shows the same slide on both displays.
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -228,18 +242,11 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
               { value: 'single', label: 'Single screen' },
               { value: 'dual',   label: 'Dual screen'   },
               { value: 'mirror', label: 'Mirror'        },
-            ] as { value: PresentationMode; label: string }[]).map(({ value, label }) => {
-              const active = settings.presentationMode === value;
-              return (
-                <button key={value} type="button" onClick={() => set('presentationMode', value)} style={{
-                  flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 4,
-                  border: `1px solid ${active ? '#D94F00' : '#3a3a3a'}`,
-                  background: active ? 'rgba(217,79,0,0.15)' : '#2a2a2a',
-                  color: active ? '#D94F00' : '#aaa',
-                  cursor: 'pointer', fontWeight: active ? 600 : 400, transition: 'all 0.12s',
-                }}>{label}</button>
-              );
-            })}
+            ] as { value: PresentationMode; label: string }[]).map(({ value, label }) => (
+              <button key={value} type="button" onClick={() => set('presentationMode', value)}
+                style={groupBtnStyle(settings.presentationMode === value)}
+              >{label}</button>
+            ))}
           </div>
         </div>
 
@@ -256,24 +263,17 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
               control={<Toggle checked={settings.presenterShowTimer} onChange={(v) => set('presenterShowTimer', v)} />}
             />
             <div style={{ padding: '6px 0 10px' }}>
-              <div style={{ fontSize: 11, color: '#777', marginBottom: 8 }}>Notes font size</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>Notes font size</div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {([
                   { value: 'sm', label: 'Small'  },
                   { value: 'md', label: 'Medium' },
                   { value: 'lg', label: 'Large'  },
-                ] as { value: NotesFontSize; label: string }[]).map(({ value, label }) => {
-                  const active = settings.presenterNotesFontSize === value;
-                  return (
-                    <button key={value} type="button" onClick={() => set('presenterNotesFontSize', value)} style={{
-                      flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 4,
-                      border: `1px solid ${active ? '#D94F00' : '#3a3a3a'}`,
-                      background: active ? 'rgba(217,79,0,0.15)' : '#2a2a2a',
-                      color: active ? '#D94F00' : '#aaa',
-                      cursor: 'pointer', fontWeight: active ? 600 : 400, transition: 'all 0.12s',
-                    }}>{label}</button>
-                  );
-                })}
+                ] as { value: NotesFontSize; label: string }[]).map(({ value, label }) => (
+                  <button key={value} type="button" onClick={() => set('presenterNotesFontSize', value)}
+                    style={groupBtnStyle(settings.presenterNotesFontSize === value)}
+                  >{label}</button>
+                ))}
               </div>
             </div>
           </>
@@ -283,8 +283,8 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
         <Section label="Keyboard Shortcuts" />
 
         <div style={{ padding: '10px 0' }}>
-          <div style={{ fontSize: 13, color: '#e8e8e8', marginBottom: 4 }}>Keybindings file</div>
-          <div style={{ fontSize: 11, color: '#777', marginBottom: 10, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 4 }}>Keybindings file</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
             Shortcuts are defined in a YAML file. Edit it in any text editor and restart Kova to apply changes.
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -292,11 +292,11 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
               flex: 1,
               fontSize: 10,
               fontFamily: 'var(--font-mono)',
-              background: '#1a1a1a',
-              border: '1px solid #2e2e2e',
+              background: 'var(--bg-app)',
+              border: '1px solid var(--border)',
               borderRadius: 4,
               padding: '5px 8px',
-              color: '#888',
+              color: 'var(--text-muted)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -311,9 +311,9 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
                 padding: '5px 12px',
                 fontSize: 11,
                 borderRadius: 4,
-                border: '1px solid #3a3a3a',
-                background: '#2a2a2a',
-                color: '#ccc',
+                border: '1px solid var(--border-alt)',
+                background: 'var(--bg-input)',
+                color: 'var(--text-secondary)',
                 cursor: 'pointer',
               }}
             >
@@ -340,9 +340,9 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
               padding: '5px 14px',
               fontSize: 11,
               borderRadius: 4,
-              border: '1px solid #3a3a3a',
-              background: '#2a2a2a',
-              color: checkState === 'checking' ? '#555' : '#ccc',
+              border: '1px solid var(--border-alt)',
+              background: 'var(--bg-input)',
+              color: checkState === 'checking' ? 'var(--text-dim)' : 'var(--text-secondary)',
               cursor: checkState === 'checking' ? 'default' : 'pointer',
             }}
           >
@@ -353,7 +353,7 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
             <span style={{ fontSize: 11, color: '#c0392b' }}>Could not reach GitHub</span>
           )}
           {typeof checkState === 'object' && !checkState.hasUpdate && (
-            <span style={{ fontSize: 11, color: '#555' }}>Up to date (v{APP_VERSION})</span>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Up to date (v{APP_VERSION})</span>
           )}
           {typeof checkState === 'object' && checkState.hasUpdate && (
             <button
@@ -361,7 +361,7 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
               onClick={() => openUrl('https://github.com/KovaMD/Kova/releases/latest').catch(() => {})}
               style={{
                 fontSize: 11,
-                color: '#D94F00',
+                color: 'var(--accent)',
                 background: 'none',
                 border: 'none',
                 padding: 0,
@@ -379,12 +379,12 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12 }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#e8e8e8' }}>Kova</div>
-            <div style={{ fontSize: 11, color: '#555', marginTop: 3 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Kova</div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 3 }}>
               Free and open source · GNU General Public License v3
             </div>
           </div>
-          <div style={{ fontSize: 11, color: '#555', fontFamily: 'var(--font-mono)' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
             v{APP_VERSION}
           </div>
         </div>

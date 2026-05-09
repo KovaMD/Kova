@@ -399,6 +399,11 @@ export default function App() {
     saveSettings(s);
   }, []);
 
+  // Apply UI theme class to root element
+  useEffect(() => {
+    document.documentElement.classList.toggle('theme-light', settings.uiTheme === 'light');
+  }, [settings.uiTheme]);
+
   // Autosave — only when enabled, a file path exists, and there are unsaved changes
   useEffect(() => {
     if (!settings.autosave || !filePath || !isDirty) return;
@@ -583,6 +588,7 @@ export default function App() {
               onCursorSlide={setCurrentSlideIndex}
               focusMode={focusMode}
               filePath={filePath}
+              uiTheme={settings.uiTheme}
             />
           </Panel>
 
@@ -629,18 +635,18 @@ export default function App() {
         <>
           <div
             onClick={() => setConfirmCloseAction(null)}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 2000 }}
+            style={{ position: 'fixed', inset: 0, background: 'var(--backdrop)', zIndex: 2000 }}
           />
           <div style={{
             position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-            background: '#242424', border: '1px solid #333', borderRadius: 8,
+            background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8,
             boxShadow: '0 16px 48px rgba(0,0,0,0.6)', zIndex: 2001,
             padding: '24px 28px', width: 320, maxWidth: '90vw',
           }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#e8e8e8', marginBottom: 8 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
               Unsaved changes
             </div>
-            <div style={{ fontSize: 13, color: '#999', marginBottom: 20, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
               You have unsaved changes. Close anyway?
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

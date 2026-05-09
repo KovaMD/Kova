@@ -1,7 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { indentWithTab } from '@codemirror/commands';
-import { EditorSelection, EditorState } from '@codemirror/state';
+import { Compartment, EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { markdown } from '@codemirror/lang-markdown';
@@ -18,6 +18,7 @@ interface Props {
   onCursorSlide?: (index: number) => void;
   focusMode?: boolean;
   filePath?: string | null;
+  uiTheme?: 'dark' | 'light';
 }
 
 // Returns a path to `target` relative to the directory of `docPath`.
@@ -34,14 +35,30 @@ function makeRelativePath(docPath: string, target: string): string {
 }
 
 
-const editorTheme = EditorView.theme({
+const SCROLLER = { fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: '14px', lineHeight: '1.7' };
+const CONTENT  = { padding: '16px 24px', maxWidth: '720px', margin: '0 auto' };
+
+const editorDarkTheme = EditorView.theme({
   '&': { background: '#1e1e1e', height: '100%' },
-  '.cm-scroller': { fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: '14px', lineHeight: '1.7' },
-  '.cm-content': { padding: '16px 24px', maxWidth: '720px', margin: '0 auto' },
+  '.cm-scroller': SCROLLER,
+  '.cm-content': CONTENT,
   '.cm-gutters': { background: '#1e1e1e', borderRight: '1px solid #2a2a2a' },
   '.cm-activeLine': { background: 'rgba(255,255,255,0.03)' },
   '.cm-cursor': { borderLeftColor: '#D94F00' },
 });
+
+const editorLightTheme = EditorView.theme({
+  '&': { background: '#f8f8f8', height: '100%' },
+  '.cm-scroller': SCROLLER,
+  '.cm-content': { ...CONTENT, color: '#333' },
+  '.cm-gutters': { background: '#f0f0f0', borderRight: '1px solid #ddd', color: '#aaa' },
+  '.cm-activeLine': { background: 'rgba(0,0,0,0.04)' },
+  '.cm-cursor': { borderLeftColor: '#D94F00' },
+  '.cm-selectionBackground': { background: 'rgba(217,79,0,0.15) !important' },
+  '.cm-focused .cm-selectionBackground': { background: 'rgba(217,79,0,0.2) !important' },
+}, { dark: false });
+
+const editorColorCompartment = new Compartment();
 
 function makeWrapCommand(before: string, after: string, placeholder: string) {
   return (view: EditorView): boolean => {
@@ -141,7 +158,7 @@ export interface EditorHandle {
 interface ContextMenuState { x: number; y: number; hasSelection: boolean }
 
 export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
-  { content, onChange, onCursorSlide, focusMode = false, filePath }: Props,
+  { content, onChange, onCursorSlide, focusMode = false, filePath, uiTheme = 'dark' }: Props,
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -149,12 +166,14 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
   const onChangeRef = useRef(onChange);
   const onCursorSlideRef = useRef(onCursorSlide);
   const filePathRef = useRef(filePath);
+  const uiThemeRef = useRef(uiTheme);
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
   const [dragActive, setDragActive] = useState(false);
 
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { onCursorSlideRef.current = onCursorSlide; }, [onCursorSlide]);
   useEffect(() => { filePathRef.current = filePath; }, [filePath]);
+  useEffect(() => { uiThemeRef.current = uiTheme; }, [uiTheme]);
 
   useImperativeHandle(ref, () => ({
     runFormat(cmd: FormatCmd) {
@@ -203,8 +222,9 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
       doc: content,
       extensions: [
         basicSetup,
-        oneDark,
-        editorTheme,
+        editorColorCompartment.of(
+          uiThemeRef.current === 'light' ? editorLightTheme : [oneDark, editorDarkTheme]
+        ),
         EditorView.lineWrapping,
         markdown({ codeLanguages: languages }),
         keymap.of([
@@ -308,6 +328,15 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
       effects: focusModeCompartment.reconfigure(focusModeExtension(focusMode)),
     });
   }, [focusMode]);
+
+  // Switch editor color theme when uiTheme prop changes
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: editorColorCompartment.reconfigure(
+        uiTheme === 'light' ? editorLightTheme : [oneDark, editorDarkTheme]
+      ),
+    });
+  }, [uiTheme]);
 
   // ── Context menu ────────────────────────────────────────────────────────────
 
@@ -462,7 +491,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
           <div style={{
             position: 'absolute', inset: 0,
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            gap: 10, color: '#444', fontSize: 13, pointerEvents: 'none', userSelect: 'none',
+            gap: 10, color: 'var(--text-dim)', fontSize: 13, pointerEvents: 'none', userSelect: 'none',
           }}>
             <span style={{ fontSize: 28, opacity: 0.3 }}>📄</span>
             <span>Ctrl+N — new presentation</span>

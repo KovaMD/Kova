@@ -19,11 +19,11 @@ export function StatusBar({ currentSlide, totalSlides, wordCount, isDirty, fileP
         alignItems: 'center',
         gap: 0,
         height: 24,
-        background: '#161616',
-        borderTop: '1px solid #2a2a2a',
+        background: 'var(--status-bg)',
+        borderTop: '1px solid var(--border)',
         flexShrink: 0,
         fontSize: 11,
-        color: '#666',
+        color: 'var(--text-muted)',
         userSelect: 'none',
       }}
     >
@@ -37,7 +37,7 @@ export function StatusBar({ currentSlide, totalSlides, wordCount, isDirty, fileP
       <div style={{ flex: 1 }} />
       {(filePath || isDirty) && (
         <>
-          <Cell style={{ color: isDirty ? '#c07a30' : '#555' }}>
+          <Cell style={{ color: isDirty ? 'var(--dirty-color)' : 'var(--text-dim)' }}>
             {isDirty ? (filePath ? 'Unsaved' : 'New — unsaved') : 'Saved'}
           </Cell>
           <Divider />
@@ -57,5 +57,5 @@ function Cell({ children, style }: { children: React.ReactNode; style?: React.CS
 }
 
 function Divider() {
-  return <div style={{ width: 1, height: 12, background: '#333' }} />;
+  return <div style={{ width: 1, height: 12, background: 'var(--border)' }} />;
 }

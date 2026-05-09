@@ -40,11 +40,11 @@ export function LogoControls({
 
       {/* Logo */}
       <div>
-        <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>Logo</div>
+        <div style={{ fontSize: 11, color: 'var(--text-label)', marginBottom: 4 }}>Logo</div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {logo && (
             <img src={logo} alt="logo preview"
-              style={{ height: 24, width: 'auto', borderRadius: 2, border: '1px solid #444' }} />
+              style={{ height: 24, width: 'auto', borderRadius: 2, border: '1px solid var(--border-input)' }} />
           )}
           <button className="btn" style={{ fontSize: 11, padding: '3px 8px' }} onClick={pickLogo}>
             {logo ? 'Change' : 'Choose…'}
@@ -57,15 +57,31 @@ export function LogoControls({
           )}
         </div>
         {logo && (
-          <select
-            value={logoPosition}
-            onChange={(e) => onLogoPositionChange(e.target.value as Theme['logo_position'])}
-            style={{ marginTop: 5, width: '100%', background: '#2a2a2a', color: '#ccc', border: '1px solid #444', borderRadius: 4, padding: '3px 6px', fontSize: 11 }}
-          >
-            {POSITIONS.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, marginTop: 6 }}>
+            {POSITIONS.map((p) => {
+              const active = logoPosition === p.value;
+              return (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => onLogoPositionChange(p.value)}
+                  style={{
+                    padding: '4px 0',
+                    fontSize: 11,
+                    borderRadius: 3,
+                    border: `1px solid ${active ? 'var(--accent)' : 'var(--btn-border)'}`,
+                    background: active ? 'var(--accent-bg)' : 'var(--bg-input)',
+                    color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontWeight: active ? 600 : 400,
+                    transition: 'all 0.12s',
+                  }}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -79,7 +95,7 @@ export function LogoControls({
             onChange={(e) => onHeaderChange({ ...header, show: e.target.checked })}
             style={{ cursor: 'pointer' }}
           />
-          <label htmlFor="header-show" style={{ fontSize: 11, color: '#888', cursor: 'pointer' }}>
+          <label htmlFor="header-show" style={{ fontSize: 11, color: 'var(--text-label)', cursor: 'pointer' }}>
             Show header
           </label>
         </div>
@@ -89,7 +105,7 @@ export function LogoControls({
             value={header.text}
             placeholder="Header text ({title}, {date})"
             onChange={(e) => onHeaderChange({ ...header, text: e.target.value })}
-            style={{ width: '100%', background: '#2a2a2a', color: '#ccc', border: '1px solid #444', borderRadius: 4, padding: '4px 7px', fontSize: 11 }}
+            style={{ width: '100%', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-input)', borderRadius: 4, padding: '4px 7px', fontSize: 11 }}
           />
         )}
       </div>
@@ -104,7 +120,7 @@ export function LogoControls({
             onChange={(e) => onFooterChange({ ...footer, show: e.target.checked })}
             style={{ cursor: 'pointer' }}
           />
-          <label htmlFor="footer-show" style={{ fontSize: 11, color: '#888', cursor: 'pointer' }}>
+          <label htmlFor="footer-show" style={{ fontSize: 11, color: 'var(--text-label)', cursor: 'pointer' }}>
             Show footer
           </label>
         </div>
@@ -115,7 +131,7 @@ export function LogoControls({
               value={footer.text}
               placeholder="Footer text ({title}, {date}, {slide_number})"
               onChange={(e) => onFooterChange({ ...footer, text: e.target.value })}
-              style={{ width: '100%', background: '#2a2a2a', color: '#ccc', border: '1px solid #444', borderRadius: 4, padding: '4px 7px', fontSize: 11, marginBottom: 4 }}
+              style={{ width: '100%', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-input)', borderRadius: 4, padding: '4px 7px', fontSize: 11, marginBottom: 4 }}
             />
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <input
@@ -125,7 +141,7 @@ export function LogoControls({
                 onChange={(e) => onFooterChange({ ...footer, show_slide_number: e.target.checked })}
                 style={{ cursor: 'pointer' }}
               />
-              <label htmlFor="footer-slidenum" style={{ fontSize: 11, color: '#888', cursor: 'pointer' }}>
+              <label htmlFor="footer-slidenum" style={{ fontSize: 11, color: 'var(--text-label)', cursor: 'pointer' }}>
                 Slide number
               </label>
             </div>

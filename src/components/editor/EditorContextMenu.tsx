@@ -45,21 +45,21 @@ export function EditorContextMenu({ x, y, onClose, entries }: Props) {
         position: 'fixed',
         left: cx,
         top: cy,
-        background: '#252525',
-        border: '1px solid #3a3a3a',
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border-alt)',
         borderRadius: 6,
         padding: '4px 0',
         minWidth: 205,
         zIndex: 9999,
         boxShadow: '0 6px 24px rgba(0,0,0,0.55)',
         fontSize: 13,
-        color: '#ccc',
+        color: 'var(--text-primary)',
         userSelect: 'none',
       }}
     >
       {entries.map((entry, i) => {
         if (entry.type === 'divider') {
-          return <div key={i} style={{ height: 1, background: '#333', margin: '4px 0' }} />;
+          return <div key={i} style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />;
         }
         if (entry.type === 'header') {
           return (
@@ -68,7 +68,7 @@ export function EditorContextMenu({ x, y, onClose, entries }: Props) {
               style={{
                 padding: '5px 14px 2px',
                 fontSize: 10,
-                color: '#555',
+                color: 'var(--text-dim)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
               }}
@@ -96,7 +96,7 @@ export function EditorContextMenu({ x, y, onClose, entries }: Props) {
             }}
             onMouseEnter={(e) => {
               if (!entry.disabled)
-                (e.currentTarget as HTMLDivElement).style.background = '#333';
+                (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-hover)';
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLDivElement).style.background = 'transparent';
@@ -104,7 +104,7 @@ export function EditorContextMenu({ x, y, onClose, entries }: Props) {
           >
             <span>{entry.label}</span>
             {entry.shortcut && (
-              <span style={{ color: '#555', fontSize: 11, marginLeft: 24 }}>{entry.shortcut}</span>
+              <span style={{ color: 'var(--text-dim)', fontSize: 11, marginLeft: 24 }}>{entry.shortcut}</span>
             )}
           </div>
         );

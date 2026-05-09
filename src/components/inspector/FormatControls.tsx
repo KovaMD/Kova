@@ -16,9 +16,9 @@ function Btn({
         padding: '4px 0',
         fontSize: 11,
         borderRadius: 3,
-        border: '1px solid #2e2e2e',
-        background: '#2a2a2a',
-        color: '#bbb',
+        border: '1px solid var(--btn-border)',
+        background: 'var(--bg-input)',
+        color: 'var(--text-secondary)',
         cursor: 'pointer',
         lineHeight: 1,
         ...style,
@@ -31,7 +31,7 @@ function Btn({
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, marginTop: 8 }}>
+    <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, marginTop: 8 }}>
       {children}
     </div>
   );

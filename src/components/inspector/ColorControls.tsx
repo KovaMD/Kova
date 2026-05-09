@@ -22,7 +22,7 @@ export function ColorControls({ colors, onChange }: Props) {
         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <label
             htmlFor={`color-${key}`}
-            style={{ fontSize: 11, color: '#888', flex: 1, cursor: 'pointer' }}
+            style={{ fontSize: 11, color: 'var(--text-label)', flex: 1, cursor: 'pointer' }}
           >
             {label}
           </label>
@@ -36,13 +36,13 @@ export function ColorControls({ colors, onChange }: Props) {
                 width: 26,
                 height: 20,
                 padding: 1,
-                border: '1px solid #444',
+                border: '1px solid var(--border-input)',
                 borderRadius: 3,
                 background: 'none',
                 cursor: 'pointer',
               }}
             />
-            <span style={{ fontSize: 10, color: '#666', fontFamily: 'monospace', width: 52 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace', width: 52 }}>
               {colors[key]}
             </span>
           </div>

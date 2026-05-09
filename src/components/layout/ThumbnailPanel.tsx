@@ -38,11 +38,11 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, theme = DEFAULT
   const thumbH = Math.round(slideH * scale);
 
   return (
-    <div ref={panelRef} style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1a1a1a' }}>
+    <div ref={panelRef} style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-app)' }}>
       <div className="panel-header">Slides</div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 6px' }}>
         {slides.length === 0 ? (
-          <div style={{ color: '#555', fontSize: 11, textAlign: 'center', marginTop: 24, padding: '0 8px' }}>
+          <div style={{ color: 'var(--text-dim)', fontSize: 11, textAlign: 'center', marginTop: 24, padding: '0 8px' }}>
             Open a Markdown file to see slides
           </div>
         ) : (
@@ -88,7 +88,7 @@ function Thumbnail({ slide, index, totalSlides, isActive, onClick, theme, docTit
         marginBottom: 8,
         cursor: 'pointer',
         borderRadius: 4,
-        border: `2px solid ${isActive ? '#D94F00' : '#333'}`,
+        border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
         overflow: 'hidden',
         position: 'relative',
         userSelect: 'none',

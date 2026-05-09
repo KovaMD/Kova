@@ -37,7 +37,7 @@ export function InspectorPanel({
   }, [onExport]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#1e1e1e' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-panel-alt)' }}>
       <div className="panel-header">Inspector</div>
       <div style={{ flex: 1, overflowY: 'auto' }}>
 
@@ -121,7 +121,7 @@ function Accordion({
   label, open, onToggle, children,
 }: { label: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
   return (
-    <div style={{ borderTop: '1px solid #2a2a2a' }}>
+    <div style={{ borderTop: '1px solid var(--border)' }}>
       <button
         onClick={onToggle}
         style={{
@@ -132,7 +132,7 @@ function Accordion({
           padding: '8px 12px',
           background: 'none',
           border: 'none',
-          color: '#888',
+          color: 'var(--text-label)',
           fontSize: 11,
           fontWeight: 700,
           textTransform: 'uppercase',
@@ -141,7 +141,7 @@ function Accordion({
         }}
       >
         {label}
-        <span style={{ color: '#555', fontSize: 10 }}>{open ? '▲' : '▼'}</span>
+        <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>{open ? '▲' : '▼'}</span>
       </button>
       {open && <div style={{ padding: '0 12px 12px' }}>{children}</div>}
     </div>
@@ -151,14 +151,14 @@ function Accordion({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, gap: 8 }}>
-      <span style={{ fontSize: 11, color: '#777', flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 11, color: '#bbb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }} title={value}>{value}</span>
+      <span style={{ fontSize: 11, color: 'var(--text-label)', flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 11, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }} title={value}>{value}</span>
     </div>
   );
 }
 
 function Divider() {
-  return <div style={{ height: 1, background: '#2a2a2a', margin: '2px 0' }} />;
+  return <div style={{ height: 1, background: 'var(--border)', margin: '2px 0' }} />;
 }
 
 function shortPath(p: string): string {

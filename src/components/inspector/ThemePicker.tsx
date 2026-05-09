@@ -18,11 +18,11 @@ export function ThemePicker({ themes, activeId, onSelect }: Props) {
             alignItems: 'center',
             gap: 8,
             padding: '5px 8px',
-            background: t.id === activeId ? '#2e2e2e' : 'transparent',
-            border: `1px solid ${t.id === activeId ? '#D94F00' : '#333'}`,
+            background: t.id === activeId ? 'var(--btn-bg-hover)' : 'transparent',
+            border: `1px solid ${t.id === activeId ? 'var(--accent)' : 'var(--border)'}`,
             borderRadius: 4,
             cursor: 'pointer',
-            color: '#ccc',
+            color: 'var(--text-primary)',
             fontSize: 12,
             textAlign: 'left',
             width: '100%',
@@ -52,7 +52,7 @@ function Swatch({ color, border }: { color: string; border?: boolean }) {
         height: 12,
         borderRadius: 2,
         background: color,
-        border: border ? '1px solid #555' : 'none',
+        border: border ? '1px solid var(--border-alt)' : 'none',
         flexShrink: 0,
       }}
     />

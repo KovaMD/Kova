@@ -1,7 +1,9 @@
 export type PresentationMode  = 'auto' | 'single' | 'dual' | 'mirror';
 export type NotesFontSize     = 'sm' | 'md' | 'lg';
+export type UiTheme           = 'dark' | 'light';
 
 export interface AppSettings {
+  uiTheme: UiTheme;
   autosave: boolean;
   autosaveIntervalSeconds: number; // 15 | 30 | 60 | 300
   confirmOnClose: boolean;
@@ -14,6 +16,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  uiTheme: 'dark',
   autosave: true,
   autosaveIntervalSeconds: 30,
   confirmOnClose: true,
