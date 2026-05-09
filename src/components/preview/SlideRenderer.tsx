@@ -24,6 +24,48 @@ function parseSizeHint(title?: string): React.CSSProperties | null {
 interface SlideCtxValue { isThumbnail: boolean; textColor: string; mermaidInit: string }
 const SlideCtx = createContext<SlideCtxValue>({ isThumbnail: false, textColor: '#1a1a1a', mermaidInit: '' });
 
+// ── Pie-chart palette ─────────────────────────────────────────────────────────
+// Derives 12 perceptually distinct colours by rotating 30° around the hue
+// wheel from the primary colour, so any theme always has enough unique slices.
+
+function hexToHsl(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if (max === r)      h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else                h = ((r - g) / d + 4) / 6;
+  return [h * 360, s, l];
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  h = ((h % 360) + 360) % 360;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+  };
+  return `#${[f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, '0')).join('')}`;
+}
+
+function piePalette(primaryHex: string): Record<string, string> {
+  const [h, rawS, rawL] = hexToHsl(primaryHex);
+  // Clamp S and L so all slices are vivid enough to read on a white slide
+  const s = Math.min(Math.max(rawS, 0.55), 0.85);
+  const l = Math.min(Math.max(rawL, 0.28), 0.48);
+  const out: Record<string, string> = {};
+  for (let i = 0; i < 12; i++) {
+    out[`pie${i + 1}`] = hslToHex(h + i * 30, s, l);
+  }
+  return out;
+}
+
 function buildMermaidInit(theme: Theme): string {
   const c = theme.colors;
   const firstFont = (stack: string) => stack.split(',')[0].trim().replace(/['"]/g, '');
@@ -41,16 +83,13 @@ function buildMermaidInit(theme: Theme): string {
     titleColor:            c.text,
     edgeLabelBackground:   c.background,
     fontFamily:            firstFont(theme.fonts.body),
-    pie1:                  c.primary,
-    pie2:                  c.accent,
-    pie3:                  c.section_bg,
-    pie4:                  c.code_bg,
+    ...piePalette(c.primary),
     pieTitleTextColor:     c.text,
-    pieSectionTextColor:   c.title_text,
+    pieSectionTextColor:   c.background,
     pieLegendTextColor:    c.text,
     pieStrokeColor:        c.background,
     pieStrokeWidth:        '2px',
-    pieOpacity:            '0.85',
+    pieOpacity:            '0.9',
   };
   return `%%{init: ${JSON.stringify({ theme: 'base', themeVariables: vars })}}%%\n`;
 }
