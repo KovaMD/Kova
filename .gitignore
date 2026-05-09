@@ -13,6 +13,9 @@ src-tauri/gen/
 .env.local
 .env.*.local
 
+# Claude Code local config
+.claude/
+
 # Editor
 .vscode/
 .idea/
