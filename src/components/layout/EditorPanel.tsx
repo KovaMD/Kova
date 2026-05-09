@@ -48,10 +48,10 @@ const editorDarkTheme = EditorView.theme({
 });
 
 const editorLightTheme = EditorView.theme({
-  '&': { background: '#f8f8f8', height: '100%' },
+  '&': { background: '#f1f1f1', height: '100%' },
   '.cm-scroller': SCROLLER,
-  '.cm-content': { ...CONTENT, color: '#333' },
-  '.cm-gutters': { background: '#f0f0f0', borderRight: '1px solid #ddd', color: '#aaa' },
+  '.cm-content': { ...CONTENT, color: '#1a1a1a' },
+  '.cm-gutters': { background: '#f1f1f1', borderRight: '1px solid #d5d5d5', color: '#aaa' },
   '.cm-activeLine': { background: 'rgba(0,0,0,0.04)' },
   '.cm-cursor': { borderLeftColor: '#D94F00' },
   '.cm-selectionBackground': { background: 'rgba(217,79,0,0.15) !important' },
@@ -153,6 +153,7 @@ export type FormatCmd =
 
 export interface EditorHandle {
   runFormat: (cmd: FormatCmd) => void;
+  scrollToSlide: (index: number) => void;
 }
 
 interface ContextMenuState { x: number; y: number; hasSelection: boolean }
@@ -197,6 +198,38 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
           break;
         }
       }
+    },
+
+    scrollToSlide(index: number) {
+      const view = viewRef.current;
+      if (!view) return;
+      const doc = view.state.doc.toString();
+
+      // Skip past the frontmatter block
+      const fmMatch = doc.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
+      const bodyStart = fmMatch ? fmMatch[0].length : 0;
+
+      let pos = bodyStart;
+
+      if (index > 0) {
+        // Find the index-th standalone --- separator in the body
+        const body = doc.slice(bodyStart);
+        const sep = /^---$/gm;
+        let found = 0;
+        let m: RegExpExecArray | null;
+        while ((m = sep.exec(body)) !== null) {
+          found++;
+          if (found === index) {
+            // Place cursor on the line after the --- separator
+            const afterSep = bodyStart + m.index + m[0].length;
+            pos = afterSep + (doc[afterSep] === '\r' ? 2 : doc[afterSep] === '\n' ? 1 : 0);
+            break;
+          }
+        }
+      }
+
+      view.dispatch({ selection: EditorSelection.cursor(pos), scrollIntoView: true });
+      view.focus();
     },
   }), []);
 

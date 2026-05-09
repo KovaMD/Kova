@@ -51,10 +51,16 @@ export function parseAspectRatio(ar?: string, fallback?: string): AspectRatio {
   return { w: 16, h: 9 };
 }
 
+export interface ThemeOverrides {
+  colors?: Record<string, string>;
+  fonts?: Record<string, string>;
+}
+
 export interface Frontmatter {
   title?: string;
   author?: string;
   theme?: string;
+  theme_overrides?: ThemeOverrides;
   aspect_ratio?: string;
   date?: string;
   logo?: string;

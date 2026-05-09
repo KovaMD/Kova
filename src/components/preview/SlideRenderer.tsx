@@ -185,13 +185,10 @@ function SectionLayout({ slide }: { slide: Slide }) {
 }
 
 function TitleContentLayout({ slide }: { slide: Slide }) {
-  const textOnly = slide.elements.every((e) =>
-    e.type === 'paragraph' || e.type === 'list' || e.type === 'blockquote' || e.type === 'progress',
-  );
   return (
     <div className="sl-title-content">
       {slide.title && <div className="sl-heading">{slide.title}</div>}
-      <div className={`sl-body${textOnly ? ' sl-body--center' : ''}`}>
+      <div className="sl-body">
         <Elements elements={slide.elements} />
       </div>
     </div>
@@ -272,10 +269,34 @@ function QuoteLayout({ slide }: { slide: Slide }) {
   );
 }
 
+function autoSplitElements(elements: SlideElement[]): [SlideElement[], SlideElement[]] {
+  // Single list: split its items evenly between the two columns
+  if (elements.length === 1 && elements[0].type === 'list') {
+    const list = elements[0];
+    const mid = Math.ceil(list.items.length / 2);
+    return [
+      [{ ...list, items: list.items.slice(0, mid) }],
+      [{ ...list, items: list.items.slice(mid) }],
+    ];
+  }
+  // Multiple elements: split at midpoint
+  const mid = Math.ceil(elements.length / 2);
+  return [elements.slice(0, mid), elements.slice(mid)];
+}
+
 function TwoColumnLayout({ slide }: { slide: Slide }) {
   const breakIdx = slide.elements.findIndex((e) => e.type === 'column-break');
-  const left = breakIdx >= 0 ? slide.elements.slice(0, breakIdx) : slide.elements;
-  const right = breakIdx >= 0 ? slide.elements.slice(breakIdx + 1) : [];
+
+  let left: SlideElement[];
+  let right: SlideElement[];
+
+  if (breakIdx >= 0) {
+    left  = slide.elements.slice(0, breakIdx);
+    right = slide.elements.slice(breakIdx + 1);
+  } else {
+    [left, right] = autoSplitElements(slide.elements);
+  }
+
   return (
     <div className="sl-two-col">
       {slide.title && <div className="sl-heading sl-two-col__title">{slide.title}</div>}
@@ -293,53 +314,50 @@ function TwoColumnLayout({ slide }: { slide: Slide }) {
 }
 
 function BspLayout({ slide }: { slide: Slide }) {
-  const body = slide.elements;
+  const groups = groupProgressRuns(slide.elements);
 
-  // Guard against a layout:bsp override on a slide with fewer than 2 elements.
-  if (body.length < 2) return <TitleContentLayout slide={slide} />;
+  // Guard against a layout:bsp override on a slide with fewer than 2 logical groups.
+  if (groups.length < 2) return <TitleContentLayout slide={slide} />;
 
-  // For 2 elements: if first is visual and second is text, put text on the left
-  const isPureText = (t: string) => t === 'paragraph' || t === 'list';
-  let leftEls: typeof body;
-  let rightEls: typeof body;
+  // For 2 groups: if first is visual and second is text, put text on the left
+  const isGroupPureText = (g: SlideElement[]) =>
+    g.every((e) => e.type === 'paragraph' || e.type === 'list' || e.type === 'progress');
 
-  if (body.length === 2) {
-    const firstIsText  = isPureText(body[0].type);
-    const secondIsText = isPureText(body[1].type);
-    if (!firstIsText && secondIsText) {
-      leftEls  = [body[1]];
-      rightEls = [body[0]];
+  let leftGroup: SlideElement[];
+  let rightGroups: SlideElement[][];
+
+  if (groups.length === 2) {
+    if (!isGroupPureText(groups[0]) && isGroupPureText(groups[1])) {
+      leftGroup  = groups[1];
+      rightGroups = [groups[0]];
     } else {
-      leftEls  = [body[0]];
-      rightEls = [body[1]];
+      leftGroup  = groups[0];
+      rightGroups = [groups[1]];
     }
   } else {
-    // 3 elements: first fills left, remaining two stack on right
-    leftEls  = [body[0]];
-    rightEls = body.slice(1);
+    // 3+ logical groups: first fills left, remaining stack on right
+    leftGroup  = groups[0];
+    rightGroups = groups.slice(1);
   }
-
-  const isTwo = rightEls.length === 1;
 
   return (
     <div className="sl-bsp">
       {slide.title && <div className="sl-heading sl-bsp__title">{slide.title}</div>}
       <div className="sl-bsp__body">
         <div className="sl-bsp__pane">
-          <Elements elements={leftEls} />
+          <Elements elements={leftGroup} />
         </div>
-        {isTwo ? (
+        {rightGroups.length === 1 ? (
           <div className="sl-bsp__pane">
-            <Elements elements={rightEls} />
+            <Elements elements={rightGroups[0]} />
           </div>
         ) : (
           <div className="sl-bsp__right">
-            <div className="sl-bsp__subpane">
-              <Elements elements={[rightEls[0]]} />
-            </div>
-            <div className="sl-bsp__subpane">
-              <Elements elements={[rightEls[1]]} />
-            </div>
+            {rightGroups.slice(0, 2).map((g, i) => (
+              <div key={i} className="sl-bsp__subpane">
+                <Elements elements={g} />
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -348,16 +366,16 @@ function BspLayout({ slide }: { slide: Slide }) {
 }
 
 function GridLayout({ slide }: { slide: Slide }) {
-  // Filter column-break elements — a layout:grid override on a slide that also
-  // uses ||| would otherwise produce empty grid cells.
-  const cells = slide.elements.filter((e) => e.type !== 'column-break');
+  // Filter column-break elements, then group consecutive progress bars into one cell.
+  const filtered = slide.elements.filter((e) => e.type !== 'column-break');
+  const groups = groupProgressRuns(filtered);
   return (
     <div className="sl-grid">
       {slide.title && <div className="sl-heading sl-grid__title">{slide.title}</div>}
       <div className="sl-grid__cells">
-        {cells.map((el, i) => (
+        {groups.map((group, i) => (
           <div key={i} className="sl-grid__cell">
-            <Elements elements={[el]} />
+            <Elements elements={group} />
           </div>
         ))}
       </div>
@@ -399,6 +417,25 @@ function CodeLayout({ slide }: { slide: Slide }) {
       ))}
     </div>
   );
+}
+
+// ── Progress grouping helper ──────────────────────────────────────────────────
+
+/**
+ * Collapses consecutive `progress` elements into sub-arrays so that bsp/grid
+ * renderers can place them all in a single pane/cell.
+ */
+function groupProgressRuns(elements: SlideElement[]): SlideElement[][] {
+  const groups: SlideElement[][] = [];
+  for (const el of elements) {
+    const last = groups[groups.length - 1];
+    if (el.type === 'progress' && last && last[0]?.type === 'progress') {
+      last.push(el);
+    } else {
+      groups.push([el]);
+    }
+  }
+  return groups;
 }
 
 // ── Element renderer ──────────────────────────────────────────────────────────

@@ -63,7 +63,7 @@ export const BUILT_IN_THEMES: Theme[] = [
       text: '#1a1a1a',
       code_bg: '#F5F7FA',
       title_text: '#FFFFFF',
-      section_bg: '#E8F0FE',
+      section_bg: '#1B3A5C',
     },
     fonts: {
       title: 'Inter, Helvetica Neue, Arial, sans-serif',
@@ -129,7 +129,7 @@ export const BUILT_IN_THEMES: Theme[] = [
       text: '#222222',
       code_bg: '#EFEFEF',
       title_text: '#FAFAFA',
-      section_bg: '#DDDDDD',
+      section_bg: '#222222',
     },
     fonts: {
       title: 'Georgia, Times New Roman, serif',

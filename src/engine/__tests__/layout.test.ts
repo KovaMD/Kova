@@ -211,3 +211,34 @@ describe('title-content layout (default)', () => {
     expect(detectLayout([table, para], 2, true)).toBe('title-content');
   });
 });
+
+// ── Overflow guard ────────────────────────────────────────────────────────────
+
+function makeList(count: number): SlideElement {
+  return {
+    type: 'list', ordered: false,
+    items: Array.from({ length: count }, (_, i) => ({ text: `Item ${i + 1}`, html: `Item ${i + 1}`, children: [] })),
+  };
+}
+
+describe('overflow guard', () => {
+  it('short list stays title-content', () => {
+    expect(detectLayout([makeList(5)], 2, true)).toBe('title-content');
+  });
+
+  it('long list (9 items) triggers two-column', () => {
+    expect(detectLayout([makeList(9)], 2, true)).toBe('two-column');
+  });
+
+  it('long list (15 items) triggers two-column', () => {
+    expect(detectLayout([makeList(15)], 2, true)).toBe('two-column');
+  });
+
+  it('long list without title also triggers two-column', () => {
+    expect(detectLayout([makeList(12)], 0, false)).toBe('two-column');
+  });
+
+  it('table with many rows stays title-content (not pure text)', () => {
+    expect(detectLayout([table], 2, true)).toBe('title-content');
+  });
+});

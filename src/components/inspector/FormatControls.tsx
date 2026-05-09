@@ -13,7 +13,11 @@ function Btn({
       title={title}
       onClick={onClick}
       style={{
-        padding: '4px 0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 24,
+        padding: '0 2px',
         fontSize: 11,
         borderRadius: 3,
         border: '1px solid var(--btn-border)',

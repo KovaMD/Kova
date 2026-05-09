@@ -114,18 +114,11 @@
 
 .sl-body {
   flex: 1;
-  padding: 0 7% 5%;
+  padding: 2% 7% 5%;
   overflow: hidden;
   font-size: clamp(8px, 1.9cqi, 18px);
   line-height: 1.65;
   font-family: var(--sl-font-body);
-}
-
-/* Vertically centre content when the slide body contains only text elements */
-.sl-body--center {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
 }
 
 .sl-para { margin: 0 0 0.5em; }
@@ -272,7 +265,7 @@
 .sl-split__title { padding-bottom: 2% !important; }
 .sl-split__body { flex: 1; display: flex; overflow: hidden; padding: 0 4% 4%; gap: 3%; }
 .sl-split__left { flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-.sl-split__right { flex: 1; overflow: hidden; font-size: clamp(8px, 1.8cqi, 16px); line-height: 1.6; font-family: var(--sl-font-body); display: flex; flex-direction: column; justify-content: center; }
+.sl-split__right { flex: 1; overflow: hidden; font-size: clamp(8px, 1.8cqi, 16px); line-height: 1.6; font-family: var(--sl-font-body); padding-top: 2%; }
 
 /* ── Full-bleed image ────────────────────────────────────────────────────── */
 
@@ -316,7 +309,7 @@
 
 .sl-two-col { height: 100%; display: flex; flex-direction: column; }
 .sl-two-col__title { padding-bottom: 2% !important; }
-.sl-two-col__body { flex: 1; display: flex; padding: 0 4% 4%; overflow: hidden; font-size: clamp(8px, 1.8cqi, 16px); font-family: var(--sl-font-body); }
+.sl-two-col__body { flex: 1; display: flex; padding: 2% 4% 4%; overflow: hidden; font-size: clamp(8px, 1.8cqi, 16px); line-height: 1.65; font-family: var(--sl-font-body); }
 .sl-two-col__col { flex: 1; overflow: hidden; padding: 0 3%; }
 .sl-two-col__divider { width: 1px; background: color-mix(in srgb, var(--sl-text) 15%, transparent); align-self: stretch; flex-shrink: 0; }
 

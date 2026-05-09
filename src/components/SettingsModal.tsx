@@ -104,13 +104,15 @@ type CheckState = 'idle' | 'checking' | { tag: string; hasUpdate: boolean } | 'e
 interface Props {
   settings: AppSettings;
   keybindingsPath: string;
+  themesDir: string;
+  themeLoadErrors: string[];
   availableUpdate: string | null;
   onChange: (s: AppSettings) => void;
   onUpdateChecked: (tag: string | null) => void;
   onClose: () => void;
 }
 
-export function SettingsModal({ settings, keybindingsPath, availableUpdate, onChange, onUpdateChecked, onClose }: Props) {
+export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadErrors, availableUpdate, onChange, onUpdateChecked, onClose }: Props) {
   const set = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) =>
     onChange({ ...settings, [key]: value });
 
@@ -190,6 +192,60 @@ export function SettingsModal({ settings, keybindingsPath, availableUpdate, onCh
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Themes */}
+        <Section label="Themes" />
+
+        <div style={{ padding: '10px 0' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
+            Drop any <code style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>.yaml</code> theme file into the folder below and restart Kova to load it. Copy <code style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>example.yaml</code> as a starting point.
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <code style={{
+              flex: 1,
+              fontSize: 10,
+              fontFamily: 'var(--font-mono)',
+              background: 'var(--bg-app)',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+              padding: '5px 8px',
+              color: 'var(--text-muted)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {themesDir}
+            </code>
+            <button
+              type="button"
+              onClick={() => openPath(themesDir).catch(() => {})}
+              style={{
+                flexShrink: 0,
+                padding: '5px 12px',
+                fontSize: 11,
+                borderRadius: 4,
+                border: '1px solid var(--border-alt)',
+                background: 'var(--bg-input)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              Open folder
+            </button>
+          </div>
+          {themeLoadErrors.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 11, color: '#c0392b', marginBottom: 4 }}>
+                Failed to load {themeLoadErrors.length} theme file{themeLoadErrors.length > 1 ? 's' : ''}:
+              </div>
+              {themeLoadErrors.map((err) => (
+                <div key={err} style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', paddingLeft: 8 }}>
+                  {err}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Saving */}

@@ -89,16 +89,62 @@ pub fn load_keybindings(app: AppHandle) -> Result<(String, String), String> {
     Ok((path.to_string_lossy().into_owned(), content))
 }
 
-/// Returns the YAML contents of every .yaml/.yml file in ~/.kova/themes/.
-/// Each entry is (filename_without_extension, yaml_content).
+const EXAMPLE_THEME: &str = "\
+# Kova Theme — Example
+# ─────────────────────────────────────────────────────────────────────────────
+# Copy this file, rename it, and edit the values to create a custom theme.
+# Place .yaml files in this folder and restart Kova to load them.
+# Only include the properties you want to override — everything else inherits
+# from the built-in defaults.
+#
+# Colour values accept any valid CSS colour: #rrggbb, rgb(), hsl(), etc.
+
+name: My Custom Theme
+
+colors:
+  primary:    \"#1B3A5C\"   # title/section slide background, strong accents
+  accent:     \"#2563EB\"   # links, highlights, progress bars
+  background: \"#ffffff\"   # default slide background
+  text:       \"#1a1a1a\"   # body text
+  title_text: \"#ffffff\"   # text on title and section slides
+  section_bg: \"#E8F0FE\"   # section divider background
+  code_bg:    \"#F5F7FA\"   # code block background
+
+fonts:
+  title: \"Inter, 'Helvetica Neue', Arial, sans-serif\"
+  body:  \"Inter, 'Helvetica Neue', Arial, sans-serif\"
+  code:  \"'JetBrains Mono', 'Fira Code', monospace\"
+
+layout:
+  title_align:   center      # center | left | bottom-left
+  heading_align: left        # left | center
+  decoration:    none        # none | dots | grid | diagonal | bar-left
+
+footer:
+  show:              false
+  text:              \"{title} — {slide_number} / {total}\"
+  show_slide_number: true
+
+header:
+  show: false
+  text: \"\"
+";
+
+/// Returns (themes_dir_path, entries) where each entry is
+/// (filename_without_extension, yaml_content).
+/// Creates ~/.kova/themes/ and an example file on first run.
 #[tauri::command]
-pub fn load_custom_themes(app: AppHandle) -> Result<Vec<(String, String)>, String> {
+pub fn load_custom_themes(app: AppHandle) -> Result<(String, Vec<(String, String)>), String> {
     use tauri::Manager;
     let home = app.path().home_dir().map_err(|e| e.to_string())?;
     let themes_dir = home.join(".kova").join("themes");
+    let dir_str = themes_dir.to_string_lossy().into_owned();
 
     if !themes_dir.exists() {
-        return Ok(vec![]);
+        std::fs::create_dir_all(&themes_dir).map_err(|e| e.to_string())?;
+        std::fs::write(themes_dir.join("example.yaml"), EXAMPLE_THEME)
+            .map_err(|e| e.to_string())?;
+        return Ok((dir_str, vec![]));
     }
 
     let mut result = Vec::new();
@@ -115,11 +161,14 @@ pub fn load_custom_themes(app: AppHandle) -> Result<Vec<(String, String)>, Strin
             .and_then(|s| s.to_str())
             .unwrap_or("custom")
             .to_string();
+        if id == "example" {
+            continue; // never load the template as a real theme
+        }
         let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
         result.push((id, content));
     }
 
-    Ok(result)
+    Ok((dir_str, result))
 }
 
 /// Returns a sorted, deduplicated list of font family names available on the system.

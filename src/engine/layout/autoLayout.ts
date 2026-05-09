@@ -1,4 +1,52 @@
-import type { SlideElement, LayoutType } from '../types';
+import type { SlideElement, LayoutType, ListItem } from '../types';
+
+// ── Content density helpers ───────────────────────────────────────────────────
+
+const OVERFLOW_LINE_THRESHOLD = 8;
+
+/**
+ * Counts logical elements, treating consecutive `progress` bars as a single
+ * unit. This prevents individual bars from each consuming a grid/bsp pane.
+ */
+function logicalElementCount(elements: SlideElement[]): number {
+  let count = 0;
+  let inProgressRun = false;
+  for (const el of elements) {
+    if (el.type === 'progress') {
+      if (!inProgressRun) { count++; inProgressRun = true; }
+    } else {
+      count++;
+      inProgressRun = false;
+    }
+  }
+  return count;
+}
+
+function countListItems(items: ListItem[]): number {
+  return items.reduce((n, item) => n + 1 + countListItems(item.children), 0);
+}
+
+function estimateLines(elements: SlideElement[]): number {
+  let total = 0;
+  for (const el of elements) {
+    switch (el.type) {
+      case 'list':
+        total += countListItems(el.items);
+        break;
+      case 'paragraph': {
+        const lines = el.text.split('\n').filter(Boolean);
+        total += lines.reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 55)), 0);
+        break;
+      }
+      case 'progress':
+        total += 2;
+        break;
+      default:
+        total += 2;
+    }
+  }
+  return total;
+}
 
 /**
  * Analyses the elements of a slide and returns the best-fit layout.
@@ -66,11 +114,21 @@ export function detectLayout(
   // Tables need a full-width area; bsp panes are too narrow for them.
   const hasTable = bodyElements.some((e) => e.type === 'table');
 
-  if (!allPureText && !hasTable && (bodyElements.length === 2 || bodyElements.length === 3)) return 'bsp';
+  const logicalCount = logicalElementCount(bodyElements);
+
+  if (!allPureText && !hasTable && (logicalCount === 2 || logicalCount === 3)) return 'bsp';
 
   // ── Grid: 4+ distinct content elements ───────────────────────────────────
 
-  if (bodyElements.length >= 4) return 'grid';
+  if (logicalCount >= 4) return 'grid';
+
+  // ── Overflow guard ────────────────────────────────────────────────────────
+  // When pure-text content is dense enough to overflow the slide, split into
+  // two columns. The renderer auto-splits at the list/element midpoint.
+
+  if (allPureText && estimateLines(bodyElements) > OVERFLOW_LINE_THRESHOLD) {
+    return 'two-column';
+  }
 
   // ── Default ───────────────────────────────────────────────────────────────
 

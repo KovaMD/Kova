@@ -4,7 +4,7 @@ import { open, save } from '@tauri-apps/plugin-dialog';
 import { emit, listen } from '@tauri-apps/api/event';
 import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, usePanelRef } from 'react-resizable-panels';
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, usePanelRef, useDefaultLayout } from 'react-resizable-panels';
 
 import { ThumbnailPanel } from './components/layout/ThumbnailPanel';
 import { EditorPanel } from './components/layout/EditorPanel';
@@ -20,8 +20,8 @@ import type { AppSettings } from './store/settings';
 import { loadKeybindings, matchShortcut, getCombo, formatCombo } from './engine/keybindings';
 import type { Keybindings } from './engine/keybindings';
 
-import yaml from 'js-yaml';
 import { parseDocument } from './engine/parser/markdownToSlides';
+import { extractFrontmatter, patchFrontmatter } from './engine/parser/frontmatter';
 import { checkForUpdate } from './engine/updateCheck';
 import { exportToPptx } from './engine/export/exportPptx';
 import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml } from './engine/theme';
@@ -91,6 +91,8 @@ export default function App() {
   const [allThemes, setAllThemes]         = useState<Theme[]>(BUILT_IN_THEMES);
   const [activeThemeId, setActiveThemeId] = useState<string>(DEFAULT_THEME.id);
   const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
+  const [themesDir, setThemesDir]         = useState<string>('');
+  const [themeLoadErrors, setThemeLoadErrors] = useState<string[]>([]);
 
   // Resolved theme = base theme merged with overrides
   const activeTheme = useMemo<Theme>(() => {
@@ -103,6 +105,13 @@ export default function App() {
     };
   }, [allThemes, activeThemeId, themeOverrides]);
 
+  // Persist panel layout across sessions and inspector toggle/hide
+  const PANEL_IDS = ['thumb', 'editor', 'inspector'] as const;
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+    id: 'kova-main',
+    panelIds: [...PANEL_IDS],
+  });
+
   // Panel refs for Focus Mode collapse
   const thumbPanelRef     = usePanelRef();
   const inspectorPanelRef = usePanelRef();
@@ -110,6 +119,11 @@ export default function App() {
 
   const handleFormat = useCallback((cmd: FormatCmd) => {
     editorRef.current?.runFormat(cmd);
+  }, []);
+
+  const handleThumbnailSelect = useCallback((index: number) => {
+    setCurrentSlideIndex(index);
+    editorRef.current?.scrollToSlide(index);
   }, []);
 
   const { slides: rawSlides, frontmatter } = useMemo(() => {
@@ -158,14 +172,21 @@ export default function App() {
 
   // Load custom themes from ~/.kova/themes/ on startup
   useEffect(() => {
-    invoke<Array<[string, string]>>('load_custom_themes')
-      .then((entries) => {
+    invoke<[string, Array<[string, string]>]>('load_custom_themes')
+      .then(([dir, entries]) => {
+        setThemesDir(dir);
+        const errors: string[] = [];
         const custom = entries
-          .map(([id, yaml]) => parseThemeYaml(id, yaml))
+          .map(([id, yaml]) => {
+            const t = parseThemeYaml(id, yaml);
+            if (!t) errors.push(id);
+            return t;
+          })
           .filter((t): t is Theme => t !== null);
+        if (errors.length > 0) setThemeLoadErrors(errors);
         if (custom.length > 0) setAllThemes([...BUILT_IN_THEMES, ...custom]);
       })
-      .catch(() => {}); // silently ignore if dir doesn't exist
+      .catch(() => {});
   }, []);
 
   // Load keybindings from ~/.kova/keybindings.yaml on startup
@@ -241,6 +262,8 @@ export default function App() {
       setContent(makeStarter());
       setIsDirty(false);
       setCurrentSlideIndex(0);
+      setActiveThemeId(DEFAULT_THEME.id);
+      setThemeOverrides({});
     });
   }, [guardDirty]);
 
@@ -314,7 +337,12 @@ export default function App() {
 
   const handleThemeSelect = useCallback((id: string) => {
     setActiveThemeId(id);
-    setThemeOverrides({}); // clear overrides when switching base theme
+    setThemeOverrides({});
+    setContent((prev) => {
+      const patched = patchFrontmatter(prev, { theme: id, theme_overrides: null });
+      if (patched !== prev) setIsDirty(true);
+      return patched;
+    });
   }, []);
 
   const handleThemeChange = useCallback((patch: Partial<Theme>) => {
@@ -329,16 +357,22 @@ export default function App() {
       });
       if (!selected || typeof selected !== 'string') return;
       const text: string = await invoke('read_file', { path: selected });
-      // Apply theme declared in frontmatter, if any
-      const fmMatch = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
-      if (fmMatch) {
-        try {
-          const fm = yaml.load(fmMatch[1]) as Record<string, unknown>;
-          if (typeof fm?.theme === 'string') {
-            const found = allThemes.find((t) => t.id === fm.theme);
-            if (found) { setActiveThemeId(found.id); setThemeOverrides({}); }
-          }
-        } catch { /* ignore bad yaml */ }
+      const { frontmatter: fm } = extractFrontmatter(text);
+      if (typeof fm.theme === 'string') {
+        const found = allThemes.find((t) => t.id === fm.theme);
+        if (found) {
+          setActiveThemeId(found.id);
+          const overrides = fm.theme_overrides ?? {};
+          setThemeOverrides({
+            ...(overrides.colors ? { colors: overrides.colors as never } : {}),
+            ...(overrides.fonts  ? { fonts:  overrides.fonts  as never } : {}),
+          });
+        } else {
+          setThemeOverrides({});
+        }
+      } else {
+        setActiveThemeId(DEFAULT_THEME.id);
+        setThemeOverrides({});
       }
       setFilePath(selected);
       setContent(text);
@@ -348,13 +382,27 @@ export default function App() {
     } catch (err) { console.error('Open failed:', err); }});
   }, [guardDirty, allThemes]);
 
+  const buildSaveContent = useCallback(() => {
+    const overridePatch: Record<string, unknown> = {};
+    if (themeOverrides.colors && Object.keys(themeOverrides.colors).length > 0)
+      overridePatch.colors = themeOverrides.colors;
+    if (themeOverrides.fonts && Object.keys(themeOverrides.fonts).length > 0)
+      overridePatch.fonts = themeOverrides.fonts;
+    const hasOverrides = Object.keys(overridePatch).length > 0;
+    return hasOverrides
+      ? patchFrontmatter(content, { theme_overrides: overridePatch })
+      : patchFrontmatter(content, { theme_overrides: null });
+  }, [content, themeOverrides]);
+
   const handleSave = useCallback(async () => {
     if (!filePath) return;
     try {
-      await invoke('write_file', { path: filePath, content });
+      const toWrite = buildSaveContent();
+      await invoke('write_file', { path: filePath, content: toWrite });
+      if (toWrite !== content) setContent(toWrite);
       setIsDirty(false);
     } catch (err) { console.error('Save failed:', err); }
-  }, [filePath, content]);
+  }, [filePath, content, buildSaveContent]);
 
   const handleSaveAs = useCallback(async () => {
     try {
@@ -363,12 +411,14 @@ export default function App() {
         defaultPath: filePath ?? undefined,
       });
       if (!target) return;
-      await invoke('write_file', { path: target, content });
+      const toWrite = buildSaveContent();
+      await invoke('write_file', { path: target, content: toWrite });
+      if (toWrite !== content) setContent(toWrite);
       setFilePath(target);
       setIsDirty(false);
       await invoke('start_watching', { path: target }).catch(console.error);
     } catch (err) { console.error('Save As failed:', err); }
-  }, [filePath, content]);
+  }, [filePath, content, buildSaveContent]);
 
   const handleExport = useCallback(async () => {
     if (slides.length === 0) return;
@@ -490,13 +540,6 @@ export default function App() {
           {filePath ? filePath.split('/').pop() : 'Untitled.md'}{isDirty ? ' *' : ''}
         </div>
         <button
-          className={`btn${focusMode ? ' btn-primary' : ''}`}
-          onClick={toggleFocusMode}
-          title={`Focus Mode (${formatCombo(getCombo(keybindings.combos, 'focusMode'))})`}
-        >
-          Focus
-        </button>
-        <button
           className="btn btn-primary"
           onClick={handlePresentEnter}
           disabled={slides.length === 0}
@@ -566,12 +609,18 @@ export default function App() {
       </div>
 
       <div className="app-panels">
-        <PanelGroup orientation="horizontal" style={{ height: '100%' }}>
-          <Panel panelRef={thumbPanelRef} defaultSize={14} minSize={8} collapsible>
+        <PanelGroup
+          orientation="horizontal"
+          style={{ height: '100%' }}
+          id="kova-main"
+          defaultLayout={defaultLayout}
+          onLayoutChanged={onLayoutChanged}
+        >
+          <Panel id="thumb" panelRef={thumbPanelRef} defaultSize={14} minSize={8} collapsible>
             <ThumbnailPanel
               slides={slides}
               currentIndex={safeSlideIndex}
-              onSelect={setCurrentSlideIndex}
+              onSelect={handleThumbnailSelect}
               theme={activeTheme}
               docTitle={frontmatter.title}
               aspectRatio={aspectRatio}
@@ -580,7 +629,7 @@ export default function App() {
 
           <PanelResizeHandle />
 
-          <Panel defaultSize={72} minSize={20}>
+          <Panel id="editor" defaultSize={72} minSize={20}>
             <EditorPanel
               ref={editorRef}
               content={content}
@@ -595,7 +644,7 @@ export default function App() {
           {showInspector && <PanelResizeHandle />}
 
           {showInspector && (
-            <Panel panelRef={inspectorPanelRef} defaultSize={14} minSize={8} collapsible>
+            <Panel id="inspector" panelRef={inspectorPanelRef} defaultSize={14} minSize={8} collapsible>
               <InspectorPanel
                 filePath={filePath}
                 slideCount={slides.length}
@@ -624,6 +673,8 @@ export default function App() {
         <SettingsModal
           settings={settings}
           keybindingsPath={keybindings.path}
+          themesDir={themesDir}
+          themeLoadErrors={themeLoadErrors}
           availableUpdate={availableUpdate}
           onChange={handleSettingsChange}
           onUpdateChecked={setAvailableUpdate}

@@ -1,11 +1,11 @@
 .editor-panel {
-  background: #1e1e1e;
+  background: var(--bg-panel-alt);
 }
 
 /* Override CodeMirror to fill the panel */
 .editor-panel .cm-editor {
   height: 100%;
-  background: #1e1e1e;
+  background: var(--bg-panel-alt);
   font-family: var(--font-mono);
   font-size: 14px;
   line-height: 1.7;
@@ -42,22 +42,22 @@
 
 /* Gutter */
 .editor-panel .cm-gutters {
-  background: #1e1e1e;
-  border-right: 1px solid #2a2a2a;
-  color: #555;
+  background: var(--bg-panel-alt);
+  border-right: 1px solid var(--border);
+  color: var(--text-dim);
 }
 
 /* Active line */
 .editor-panel .cm-activeLine {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-hover);
 }
 
 .editor-panel .cm-activeLineGutter {
-  background: rgba(255, 255, 255, 0.03);
-  color: #888;
+  background: var(--bg-hover);
+  color: var(--text-muted);
 }
 
-/* Markdown syntax colours */
+/* Markdown syntax colours — dark mode */
 .editor-panel .cm-header { color: #e8c882; font-weight: 700; }
 .editor-panel .cm-strong { color: #e8e8e8; font-weight: 700; }
 .editor-panel .cm-em { color: #b8d4b8; font-style: italic; }
@@ -65,12 +65,18 @@
 .editor-panel .cm-url { color: #6a8fc8; }
 .editor-panel .cm-quote { color: #aaaaaa; font-style: italic; }
 .editor-panel .cm-code { color: #c8a882; font-family: var(--font-mono); }
-.editor-panel .cm-hr { color: #555555; }
-
-/* Slide delimiter (--- line) — subtle visual break */
 .editor-panel .cm-hr {
   display: block;
   border: none;
   color: var(--accent);
   opacity: 0.5;
 }
+
+/* Markdown syntax colours — light mode */
+:root.theme-light .editor-panel .cm-header { color: #7a5c00; }
+:root.theme-light .editor-panel .cm-strong { color: #111111; }
+:root.theme-light .editor-panel .cm-em { color: #2d6e2d; }
+:root.theme-light .editor-panel .cm-link { color: #1a44cc; }
+:root.theme-light .editor-panel .cm-url { color: #1a3399; }
+:root.theme-light .editor-panel .cm-quote { color: #666666; }
+:root.theme-light .editor-panel .cm-code { color: #8b4000; }

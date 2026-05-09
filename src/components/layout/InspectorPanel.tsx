@@ -21,14 +21,25 @@ interface Props {
 }
 
 type Section = 'format' | 'theme' | 'colours' | 'fonts' | 'branding';
+const ALL_SECTIONS: Section[] = ['format', 'theme', 'colours', 'fonts', 'branding'];
 
 export function InspectorPanel({
   filePath, slideCount, frontmatter,
   theme, allThemes, onThemeSelect, onThemeChange, onFormat, onExport,
 }: Props) {
-  const [open, setOpen] = useState<Section | null>('format');
+  const [open, setOpen] = useState<Set<Section>>(new Set(['format']));
   const [exporting, setExporting] = useState(false);
-  const toggle = (s: Section) => setOpen((prev) => (prev === s ? null : s));
+
+  const toggle = (s: Section) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      next.has(s) ? next.delete(s) : next.add(s);
+      return next;
+    });
+
+  const allOpen = open.size === ALL_SECTIONS.length;
+  const toggleAll = () =>
+    setOpen(allOpen ? new Set() : new Set(ALL_SECTIONS));
 
   const handleExport = useCallback(async () => {
     if (!onExport) return;
@@ -38,7 +49,19 @@ export function InspectorPanel({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-panel-alt)' }}>
-      <div className="panel-header">Inspector</div>
+      <div className="panel-header">
+        Inspector
+        <button
+          onClick={toggleAll}
+          title={allOpen ? 'Collapse all sections' : 'Expand all sections'}
+          style={{
+            marginLeft: 'auto', background: 'none', border: 'none',
+            color: 'var(--text-dim)', cursor: 'pointer', fontSize: 10, padding: '0 2px',
+          }}
+        >
+          {allOpen ? '▲▲' : '▼▼'}
+        </button>
+      </div>
       <div style={{ flex: 1, overflowY: 'auto' }}>
 
         {/* Document info */}
@@ -53,32 +76,32 @@ export function InspectorPanel({
         <Divider />
 
         {/* Text formatting */}
-        <Accordion label="Format" open={open === 'format'} onToggle={() => toggle('format')}>
+        <Accordion label="Format" open={open.has('format')} onToggle={() => toggle('format')}>
           <FormatControls onFormat={onFormat} />
         </Accordion>
 
         <Divider />
 
         {/* Theme picker */}
-        <Accordion label="Theme" open={open === 'theme'} onToggle={() => toggle('theme')}>
+        <Accordion label="Theme" open={open.has('theme')} onToggle={() => toggle('theme')}>
           <ThemePicker themes={allThemes} activeId={theme.id} onSelect={onThemeSelect} />
         </Accordion>
 
-        <Accordion label="Colours" open={open === 'colours'} onToggle={() => toggle('colours')}>
+        <Accordion label="Colours" open={open.has('colours')} onToggle={() => toggle('colours')}>
           <ColorControls
             colors={theme.colors}
             onChange={(key, val) => onThemeChange({ colors: { ...theme.colors, [key]: val } })}
           />
         </Accordion>
 
-        <Accordion label="Fonts" open={open === 'fonts'} onToggle={() => toggle('fonts')}>
+        <Accordion label="Fonts" open={open.has('fonts')} onToggle={() => toggle('fonts')}>
           <FontControls
             fonts={theme.fonts}
             onChange={(key, val) => onThemeChange({ fonts: { ...theme.fonts, [key]: val } })}
           />
         </Accordion>
 
-        <Accordion label="Branding" open={open === 'branding'} onToggle={() => toggle('branding')}>
+        <Accordion label="Branding" open={open.has('branding')} onToggle={() => toggle('branding')}>
           <LogoControls
             logo={theme.logo}
             logoPosition={theme.logo_position}
