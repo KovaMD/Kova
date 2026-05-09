@@ -3,6 +3,32 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, State};
 
+/// Opens a path in the native file manager (Finder / Nautilus / Explorer).
+/// Uses platform process commands directly rather than tauri-plugin-opener,
+/// which requires path scopes to be configured before it works on macOS.
+#[tauri::command]
+pub fn show_in_file_manager(path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("open")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "linux")]
+    std::process::Command::new("xdg-open")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "windows")]
+    std::process::Command::new("explorer")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 pub struct AppState {
     pub current_file: Mutex<Option<PathBuf>>,
     pub watcher: Mutex<Option<notify::RecommendedWatcher>>,

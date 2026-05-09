@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { openUrl, openPath } from '@tauri-apps/plugin-opener';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { invoke } from '@tauri-apps/api/core';
 import type { AppSettings, PresentationMode, NotesFontSize } from '../store/settings';
 import { checkForUpdate } from '../engine/updateCheck';
 import { APP_VERSION } from '../version';
@@ -219,7 +220,7 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
             </code>
             <button
               type="button"
-              onClick={() => openPath(themesDir).catch(() => {})}
+              onClick={() => invoke('show_in_file_manager', { path: themesDir }).catch(() => {})}
               style={{
                 flexShrink: 0,
                 padding: '5px 12px',
@@ -361,7 +362,7 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
             </code>
             <button
               type="button"
-              onClick={() => openPath(keybindingsPath).catch(() => {})}
+              onClick={() => invoke('show_in_file_manager', { path: keybindingsPath }).catch(() => {})}
               style={{
                 flexShrink: 0,
                 padding: '5px 12px',
