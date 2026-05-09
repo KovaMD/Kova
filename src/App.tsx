@@ -167,6 +167,27 @@ export default function App() {
   );
 
   const wordCount = countWords(content);
+
+  // Count image references that live outside the document's own folder.
+  // These display fine locally but break if the .md file is moved without its images.
+  const externalImageCount = useMemo(() => {
+    if (!filePath) return 0;
+    const sep = filePath.includes('\\') ? '\\' : '/';
+    const docDir = filePath.substring(0, filePath.lastIndexOf(sep));
+    const IMG_RE = /!\[[^\]]*\]\(([^\s)]+)/g;
+    let count = 0;
+    let m: RegExpExecArray | null;
+    while ((m = IMG_RE.exec(content)) !== null) {
+      const src = m[1];
+      if (/^(https?|data|asset|tauri):\/\//i.test(src)) continue; // web / already-converted
+      if (/^[A-Za-z]:[/\\]/.test(src) || src.startsWith('/')) {
+        if (!src.startsWith(docDir)) count++;           // absolute path outside doc dir
+      } else if (src.startsWith('..')) {
+        count++;                                         // relative path escaping doc dir
+      }
+    }
+    return count;
+  }, [content, filePath]);
   const filePathRef = useRef(filePath);
   useEffect(() => { filePathRef.current = filePath; }, [filePath]);
 
@@ -667,6 +688,7 @@ export default function App() {
         wordCount={wordCount}
         isDirty={isDirty}
         filePath={filePath}
+        externalImageCount={externalImageCount}
       />
 
       {showSettings && (

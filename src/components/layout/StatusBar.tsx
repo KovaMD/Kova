@@ -6,9 +6,10 @@ interface Props {
   wordCount: number;
   isDirty: boolean;
   filePath: string | null;
+  externalImageCount: number;
 }
 
-export function StatusBar({ currentSlide, totalSlides, wordCount, isDirty, filePath }: Props) {
+export function StatusBar({ currentSlide, totalSlides, wordCount, isDirty, filePath, externalImageCount }: Props) {
   const minutes = Math.ceil(wordCount / WPM);
   const timeStr = minutes < 2 ? `${minutes} min` : `${minutes} mins`;
 
@@ -34,6 +35,17 @@ export function StatusBar({ currentSlide, totalSlides, wordCount, isDirty, fileP
       <Cell>Est. {timeStr}</Cell>
       <Divider />
       <Cell>{wordCount.toLocaleString()} words</Cell>
+      {externalImageCount > 0 && (
+        <>
+          <Divider />
+          <Cell
+            title={`${externalImageCount} image${externalImageCount > 1 ? 's are' : ' is'} outside this file's folder — ${externalImageCount > 1 ? 'they' : 'it'} won't appear if the file is moved`}
+            style={{ color: 'var(--dirty-color)', cursor: 'default' }}
+          >
+            ⚠ {externalImageCount} external image{externalImageCount > 1 ? 's' : ''}
+          </Cell>
+        </>
+      )}
       <div style={{ flex: 1 }} />
       {(filePath || isDirty) && (
         <>
@@ -48,9 +60,9 @@ export function StatusBar({ currentSlide, totalSlides, wordCount, isDirty, fileP
   );
 }
 
-function Cell({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+function Cell({ children, style, title }: { children: React.ReactNode; style?: React.CSSProperties; title?: string }) {
   return (
-    <div style={{ padding: '0 10px', ...style }}>
+    <div title={title} style={{ padding: '0 10px', ...style }}>
       {children}
     </div>
   );
