@@ -101,11 +101,11 @@ function buildMermaidInit(theme: Theme): string {
     pieStrokeWidth:        '2px',
     pieOpacity:            '0.9',
   };
-  const xychart = {
+  const xyChart = {
     plotColorPalette: buildChartPalette(c.accent),
     backgroundColor: c.background,
   };
-  return `%%{init: ${JSON.stringify({ theme: 'base', themeVariables: vars, xychart })}}%%\n`;
+  return `%%{init: ${JSON.stringify({ theme: 'base', themeVariables: vars, xyChart })}}%%\n`;
 }
 
 interface Props {
