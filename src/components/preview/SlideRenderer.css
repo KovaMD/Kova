@@ -436,6 +436,11 @@
   width: auto !important;
   height: auto !important;
 }
+/* Mermaid hardcodes a white background rect — make it transparent so the
+   slide background shows through regardless of theme. */
+.sl-mermaid svg rect.background {
+  fill: transparent !important;
+}
 
 /* ── Code layout ─────────────────────────────────────────────────────────── */
 

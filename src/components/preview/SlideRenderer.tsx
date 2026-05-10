@@ -102,8 +102,9 @@ function buildMermaidInit(theme: Theme): string {
     pieOpacity:            '0.9',
     // xychart reads colours from themeVariables.xyChart, not a top-level xyChart key
     xyChart: {
-      backgroundColor:   c.background,
       plotColorPalette:  buildChartPalette(c.accent),
+      titleColor:        c.text,
+      dataLabelColor:    c.text,
       xAxisTitleColor:   c.text,
       xAxisLabelColor:   c.text,
       xAxisTickColor:    c.text,
