@@ -111,42 +111,35 @@ jobs:
           prerelease: true
           args: ${{ matrix.args }}
 
-      # Submit the signed DMG to Apple, wait for acceptance, then staple the
-      # notarisation ticket so the app passes Gatekeeper without internet access.
+      # Submit the signed DMG to Apple, then wait up to 10 minutes for acceptance,
+      # and staple the notarisation ticket so Gatekeeper works offline.
       - name: Notarise and staple macOS DMG
         if: matrix.platform == 'macos-latest'
         run: |
           DMG=$(find "$(pwd)/src-tauri/target/universal-apple-darwin/release/bundle/dmg" -name "*.dmg" | head -1)
-          echo "DMG: $DMG"
-          ls -lh "$DMG"
-          echo "Key file: $(wc -c < "$RUNNER_TEMP/AuthKey.p8") bytes, $(wc -l < "$RUNNER_TEMP/AuthKey.p8") lines"
-          echo "APPLE_API_KEY length: ${#APPLE_API_KEY} (expect 10)"
-          echo "APPLE_API_ISSUER length: ${#APPLE_API_ISSUER} (expect 36)"
+          echo "Submitting: $DMG"
 
-          echo "--- notarytool submit --help ---"
-          xcrun notarytool submit --help > /tmp/nt-help.txt 2>&1 || true
-          cat /tmp/nt-help.txt
-
-          set +e
+          # Submit without --wait so we capture the submission ID immediately
           xcrun notarytool submit "$DMG" \
             --key "$RUNNER_TEMP/AuthKey.p8" \
             --key-id "$APPLE_API_KEY" \
             --issuer "$APPLE_API_ISSUER" \
-            --wait \
-            --output-format json \
-            > /tmp/notarize-out.txt 2>/tmp/notarize-err.txt
-          NOTARIZE_EXIT=$?
-          set -e
+            --output-format json 2>&1 | tee /tmp/submit.json
+          SUBMISSION_ID=$(jq -r '.id' /tmp/submit.json)
+          echo "Submission ID: $SUBMISSION_ID"
 
-          echo "=== notarytool exit code: $NOTARIZE_EXIT ==="
-          echo "=== stdout ($(wc -c < /tmp/notarize-out.txt) bytes) ==="
-          cat /tmp/notarize-out.txt
-          echo "=== stderr ($(wc -c < /tmp/notarize-err.txt) bytes) ==="
-          cat /tmp/notarize-err.txt
+          # Wait up to 10 minutes; Apple is typically done in 1-3 minutes
+          xcrun notarytool wait "$SUBMISSION_ID" \
+            --key "$RUNNER_TEMP/AuthKey.p8" \
+            --key-id "$APPLE_API_KEY" \
+            --issuer "$APPLE_API_ISSUER" \
+            --timeout 600 \
+            --output-format json 2>&1 | tee /tmp/wait.json
 
-          STATUS=$(jq -r '.status // empty' /tmp/notarize-out.txt 2>/dev/null || echo "")
+          STATUS=$(jq -r '.status' /tmp/wait.json)
           echo "Notarisation status: $STATUS"
-          [ "$STATUS" = "Accepted" ] || { echo "Notarisation failed"; exit 1; }
+          [ "$STATUS" = "Accepted" ] || { echo "Notarisation rejected"; exit 1; }
+
           xcrun stapler staple "$DMG"
           echo "Ticket stapled to $DMG"
         env:
