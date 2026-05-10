@@ -131,8 +131,7 @@ function convertRoot(tree: Root, placeholders: Map<number, SlideElement>): Conve
 
       case 'paragraph': {
         const p = node as Paragraph;
-        const el = convertParagraph(p);
-        if (el) elements.push(el);
+        for (const el of convertParagraph(p)) elements.push(el);
         break;
       }
 
@@ -212,19 +211,42 @@ function convertRoot(tree: Root, placeholders: Map<number, SlideElement>): Conve
   return { title, titleLevel, elements };
 }
 
-function convertParagraph(p: Paragraph): SlideElement | null {
-  // Standalone image
+function convertParagraph(p: Paragraph): SlideElement[] {
+  // Single standalone image (most common case)
   if (p.children.length === 1 && p.children[0].type === 'image') {
     const img = p.children[0];
-    return { type: 'image', src: img.url, alt: img.alt ?? '', title: img.title ?? undefined };
+    return [{ type: 'image', src: img.url, alt: img.alt ?? '', title: img.title ?? undefined }];
   }
 
+  // Mixed paragraph: text + image(s) with no blank line between them.
+  // Split on image boundaries so the layout engine can detect images correctly.
+  if (p.children.some((c) => c.type === 'image')) {
+    const results: SlideElement[] = [];
+    let buf: typeof p.children = [];
+
+    const flushBuf = () => {
+      if (!buf.length) return;
+      const text = buf.map((n) => toString(n)).join('').trim();
+      if (text) results.push({ type: 'paragraph', text, html: inlineToHtml(buf as Node[]) });
+      buf = [];
+    };
+
+    for (const child of p.children) {
+      if (child.type === 'image') {
+        flushBuf();
+        results.push({ type: 'image', src: child.url, alt: child.alt ?? '', title: child.title ?? undefined });
+      } else {
+        buf.push(child);
+      }
+    }
+    flushBuf();
+    return results;
+  }
+
+  // Plain paragraph — discard whitespace-only nodes (trailing blank lines etc.)
   const text = toString(p);
-  // Discard whitespace-only paragraphs — a trailing blank line would otherwise
-  // reclassify a section slide as title-content.
-  if (!text.trim()) return null;
-  const html = inlineToHtml(p.children);
-  return { type: 'paragraph', text, html };
+  if (!text.trim()) return [];
+  return [{ type: 'paragraph', text, html: inlineToHtml(p.children as Node[]) }];
 }
 
 function convertListItem(item: MdastListItem): ListItem {

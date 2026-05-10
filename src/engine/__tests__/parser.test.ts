@@ -127,6 +127,20 @@ describe('element parsing', () => {
     expect(img?.type === 'image' && img.alt).toBe('alt');
   });
 
+  it('splits image from preceding text even without a blank line', () => {
+    // CommonMark puts text + image in one paragraph when no blank line separates them.
+    // The parser should split them so the layout engine can detect the image.
+    const { slides } = parseDocument(doc('## Slide\n\nSome text\n![alt](img.png)\n'));
+    const types = slides[0].elements.map((e) => e.type);
+    expect(types).toContain('paragraph');
+    expect(types).toContain('image');
+  });
+
+  it('mixed text+image triggers split layout without blank line', () => {
+    const { slides } = parseDocument(doc('## Slide\n\nSome text\n![alt](img.png)\n'));
+    expect(slides[0].layout).toBe('split');
+  });
+
   it('parses fenced code block', () => {
     const { slides } = parseDocument(doc('## Slide\n\n```python\nprint("hi")\n```\n'));
     const code = slides[0].elements.find((e) => e.type === 'code');
