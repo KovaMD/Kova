@@ -83,6 +83,19 @@ jobs:
         env:
           APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
 
+      # Validate notarisation credentials before the full build so errors surface clearly
+      - name: Validate App Store Connect API credentials
+        if: matrix.platform == 'macos-latest'
+        run: |
+          xcrun notarytool history \
+            --key "$RUNNER_TEMP/AuthKey.p8" \
+            --key-id "$APPLE_API_KEY" \
+            --issuer "$APPLE_API_ISSUER" \
+            --output-format json 2>&1 | head -20
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+
       - name: Build and publish release
         uses: tauri-apps/tauri-action@v0
         env:
