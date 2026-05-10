@@ -19,7 +19,7 @@ jobs:
 
           # macOS — universal binary runs on both Intel and Apple Silicon
           - platform: macos-latest
-            args: --target universal-apple-darwin
+            args: --target universal-apple-darwin --verbose
             rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
 
           # Linux — AppImage (most portable for alpha/testing)
