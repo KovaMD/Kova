@@ -116,17 +116,33 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: |
           DMG=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -1)
-          echo "Submitting for notarisation: $DMG"
+          echo "DMG: $DMG"
+          ls -lh "$DMG"
+          echo "Key file exists: $(test -f "$RUNNER_TEMP/AuthKey.p8" && echo YES || echo NO)"
+          echo "Key file size: $(wc -c < "$RUNNER_TEMP/AuthKey.p8") bytes"
+          echo "Key file header: $(head -1 "$RUNNER_TEMP/AuthKey.p8")"
+          echo "xcrun notarytool version: $(xcrun notarytool --version 2>&1)"
+
+          set +e
           xcrun notarytool submit "$DMG" \
             --key "$RUNNER_TEMP/AuthKey.p8" \
             --key-id "$APPLE_API_KEY" \
             --issuer "$APPLE_API_ISSUER" \
             --wait \
-            --output-format json 2>&1 | tee /tmp/notarize.json
-          cat /tmp/notarize.json
-          STATUS=$(jq -r '.status' /tmp/notarize.json)
+            --output-format json \
+            > /tmp/notarize-out.txt 2>/tmp/notarize-err.txt
+          NOTARIZE_EXIT=$?
+          set -e
+
+          echo "=== notarytool exit code: $NOTARIZE_EXIT ==="
+          echo "=== stdout ($(wc -c < /tmp/notarize-out.txt) bytes) ==="
+          cat /tmp/notarize-out.txt
+          echo "=== stderr ($(wc -c < /tmp/notarize-err.txt) bytes) ==="
+          cat /tmp/notarize-err.txt
+
+          STATUS=$(jq -r '.status // empty' /tmp/notarize-out.txt 2>/dev/null || echo "")
           echo "Notarisation status: $STATUS"
-          [ "$STATUS" = "Accepted" ] || { echo "Notarisation rejected — see output above"; exit 1; }
+          [ "$STATUS" = "Accepted" ] || { echo "Notarisation failed"; exit 1; }
           xcrun stapler staple "$DMG"
           echo "Ticket stapled to $DMG"
         env:
