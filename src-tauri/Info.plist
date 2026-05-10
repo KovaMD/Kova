@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>Kova needs access to read images dragged from your Desktop.</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>Kova needs access to read images dragged from your Documents folder.</string>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>Kova needs access to read images dragged from your Downloads folder.</string>
+    <key>NSRemovableVolumesUsageDescription</key>
+    <string>Kova needs access to read images dragged from external drives.</string>
+</dict>
+</plist>
