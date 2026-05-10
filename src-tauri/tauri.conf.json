@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Kova",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "identifier": "md.kova.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -25,7 +25,7 @@
         "enable": true,
         "scope": ["**"]
       },
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://img.youtube.com asset: tauri:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://api.github.com; object-src 'none'; base-uri 'self'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: asset: tauri:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://api.github.com; object-src 'none'; base-uri 'self'"
     }
   },
   "bundle": {

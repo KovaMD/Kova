@@ -75,8 +75,13 @@ pub fn stop_watching(state: State<'_, AppState>) {
 #[tauri::command]
 pub fn copy_image_to_assets(src: String, dest_dir: String) -> Result<String, String> {
     let src_path = std::path::Path::new(&src);
-    let stem = src_path.file_stem().and_then(|s| s.to_str()).unwrap_or("image");
-    let ext  = src_path.extension().and_then(|s| s.to_str()).unwrap_or("png");
+    let raw_stem = src_path.file_stem().and_then(|s| s.to_str()).unwrap_or("image");
+    let ext      = src_path.extension().and_then(|s| s.to_str()).unwrap_or("png");
+
+    // Sanitise: replace whitespace and characters that break Markdown link syntax.
+    let stem: String = raw_stem.chars()
+        .map(|c| if c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']' | '"' | '\'') { '_' } else { c })
+        .collect();
 
     let assets_dir = std::path::Path::new(&dest_dir).join("assets");
     std::fs::create_dir_all(&assets_dir)
