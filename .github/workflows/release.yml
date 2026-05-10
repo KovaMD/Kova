@@ -122,7 +122,7 @@ jobs:
             --key-id "$APPLE_API_KEY" \
             --issuer "$APPLE_API_ISSUER" \
             --wait \
-            --output-format json | tee /tmp/notarize.json
+            --output-format json 2>&1 | tee /tmp/notarize.json
           cat /tmp/notarize.json
           STATUS=$(jq -r '.status' /tmp/notarize.json)
           echo "Notarisation status: $STATUS"
