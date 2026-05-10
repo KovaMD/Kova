@@ -119,13 +119,9 @@ jobs:
           DMG=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -1)
           echo "DMG: $DMG"
           ls -lh "$DMG"
-          echo "Key file exists: $(test -f "$RUNNER_TEMP/AuthKey.p8" && echo YES || echo NO)"
-          echo "Key file size: $(wc -c < "$RUNNER_TEMP/AuthKey.p8") bytes"
-          echo "Key file lines: $(wc -l < "$RUNNER_TEMP/AuthKey.p8")"
-          echo "Key file header line: $(head -1 "$RUNNER_TEMP/AuthKey.p8" | cat -A)"
-          echo "APPLE_API_KEY length: ${#APPLE_API_KEY}"
-          echo "APPLE_API_ISSUER length: ${#APPLE_API_ISSUER}"
-          echo "xcrun notarytool version: $(xcrun notarytool --version 2>&1)"
+          echo "Key file: $(wc -c < "$RUNNER_TEMP/AuthKey.p8") bytes, $(wc -l < "$RUNNER_TEMP/AuthKey.p8") lines"
+          echo "APPLE_API_KEY length: ${#APPLE_API_KEY} (expect 10)"
+          echo "APPLE_API_ISSUER length: ${#APPLE_API_ISSUER} (expect 36)"
 
           set +e
           xcrun notarytool submit "$DMG" \
