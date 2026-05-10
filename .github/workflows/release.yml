@@ -76,10 +76,11 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      # Write the App Store Connect API key to disk for the post-build notarisation step
+      # Write the App Store Connect API key to disk for the post-build notarisation step.
+      # The tr -d '\r' strips Windows CRLF endings that corrupt the PEM format.
       - name: Write App Store Connect API key
         if: matrix.platform == 'macos-latest'
-        run: echo "$APPLE_API_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
+        run: printf '%s' "$APPLE_API_KEY_CONTENT" | tr -d '\r' > "$RUNNER_TEMP/AuthKey.p8"
         env:
           APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
 
@@ -120,7 +121,10 @@ jobs:
           ls -lh "$DMG"
           echo "Key file exists: $(test -f "$RUNNER_TEMP/AuthKey.p8" && echo YES || echo NO)"
           echo "Key file size: $(wc -c < "$RUNNER_TEMP/AuthKey.p8") bytes"
-          echo "Key file header: $(head -1 "$RUNNER_TEMP/AuthKey.p8")"
+          echo "Key file lines: $(wc -l < "$RUNNER_TEMP/AuthKey.p8")"
+          echo "Key file header line: $(head -1 "$RUNNER_TEMP/AuthKey.p8" | cat -A)"
+          echo "APPLE_API_KEY length: ${#APPLE_API_KEY}"
+          echo "APPLE_API_ISSUER length: ${#APPLE_API_ISSUER}"
           echo "xcrun notarytool version: $(xcrun notarytool --version 2>&1)"
 
           set +e
