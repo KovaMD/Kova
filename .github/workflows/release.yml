@@ -128,13 +128,14 @@ jobs:
           SUBMISSION_ID=$(jq -r '.id' /tmp/submit.json)
           echo "Submission ID: $SUBMISSION_ID"
 
-          # Wait up to 10 minutes; Apple is typically done in 1-3 minutes
+          # Wait up to 30 minutes; new certificates can take longer on first submission
           xcrun notarytool wait "$SUBMISSION_ID" \
             --key "$RUNNER_TEMP/AuthKey.p8" \
             --key-id "$APPLE_API_KEY" \
             --issuer "$APPLE_API_ISSUER" \
-            --timeout 600 \
+            --timeout 1800 \
             --output-format json 2>&1 | tee /tmp/wait.json
+          cat /tmp/wait.json
 
           STATUS=$(jq -r '.status' /tmp/wait.json)
           echo "Notarisation status: $STATUS"
