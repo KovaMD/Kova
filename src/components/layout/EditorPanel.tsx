@@ -1,5 +1,6 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { invoke } from '@tauri-apps/api/core';
 import { indentWithTab } from '@codemirror/commands';
 import { Compartment, EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
@@ -118,20 +119,25 @@ function makeHeadingCommand(level: number) {
   };
 }
 
+const LIST_PREFIX_RE = /^(\d+\.\s+|- )/;
+
 function makeLinePrefixCommand(prefix: string) {
   return (view: EditorView): boolean => {
     const { state } = view;
     const { from } = state.selection.main;
     const line = state.doc.lineAt(from);
     if (line.text.startsWith(prefix)) {
+      // Toggle off — same prefix already present
       view.dispatch({
         changes: { from: line.from, to: line.from + prefix.length, insert: '' },
         selection: EditorSelection.cursor(Math.max(line.from, from - prefix.length)),
       });
     } else {
+      const existing = line.text.match(LIST_PREFIX_RE);
+      const removeLen = existing ? existing[0].length : 0;
       view.dispatch({
-        changes: { from: line.from, insert: prefix },
-        selection: EditorSelection.cursor(from + prefix.length),
+        changes: { from: line.from, to: line.from + removeLen, insert: prefix },
+        selection: EditorSelection.cursor(from + prefix.length - removeLen),
       });
     }
     view.focus();
@@ -331,14 +337,43 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
         if (!view) return;
 
         const pos = view.posAtCoords({ x, y }) ?? view.state.doc.length;
-        const inserts = imagePaths.map((abs) => {
-          const imgPath = filePathRef.current ? makeRelativePath(filePathRef.current, abs) : abs;
-          const label = abs.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') ?? 'image';
-          return `![${label}](${imgPath})`;
-        });
-        const insert = inserts.join('\n');
-        view.dispatch({ changes: { from: pos, insert }, selection: { anchor: pos + insert.length } });
-        view.focus();
+        const docPath = filePathRef.current ?? null;
+        const docDir  = docPath
+          ? docPath.substring(0, Math.max(docPath.lastIndexOf('/'), docPath.lastIndexOf('\\')))
+          : null;
+
+        void (async () => {
+          const inserts = await Promise.all(imagePaths.map(async (abs) => {
+            const label = abs.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') ?? 'image';
+            let imgPath: string;
+
+            if (docDir) {
+              const normAbs = abs.replace(/\\/g, '/');
+              const normDir = docDir.replace(/\\/g, '/');
+              if (normAbs.startsWith(normDir + '/')) {
+                // Already inside the document folder — use a relative path.
+                imgPath = makeRelativePath(docPath!, abs);
+              } else {
+                // Outside the document folder — copy into assets/ to avoid
+                // macOS permission issues with protected directories (Desktop, etc.).
+                try {
+                  const filename = await invoke<string>('copy_image_to_assets', { src: abs, destDir: docDir });
+                  imgPath = `assets/${filename}`;
+                } catch {
+                  imgPath = abs;
+                }
+              }
+            } else {
+              imgPath = abs;
+            }
+
+            return `![${label}](${imgPath})`;
+          }));
+
+          const insert = inserts.join('\n');
+          view.dispatch({ changes: { from: pos, insert }, selection: { anchor: pos + insert.length } });
+          view.focus();
+        })();
       }
     });
 

@@ -68,6 +68,34 @@ pub fn stop_watching(state: State<'_, AppState>) {
     *state.current_file.lock().unwrap() = None;
 }
 
+/// Copies `src` into `{dest_dir}/assets/`, creating the directory if needed.
+/// Returns the final filename (e.g. "screenshot.png") so the caller can
+/// insert a relative `assets/<filename>` reference in the document.
+/// If a file with the same name already exists, appends a numeric suffix.
+#[tauri::command]
+pub fn copy_image_to_assets(src: String, dest_dir: String) -> Result<String, String> {
+    let src_path = std::path::Path::new(&src);
+    let stem = src_path.file_stem().and_then(|s| s.to_str()).unwrap_or("image");
+    let ext  = src_path.extension().and_then(|s| s.to_str()).unwrap_or("png");
+
+    let assets_dir = std::path::Path::new(&dest_dir).join("assets");
+    std::fs::create_dir_all(&assets_dir)
+        .map_err(|e| format!("Cannot create assets dir: {e}"))?;
+
+    let mut name = format!("{stem}.{ext}");
+    let mut counter = 1u32;
+    loop {
+        let dest = assets_dir.join(&name);
+        if !dest.exists() {
+            std::fs::copy(src_path, &dest)
+                .map_err(|e| format!("Cannot copy image: {e}"))?;
+            return Ok(name);
+        }
+        name = format!("{stem}-{counter}.{ext}");
+        counter += 1;
+    }
+}
+
 /// Decodes base64-encoded data and writes it as binary to the given path.
 #[tauri::command]
 pub fn write_file_bytes(path: String, data: String) -> Result<(), String> {

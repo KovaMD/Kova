@@ -66,6 +66,16 @@ function piePalette(primaryHex: string): Record<string, string> {
   return out;
 }
 
+// Derives 8 perceptually distinct colours for xychart bars/lines.
+// Anchored to the theme accent so bars are always legible against the slide background.
+function buildChartPalette(accentHex: string): string {
+  const [h, rawS, rawL] = hexToHsl(accentHex);
+  const s = Math.min(Math.max(rawS, 0.60), 0.88);
+  // Keep L in the mid-range so bars show on both light and dark backgrounds.
+  const l = Math.min(Math.max(rawL, 0.38), 0.58);
+  return Array.from({ length: 8 }, (_, i) => hslToHex(h + i * 45, s, l)).join(',');
+}
+
 function buildMermaidInit(theme: Theme): string {
   const c = theme.colors;
   const firstFont = (stack: string) => stack.split(',')[0].trim().replace(/['"]/g, '');
@@ -83,7 +93,7 @@ function buildMermaidInit(theme: Theme): string {
     titleColor:            c.text,
     edgeLabelBackground:   c.background,
     fontFamily:            firstFont(theme.fonts.body),
-    ...piePalette(c.primary),
+    ...piePalette(c.accent),
     pieTitleTextColor:     c.text,
     pieSectionTextColor:   c.background,
     pieLegendTextColor:    c.text,
@@ -91,7 +101,11 @@ function buildMermaidInit(theme: Theme): string {
     pieStrokeWidth:        '2px',
     pieOpacity:            '0.9',
   };
-  return `%%{init: ${JSON.stringify({ theme: 'base', themeVariables: vars })}}%%\n`;
+  const xychart = {
+    plotColorPalette: buildChartPalette(c.accent),
+    backgroundColor: c.background,
+  };
+  return `%%{init: ${JSON.stringify({ theme: 'base', themeVariables: vars, xychart })}}%%\n`;
 }
 
 interface Props {

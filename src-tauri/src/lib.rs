@@ -23,6 +23,7 @@ pub fn run() {
             commands::load_custom_themes,
             commands::list_system_fonts,
             commands::write_file_bytes,
+            commands::copy_image_to_assets,
             commands::show_in_file_manager,
         ])
         .run(tauri::generate_context!())
