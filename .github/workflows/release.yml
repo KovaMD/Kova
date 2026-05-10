@@ -123,6 +123,10 @@ jobs:
           echo "APPLE_API_KEY length: ${#APPLE_API_KEY} (expect 10)"
           echo "APPLE_API_ISSUER length: ${#APPLE_API_ISSUER} (expect 36)"
 
+          echo "--- notarytool submit --help ---"
+          xcrun notarytool submit --help > /tmp/nt-help.txt 2>&1 || true
+          cat /tmp/nt-help.txt
+
           set +e
           xcrun notarytool submit "$DMG" \
             --key "$RUNNER_TEMP/AuthKey.p8" \
