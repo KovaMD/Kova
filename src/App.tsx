@@ -35,12 +35,15 @@ const isMac = /Mac/i.test(navigator.platform);
 
 function resolveImageSrc(src: string, docDir: string): string {
   if (/^(https?|data|asset|tauri):\/\//i.test(src)) return src;
+  // Decode any percent-encoding written by the editor (e.g. %20 for spaces).
+  let p = src;
+  try { p = decodeURIComponent(src); } catch { /* malformed — use as-is */ }
   // Already absolute — convert directly, no docDir needed.
-  if (src.startsWith('/') || /^[A-Za-z]:[/\\]/.test(src)) return convertFileSrc(src);
+  if (p.startsWith('/') || /^[A-Za-z]:[/\\]/.test(p)) return convertFileSrc(p);
   // Relative path — only resolvable when we know the document location.
-  if (!docDir) return src;
+  if (!docDir) return p;
   const sep = docDir.includes('\\') ? '\\' : '/';
-  return convertFileSrc(docDir + (docDir.endsWith(sep) ? '' : sep) + src);
+  return convertFileSrc(docDir + (docDir.endsWith(sep) ? '' : sep) + p);
 }
 
 function resolveHtmlSrcs(html: string, docDir: string): string {
@@ -86,6 +89,8 @@ export default function App() {
   const [confirmCloseAction, setConfirmCloseAction] = useState<(() => void) | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<string | null>(null);
   const [keybindings, setKeybindings]     = useState<Keybindings>({ path: '', combos: {} });
+  const [warnMessage, setWarnMessage]     = useState<string | null>(null);
+  const warnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Theme state: active theme id + per-session overrides
   const [allThemes, setAllThemes]         = useState<Theme[]>(BUILT_IN_THEMES);
@@ -465,6 +470,12 @@ export default function App() {
     setIsDirty(true);
   }, []);
 
+  const handleWarn = useCallback((msg: string) => {
+    setWarnMessage(msg);
+    if (warnTimerRef.current) clearTimeout(warnTimerRef.current);
+    warnTimerRef.current = setTimeout(() => setWarnMessage(null), 6000);
+  }, []);
+
   const handleSettingsChange = useCallback((s: AppSettings) => {
     setSettings(s);
     saveSettings(s);
@@ -656,6 +667,7 @@ export default function App() {
               content={content}
               onChange={handleContentChange}
               onCursorSlide={setCurrentSlideIndex}
+              onWarn={handleWarn}
               focusMode={focusMode}
               filePath={filePath}
               uiTheme={settings.uiTheme}
@@ -702,6 +714,18 @@ export default function App() {
           onUpdateChecked={setAvailableUpdate}
           onClose={() => setShowSettings(false)}
         />
+      )}
+
+      {warnMessage && (
+        <div style={{
+          position: 'fixed', bottom: 36, left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--bg-elevated)', border: '1px solid var(--dirty-color)',
+          borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.4)', zIndex: 3000,
+          padding: '10px 16px', fontSize: 12, color: 'var(--dirty-color)',
+          maxWidth: 480, textAlign: 'center', pointerEvents: 'none',
+        }}>
+          {warnMessage}
+        </div>
       )}
 
       {confirmCloseAction && (

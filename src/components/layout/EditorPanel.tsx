@@ -17,13 +17,13 @@ interface Props {
   content: string;
   onChange: (value: string) => void;
   onCursorSlide?: (index: number) => void;
+  onWarn?: (msg: string) => void;
   focusMode?: boolean;
   filePath?: string | null;
   uiTheme?: 'dark' | 'light';
 }
 
 // Returns a path to `target` relative to the directory of `docPath`.
-// Falls back to the absolute path if they share no common prefix.
 function makeRelativePath(docPath: string, target: string): string {
   const sep = docPath.includes('\\') ? '\\' : '/';
   const docParts = docPath.split(sep).slice(0, -1);
@@ -33,6 +33,11 @@ function makeRelativePath(docPath: string, target: string): string {
   const up = docParts.length - common;
   const rel = [...Array(up).fill('..'), ...tgtParts.slice(common)].join('/');
   return rel || target;
+}
+
+// Encode characters that break CommonMark URL parsing (spaces, unbalanced parens).
+function encodeMarkdownPath(p: string): string {
+  return p.replace(/ /g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29');
 }
 
 
@@ -165,13 +170,14 @@ export interface EditorHandle {
 interface ContextMenuState { x: number; y: number; hasSelection: boolean }
 
 export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
-  { content, onChange, onCursorSlide, focusMode = false, filePath, uiTheme = 'dark' }: Props,
+  { content, onChange, onCursorSlide, onWarn, focusMode = false, filePath, uiTheme = 'dark' }: Props,
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   const onCursorSlideRef = useRef(onCursorSlide);
+  const onWarnRef = useRef(onWarn);
   const filePathRef = useRef(filePath);
   const uiThemeRef = useRef(uiTheme);
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
@@ -179,6 +185,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
 
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { onCursorSlideRef.current = onCursorSlide; }, [onCursorSlide]);
+  useEffect(() => { onWarnRef.current = onWarn; }, [onWarn]);
   useEffect(() => { filePathRef.current = filePath; }, [filePath]);
   useEffect(() => { uiThemeRef.current = uiTheme; }, [uiTheme]);
 
@@ -347,31 +354,37 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
             const label = abs.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') ?? 'image';
             let imgPath: string;
 
-            if (docDir) {
-              const normAbs = abs.replace(/\\/g, '/');
-              const normDir = docDir.replace(/\\/g, '/');
-              if (normAbs.startsWith(normDir + '/')) {
-                // Already inside the document folder — use a relative path.
-                imgPath = makeRelativePath(docPath!, abs);
-              } else {
-                // Outside the document folder — copy into assets/ to avoid
-                // macOS permission issues with protected directories (Desktop, etc.).
-                try {
-                  const filename = await invoke<string>('copy_image_to_assets', { src: abs, destDir: docDir });
-                  imgPath = `assets/${filename}`;
-                } catch (e) {
-                  console.error('[Kova] copy_image_to_assets failed:', e);
-                  imgPath = abs;
-                }
-              }
-            } else {
-              imgPath = abs;
+            if (!docDir) {
+              onWarnRef.current?.('Save your document first before dropping images.');
+              return null;
             }
 
-            return `![${label}](${imgPath})`;
+            const normAbs = abs.replace(/\\/g, '/');
+            const normDir = docDir.replace(/\\/g, '/');
+            if (normAbs.startsWith(normDir + '/')) {
+              // Already inside the document folder — use a relative path.
+              imgPath = makeRelativePath(docPath!, abs);
+            } else {
+              // Outside the document folder — copy into assets/ to avoid
+              // macOS permission issues with protected directories (Desktop, etc.).
+              try {
+                const filename = await invoke<string>('copy_image_to_assets', { src: abs, destDir: docDir });
+                imgPath = `assets/${filename}`;
+              } catch (e) {
+                console.error('[Kova] copy_image_to_assets failed:', e);
+                onWarnRef.current?.(
+                  'Could not copy image — on macOS, grant Kova access under System Settings → Privacy & Security → Files and Folders.'
+                );
+                return null;
+              }
+            }
+
+            return `![${label}](${encodeMarkdownPath(imgPath)})`;
           }));
 
-          const insert = inserts.join('\n');
+          const validInserts = inserts.filter((s): s is string => s !== null);
+          if (!validInserts.length) return;
+          const insert = validInserts.join('\n');
           view.dispatch({ changes: { from: pos, insert }, selection: { anchor: pos + insert.length } });
           view.focus();
         })();
