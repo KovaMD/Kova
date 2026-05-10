@@ -116,7 +116,7 @@ jobs:
       - name: Notarise and staple macOS DMG
         if: matrix.platform == 'macos-latest'
         run: |
-          DMG=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -1)
+          DMG=$(find "$(pwd)/src-tauri/target/universal-apple-darwin/release/bundle/dmg" -name "*.dmg" | head -1)
           echo "DMG: $DMG"
           ls -lh "$DMG"
           echo "Key file: $(wc -c < "$RUNNER_TEMP/AuthKey.p8") bytes, $(wc -l < "$RUNNER_TEMP/AuthKey.p8") lines"
@@ -154,7 +154,7 @@ jobs:
       - name: Replace DMG in release with notarised copy
         if: matrix.platform == 'macos-latest' && github.event_name == 'push'
         run: |
-          DMG=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -1)
+          DMG=$(find "$(pwd)/src-tauri/target/universal-apple-darwin/release/bundle/dmg" -name "*.dmg" | head -1)
           gh release upload "${{ github.ref_name }}" "$DMG" --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
