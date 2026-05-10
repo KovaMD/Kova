@@ -19,7 +19,7 @@ jobs:
 
           # macOS — universal binary runs on both Intel and Apple Silicon
           - platform: macos-latest
-            args: --target universal-apple-darwin --verbose
+            args: --target universal-apple-darwin
             rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
 
           # Linux — AppImage (most portable for alpha/testing)
@@ -76,37 +76,23 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      # Write the App Store Connect API key to disk so APPLE_API_KEY_PATH resolves
+      # Write the App Store Connect API key to disk for the post-build notarisation step
       - name: Write App Store Connect API key
         if: matrix.platform == 'macos-latest'
         run: echo "$APPLE_API_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
         env:
           APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
 
-      # Validate notarisation credentials before the full build so errors surface clearly
-      - name: Validate App Store Connect API credentials
-        if: matrix.platform == 'macos-latest'
-        run: |
-          xcrun notarytool history \
-            --key "$RUNNER_TEMP/AuthKey.p8" \
-            --key-id "$APPLE_API_KEY" \
-            --issuer "$APPLE_API_ISSUER" \
-            --output-format json 2>&1 | head -20
-        env:
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-
-      - name: Build and publish release
+      # Tauri handles signing; notarisation is done in a separate step below to
+      # work around a Tauri v2 bug where the notarytool call fails silently.
+      - name: Build and publish release (signing only)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS code-signing + notarisation
+          # macOS code-signing
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Kova ${{ github.ref_name }}'
@@ -123,3 +109,36 @@ jobs:
           releaseDraft: true    # appears as a draft; publish manually after reviewing the assets
           prerelease: true
           args: ${{ matrix.args }}
+
+      # Submit the signed DMG to Apple, wait for acceptance, then staple the
+      # notarisation ticket so the app passes Gatekeeper without internet access.
+      - name: Notarise and staple macOS DMG
+        if: matrix.platform == 'macos-latest'
+        run: |
+          DMG=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -1)
+          echo "Submitting for notarisation: $DMG"
+          xcrun notarytool submit "$DMG" \
+            --key "$RUNNER_TEMP/AuthKey.p8" \
+            --key-id "$APPLE_API_KEY" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait \
+            --output-format json | tee /tmp/notarize.json
+          cat /tmp/notarize.json
+          STATUS=$(jq -r '.status' /tmp/notarize.json)
+          echo "Notarisation status: $STATUS"
+          [ "$STATUS" = "Accepted" ] || { echo "Notarisation rejected — see output above"; exit 1; }
+          xcrun stapler staple "$DMG"
+          echo "Ticket stapled to $DMG"
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+
+      # Replace the unnotarised DMG already uploaded by tauri-action with the
+      # stapled copy. Only runs on real tag pushes, not workflow_dispatch tests.
+      - name: Replace DMG in release with notarised copy
+        if: matrix.platform == 'macos-latest' && github.event_name == 'push'
+        run: |
+          DMG=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" | head -1)
+          gh release upload "${{ github.ref_name }}" "$DMG" --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
