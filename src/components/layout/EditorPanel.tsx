@@ -359,7 +359,8 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
                 try {
                   const filename = await invoke<string>('copy_image_to_assets', { src: abs, destDir: docDir });
                   imgPath = `assets/${filename}`;
-                } catch {
+                } catch (e) {
+                  console.error('[Kova] copy_image_to_assets failed:', e);
                   imgPath = abs;
                 }
               }

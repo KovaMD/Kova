@@ -31,6 +31,14 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "macOS": {
+      "infoPlistValues": {
+        "NSDesktopFolderUsageDescription": "Kova needs access to read images dragged from your Desktop.",
+        "NSDocumentsFolderUsageDescription": "Kova needs access to read images dragged from your Documents folder.",
+        "NSDownloadsFolderUsageDescription": "Kova needs access to read images dragged from your Downloads folder.",
+        "NSRemovableVolumesUsageDescription": "Kova needs access to read images dragged from external drives."
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
