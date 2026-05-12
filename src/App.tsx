@@ -15,7 +15,7 @@ import { PresentationOverlay } from './components/presentation/PresentationOverl
 import { PresenterOverlay } from './components/presentation/PresenterOverlay';
 import type { PresentInitPayload } from './AudienceApp';
 import { SettingsModal } from './components/SettingsModal';
-import { loadSettings, saveSettings } from './store/settings';
+import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
 import type { AppSettings } from './store/settings';
 import { loadKeybindings, matchShortcut, getCombo, formatCombo } from './engine/keybindings';
 import type { Keybindings } from './engine/keybindings';
@@ -91,6 +91,7 @@ export default function App() {
   const [keybindings, setKeybindings]     = useState<Keybindings>({ path: '', combos: {} });
   const [warnMessage, setWarnMessage]     = useState<string | null>(null);
   const warnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [resolvedUiTheme, setResolvedUiTheme] = useState<'dark' | 'light'>('dark');
 
   // Theme state: active theme id + per-session overrides
   const [allThemes, setAllThemes]         = useState<Theme[]>(BUILT_IN_THEMES);
@@ -481,9 +482,22 @@ export default function App() {
     saveSettings(s);
   }, []);
 
-  // Apply UI theme class to root element
+  // Apply UI theme class to root element; 'auto' follows the OS preference
   useEffect(() => {
-    document.documentElement.classList.toggle('theme-light', settings.uiTheme === 'light');
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      const resolved: 'dark' | 'light' =
+        settings.uiTheme === 'light' ? 'light' :
+        settings.uiTheme === 'dark'  ? 'dark'  :
+        mq.matches ? 'dark' : 'light';
+      setResolvedUiTheme(resolved);
+      document.documentElement.classList.toggle('theme-light', resolved === 'light');
+    };
+    apply();
+    if (settings.uiTheme === 'auto') {
+      mq.addEventListener('change', apply);
+      return () => mq.removeEventListener('change', apply);
+    }
   }, [settings.uiTheme]);
 
   // Autosave — only when enabled, a file path exists, and there are unsaved changes
@@ -670,7 +684,10 @@ export default function App() {
               onWarn={handleWarn}
               focusMode={focusMode}
               filePath={filePath}
-              uiTheme={settings.uiTheme}
+              uiTheme={resolvedUiTheme}
+              editorFontFamily={EDITOR_FONT_OPTIONS.find(o => o.value === settings.editorFont)?.family}
+              spellCheckEnabled={settings.spellCheckEnabled}
+              spellCheckLanguage={settings.spellCheckLanguage}
             />
           </Panel>
 

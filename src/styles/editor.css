@@ -72,6 +72,13 @@
   opacity: 0.5;
 }
 
+/* Spell-check squiggly underline */
+.editor-panel .cm-spell-error {
+  text-decoration: underline wavy #e05252;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 2px;
+}
+
 /* Markdown syntax colours — light mode */
 :root.theme-light .editor-panel .cm-header { color: #7a5c00; }
 :root.theme-light .editor-panel .cm-strong { color: #111111; }

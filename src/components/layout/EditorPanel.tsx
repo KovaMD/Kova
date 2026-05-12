@@ -12,6 +12,16 @@ import { focusModeCompartment, focusModeExtension } from '../editor/focusMode';
 import { EditorContextMenu } from '../editor/EditorContextMenu';
 import type { MenuEntry } from '../editor/EditorContextMenu';
 import { isMac } from '../../engine/keybindings';
+import { spellCheckExtension } from '../../engine/spellcheck/spellCheckExtension';
+import {
+  initSpellChecker,
+  isSpellCheckerReady,
+  spellCheck,
+  spellSuggest,
+  addCustomWord,
+  ignoreSpellingFor,
+} from '../../engine/spellcheck/spellChecker';
+import type { SpellCheckLanguage } from '../../engine/spellcheck/spellChecker';
 import '../../styles/editor.css';
 
 interface Props {
@@ -22,6 +32,9 @@ interface Props {
   focusMode?: boolean;
   filePath?: string | null;
   uiTheme?: 'dark' | 'light';
+  editorFontFamily?: string;
+  spellCheckEnabled?: boolean;
+  spellCheckLanguage?: string;
 }
 
 // Returns a path to `target` relative to the directory of `docPath`.
@@ -42,12 +55,14 @@ function encodeMarkdownPath(p: string): string {
 }
 
 
-const SCROLLER = { fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: '14px', lineHeight: '1.7' };
-const CONTENT  = { padding: '16px 24px', maxWidth: '720px', margin: '0 auto' };
+const SCROLLER_BASE = { fontSize: '14px', lineHeight: '1.7' };
+const CONTENT       = { padding: '16px 24px', maxWidth: '720px', margin: '0 auto' };
+
+const DEFAULT_FONT_FAMILY = "'JetBrains Mono', 'Fira Code', monospace";
 
 const editorDarkTheme = EditorView.theme({
   '&': { background: '#1e1e1e', height: '100%' },
-  '.cm-scroller': SCROLLER,
+  '.cm-scroller': SCROLLER_BASE,
   '.cm-content': CONTENT,
   '.cm-gutters': { background: '#1e1e1e', borderRight: '1px solid #2a2a2a' },
   '.cm-activeLine': { background: 'rgba(255,255,255,0.03)' },
@@ -56,7 +71,7 @@ const editorDarkTheme = EditorView.theme({
 
 const editorLightTheme = EditorView.theme({
   '&': { background: '#f1f1f1', height: '100%' },
-  '.cm-scroller': SCROLLER,
+  '.cm-scroller': SCROLLER_BASE,
   '.cm-content': { ...CONTENT, color: '#1a1a1a' },
   '.cm-gutters': { background: '#f1f1f1', borderRight: '1px solid #d5d5d5', color: '#aaa' },
   '.cm-activeLine': { background: 'rgba(0,0,0,0.04)' },
@@ -65,7 +80,13 @@ const editorLightTheme = EditorView.theme({
   '.cm-focused .cm-selectionBackground': { background: 'rgba(217,79,0,0.2) !important' },
 }, { dark: false });
 
+function makeFontTheme(fontFamily: string) {
+  return EditorView.theme({ '.cm-scroller': { fontFamily } });
+}
+
 const editorColorCompartment = new Compartment();
+const editorFontCompartment  = new Compartment();
+const spellCheckCompartment  = new Compartment();
 
 // ── Star-group helpers (for bold/italic which share the * character) ────────
 
@@ -376,10 +397,10 @@ export interface EditorHandle {
   scrollToSlide: (index: number) => void;
 }
 
-interface ContextMenuState { x: number; y: number; hasSelection: boolean }
+interface ContextMenuState { x: number; y: number; hasSelection: boolean; clickPos: number | null }
 
 export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
-  { content, onChange, onCursorSlide, onWarn, focusMode = false, filePath, uiTheme = 'dark' }: Props,
+  { content, onChange, onCursorSlide, onWarn, focusMode = false, filePath, uiTheme = 'dark', editorFontFamily = DEFAULT_FONT_FAMILY, spellCheckEnabled = false, spellCheckLanguage = 'en_US' }: Props,
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -389,6 +410,8 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
   const onWarnRef = useRef(onWarn);
   const filePathRef = useRef(filePath);
   const uiThemeRef = useRef(uiTheme);
+  const spellCheckEnabledRef = useRef(spellCheckEnabled);
+  const spellCheckActiveRef = useRef(false);
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
   const [dragActive, setDragActive] = useState(false);
 
@@ -397,6 +420,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
   useEffect(() => { onWarnRef.current = onWarn; }, [onWarn]);
   useEffect(() => { filePathRef.current = filePath; }, [filePath]);
   useEffect(() => { uiThemeRef.current = uiTheme; }, [uiTheme]);
+  useEffect(() => { spellCheckEnabledRef.current = spellCheckEnabled; }, [spellCheckEnabled]);
 
   useImperativeHandle(ref, () => ({
     runFormat(cmd: FormatCmd) {
@@ -480,6 +504,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
         editorColorCompartment.of(
           uiThemeRef.current === 'light' ? editorLightTheme : [oneDark, editorDarkTheme]
         ),
+        editorFontCompartment.of(makeFontTheme(editorFontFamily)),
         EditorView.lineWrapping,
         markdown({ codeLanguages: languages }),
         Prec.high(keymap.of([
@@ -500,6 +525,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
         ])),
         updateListener,
         focusModeCompartment.of([]),
+        spellCheckCompartment.of([]),
       ],
     });
 
@@ -625,6 +651,22 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
     });
   }, [focusMode]);
 
+  // Manage spell check extension
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    if (spellCheckEnabled) {
+      if (!spellCheckActiveRef.current) {
+        view.dispatch({ effects: spellCheckCompartment.reconfigure(spellCheckExtension()) });
+        spellCheckActiveRef.current = true;
+      }
+      initSpellChecker(spellCheckLanguage as SpellCheckLanguage);
+    } else if (spellCheckActiveRef.current) {
+      view.dispatch({ effects: spellCheckCompartment.reconfigure([]) });
+      spellCheckActiveRef.current = false;
+    }
+  }, [spellCheckEnabled, spellCheckLanguage]);
+
   // Switch editor color theme when uiTheme prop changes
   useEffect(() => {
     viewRef.current?.dispatch({
@@ -634,6 +676,13 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
     });
   }, [uiTheme]);
 
+  // Switch editor font when editorFontFamily prop changes
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: editorFontCompartment.reconfigure(makeFontTheme(editorFontFamily)),
+    });
+  }, [editorFontFamily]);
+
   // ── Context menu ────────────────────────────────────────────────────────────
 
   function handleContextMenu(e: React.MouseEvent) {
@@ -641,7 +690,22 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
     const view = viewRef.current;
     if (!view) return;
     const { from, to } = view.state.selection.main;
-    setCtxMenu({ x: e.clientX, y: e.clientY, hasSelection: from !== to });
+    const clickPos = view.posAtCoords({ x: e.clientX, y: e.clientY });
+    setCtxMenu({ x: e.clientX, y: e.clientY, hasSelection: from !== to, clickPos: clickPos ?? null });
+  }
+
+  function getWordAtPos(pos: number): { word: string; from: number; to: number } | null {
+    const view = viewRef.current;
+    if (!view) return null;
+    const doc = view.state.doc.toString();
+    let from = pos;
+    let to = pos;
+    while (from > 0 && /[a-zA-Z'-]/.test(doc[from - 1])) from--;
+    while (to < doc.length && /[a-zA-Z'-]/.test(doc[to])) to++;
+    while (from < to && /['"-]/.test(doc[from])) from++;
+    while (to > from && /['"-]/.test(doc[to - 1])) to--;
+    if (to - from < 2) return null;
+    return { word: doc.slice(from, to), from, to };
   }
 
   function doCopy() {
@@ -710,7 +774,47 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
 
   function buildMenuEntries(): MenuEntry[] {
     const hasSel = ctxMenu?.hasSelection ?? false;
+    const view = viewRef.current;
+
+    const spellEntries: MenuEntry[] = [];
+    if (spellCheckEnabledRef.current && ctxMenu?.clickPos != null && view && isSpellCheckerReady()) {
+      const wordInfo = getWordAtPos(ctxMenu.clickPos);
+      if (wordInfo && !spellCheck(wordInfo.word)) {
+        const suggestions = spellSuggest(wordInfo.word);
+        spellEntries.push({ type: 'header', label: `"${wordInfo.word}"` });
+        if (suggestions.length > 0) {
+          suggestions.forEach(s => spellEntries.push({
+            type: 'item',
+            label: s,
+            action: () => {
+              const v = viewRef.current;
+              if (!v) return;
+              v.dispatch({
+                changes: { from: wordInfo.from, to: wordInfo.to, insert: s },
+                selection: EditorSelection.cursor(wordInfo.from + s.length),
+              });
+              v.focus();
+            },
+          }));
+        } else {
+          spellEntries.push({ type: 'item', label: 'No suggestions', disabled: true, action: () => {} });
+        }
+        spellEntries.push({
+          type: 'item',
+          label: 'Add to Kova\'s dictionary',
+          action: () => addCustomWord(wordInfo.word),
+        });
+        spellEntries.push({
+          type: 'item',
+          label: 'Ignore',
+          action: () => ignoreSpellingFor(wordInfo.word),
+        });
+        spellEntries.push({ type: 'divider' });
+      }
+    }
+
     return [
+      ...spellEntries,
       { type: 'header', label: 'Clipboard' },
       { type: 'item', label: 'Copy',  shortcut: `${mod}+C`, action: doCopy,  disabled: !hasSel },
       { type: 'item', label: 'Cut',   shortcut: `${mod}+X`, action: doCut,   disabled: !hasSel },

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useLayoutEffect, useId, useMemo, useRef, useState } from 'react';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
 import mermaid from 'mermaid';
@@ -6,7 +6,7 @@ import QRCode from 'react-qr-code';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import type { Slide, SlideElement, ListItem } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
-import { themeToVars, resolveTemplate, DEFAULT_THEME } from '../../engine/theme';
+import { themeToVars, resolveTemplate, DEFAULT_THEME, hexToHsl, hslToHex, defaultChartPalette } from '../../engine/theme';
 import './SlideRenderer.css';
 
 mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'antiscript' });
@@ -24,39 +24,8 @@ function parseSizeHint(title?: string): React.CSSProperties | null {
 interface SlideCtxValue { isThumbnail: boolean; textColor: string; mermaidInit: string }
 const SlideCtx = createContext<SlideCtxValue>({ isThumbnail: false, textColor: '#1a1a1a', mermaidInit: '' });
 
-// ── Pie-chart palette ─────────────────────────────────────────────────────────
-// Derives 12 perceptually distinct colours by rotating 30° around the hue
-// wheel from the primary colour, so any theme always has enough unique slices.
+// ── Diagram colour palette builders ──────────────────────────────────────────
 
-function hexToHsl(hex: string): [number, number, number] {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  if (max === min) return [0, 0, l];
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h = 0;
-  if (max === r)      h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-  else if (max === g) h = ((b - r) / d + 2) / 6;
-  else                h = ((r - g) / d + 4) / 6;
-  return [h * 360, s, l];
-}
-
-function hslToHex(h: number, s: number, l: number): string {
-  h = ((h % 360) + 360) % 360;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n: number) => {
-    const k = (n + h / 30) % 12;
-    return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
-  };
-  return `#${[f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, '0')).join('')}`;
-}
-
-// Derives 12 colours for Mermaid's cScale system (used by timeline, mindmap, etc.).
-// Anchored to the accent, hue-rotated 30° per step, saturation/lightness clamped
-// so sections stay vivid on both light and dark slide backgrounds.
 function buildCScalePalette(accentHex: string): Record<string, string> {
   const [h, rawS, rawL] = hexToHsl(accentHex);
   const s = Math.min(Math.max(rawS, 0.50), 0.80);
@@ -68,9 +37,8 @@ function buildCScalePalette(accentHex: string): Record<string, string> {
   return out;
 }
 
-function piePalette(primaryHex: string): Record<string, string> {
-  const [h, rawS, rawL] = hexToHsl(primaryHex);
-  // Clamp S and L so all slices are vivid enough to read on a white slide
+function piePaletteFromAccent(accentHex: string): Record<string, string> {
+  const [h, rawS, rawL] = hexToHsl(accentHex);
   const s = Math.min(Math.max(rawS, 0.55), 0.85);
   const l = Math.min(Math.max(rawL, 0.28), 0.48);
   const out: Record<string, string> = {};
@@ -80,19 +48,25 @@ function piePalette(primaryHex: string): Record<string, string> {
   return out;
 }
 
-// Derives 8 perceptually distinct colours for xychart bars/lines.
-// Anchored to the theme accent so bars are always legible against the slide background.
-function buildChartPalette(accentHex: string): string {
-  const [h, rawS, rawL] = hexToHsl(accentHex);
-  const s = Math.min(Math.max(rawS, 0.60), 0.88);
-  // Keep L in the mid-range so bars show on both light and dark backgrounds.
-  const l = Math.min(Math.max(rawL, 0.38), 0.58);
-  return Array.from({ length: 8 }, (_, i) => hslToHex(h + i * 45, s, l)).join(',');
+function paletteToMermaidVars(colors: string[]): { pie: Record<string, string>; cScale: Record<string, string>; xy: string } {
+  const pie: Record<string, string> = {};
+  const cScale: Record<string, string> = {};
+  for (let i = 0; i < 12; i++) {
+    pie[`pie${i + 1}`]  = colors[i % colors.length];
+    cScale[`cScale${i}`] = colors[i % colors.length];
+  }
+  return { pie, cScale, xy: colors.join(',') };
 }
 
 function buildMermaidInit(theme: Theme): string {
   const c = theme.colors;
   const firstFont = (stack: string) => stack.split(',')[0].trim().replace(/['"]/g, '');
+
+  const customPalette = c.chart_colors && c.chart_colors.length > 0 ? c.chart_colors : null;
+  const { pie, cScale, xy } = customPalette
+    ? paletteToMermaidVars(customPalette)
+    : { pie: piePaletteFromAccent(c.accent), cScale: buildCScalePalette(c.accent), xy: defaultChartPalette(c.accent).join(',') };
+
   const vars = {
     primaryColor:          c.primary,
     primaryTextColor:      c.title_text,
@@ -107,17 +81,16 @@ function buildMermaidInit(theme: Theme): string {
     titleColor:            c.text,
     edgeLabelBackground:   c.background,
     fontFamily:            firstFont(theme.fonts.body),
-    ...buildCScalePalette(c.accent),
-    ...piePalette(c.accent),
+    ...cScale,
+    ...pie,
     pieTitleTextColor:     c.text,
     pieSectionTextColor:   c.background,
     pieLegendTextColor:    c.text,
     pieStrokeColor:        c.background,
     pieStrokeWidth:        '2px',
     pieOpacity:            '0.9',
-    // xychart reads colours from themeVariables.xyChart, not a top-level xyChart key
     xyChart: {
-      plotColorPalette:  buildChartPalette(c.accent),
+      plotColorPalette:  xy,
       titleColor:        c.text,
       dataLabelColor:    c.text,
       xAxisTitleColor:   c.text,
@@ -724,6 +697,24 @@ function MermaidDiagram({ value }: { value: string }) {
   // reuse a DOM node from the previous render. A counter forces a fresh id.
   const counter = useRef(0);
   const [svg, setSvg] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // After Mermaid renders, expand the viewBox to the actual bounding box of all
+  // drawn content. Mermaid sometimes declares a viewBox that doesn't include the
+  // legend, causing it to be clipped. getBBox() measures what is really there.
+  useLayoutEffect(() => {
+    const svgEl = containerRef.current?.querySelector('svg');
+    if (!svgEl) return;
+    try {
+      const { x, y, width, height } = svgEl.getBBox();
+      if (width > 0 && height > 0) {
+        const pad = 8;
+        svgEl.setAttribute('viewBox', `${x - pad} ${y - pad} ${width + pad * 2} ${height + pad * 2}`);
+      }
+    } catch {
+      // getBBox unavailable (detached node, non-rendered context, etc.)
+    }
+  }, [svg]);
 
   useEffect(() => {
     let cancelled = false;
@@ -732,19 +723,16 @@ function MermaidDiagram({ value }: { value: string }) {
     mermaid.render(renderId, src)
       .then(({ svg: out }: { svg: string }) => {
         if (!cancelled) {
-          // Mermaid injects style="max-width: Npx;" on the SVG element which
-          // caps the rendered size regardless of CSS. Strip it and set
-          // width="100%" so the diagram fills its container.
-          // Mermaid produces two SVG modes depending on diagram type:
-          //   useMaxWidth=true  (most diagrams): width="100%", style="max-width:Npx;", no height attr
-          //   useMaxWidth=false (timeline, etc.): width="Npx", height="Npx", no style attr
-          // Normalise both to width/height="100%" + preserveAspectRatio so the
-          // diagram scales to fill its container like object-fit:contain.
-          const scaled = out
-            .replace(/\bwidth="[^"]*"/, 'width="100%"')
-            .replace(/\bheight="[^"]*"/, 'height="100%"')
-            .replace(/style="[^"]*max-width[^"]*"/, 'style=""')
-            .replace(/<svg (?![^>]*preserveAspectRatio)/, '<svg preserveAspectRatio="xMidYMid meet" ');
+          // Only rewrite attributes on the <svg> opening tag to avoid
+          // accidentally mutating inner element attributes (e.g. legend rects).
+          const scaled = out.replace(/<svg\b([^>]*)>/i, (_m, attrs: string) => {
+            let a = attrs
+              .replace(/\bwidth="[^"]*"/, 'width="100%"')
+              .replace(/\bheight="[^"]*"/, 'height="100%"')
+              .replace(/\bstyle="[^"]*max-width[^"]*"/, '');
+            if (!/preserveAspectRatio/.test(a)) a += ' preserveAspectRatio="xMidYMid meet"';
+            return `<svg${a}>`;
+          });
           setSvg(scaled);
         }
       })
@@ -766,6 +754,7 @@ function MermaidDiagram({ value }: { value: string }) {
 
   return (
     <div
+      ref={containerRef}
       className="sl-mermaid"
       dangerouslySetInnerHTML={{ __html: svg }}
     />

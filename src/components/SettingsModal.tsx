@@ -1,10 +1,33 @@
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { invoke } from '@tauri-apps/api/core';
 import type { AppSettings, PresentationMode, NotesFontSize } from '../store/settings';
+import { EDITOR_FONT_OPTIONS } from '../store/settings';
+import { isFontAvailable } from '../engine/fontDetect';
 import { checkForUpdate } from '../engine/updateCheck';
 import { APP_VERSION } from '../version';
+import {
+  LANGUAGE_OPTIONS,
+  getCustomWords,
+  removeCustomWord,
+  getCustomWordCount,
+} from '../engine/spellcheck/spellChecker';
+
+const THIRD_PARTY_LICENSES: { name: string; license: string; copyright: string }[] = [
+  { name: 'IBM Plex Mono',           license: 'SIL Open Font License 1.1', copyright: '© 2017 IBM Corp.'                        },
+  { name: 'CodeMirror',              license: 'MIT',                        copyright: '© Marijn Haverbeke and contributors'     },
+  { name: 'highlight.js',            license: 'BSD 3-Clause',               copyright: '© 2006 Ivan Sagalaev'                   },
+  { name: 'js-yaml',                 license: 'MIT',                        copyright: '© 2011 Vitaly Puzrin and contributors'   },
+  { name: 'Mermaid',                 license: 'MIT',                        copyright: '© 2014 Knut Sveidqvist and contributors' },
+  { name: 'PptxGenJS',               license: 'MIT',                        copyright: '© 2015 Brent Ely'                       },
+  { name: 'React',                   license: 'MIT',                        copyright: '© Meta Platforms, Inc.'                 },
+  { name: 'react-resizable-panels',  license: 'MIT',                        copyright: '© 2022 Brian Vaughn'                    },
+  { name: 'remark / unified',        license: 'MIT',                        copyright: '© unified collective'                   },
+  { name: 'Tauri',                   license: 'MIT / Apache 2.0',           copyright: '© 2019 Tauri Programme'                 },
+  { name: 'typo-js',                 license: 'BSD',                        copyright: '© 2012 Browserling'                     },
+  { name: 'Vite',                    license: 'MIT',                        copyright: '© 2019 Evan You and contributors'       },
+];
 
 const INTERVAL_OPTIONS: { label: string; value: number }[] = [
   { label: '15 sec',  value: 15  },
@@ -120,6 +143,28 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
   const [checkState, setCheckState] = useState<CheckState>(
     availableUpdate ? { tag: availableUpdate, hasUpdate: true } : 'idle',
   );
+  const [showLicenses, setShowLicenses] = useState(false);
+
+  const [customWordList, setCustomWordList] = useState<string[]>(() => getCustomWords());
+  const [showCustomWords, setShowCustomWords] = useState(false);
+
+  const availableFonts = useMemo(() =>
+    EDITOR_FONT_OPTIONS.filter(opt => opt.bundled || opt.value === 'system' || isFontAvailable(opt.family)),
+    [],
+  );
+
+  // If the saved font is no longer available, reset to the bundled default
+  useEffect(() => {
+    if (!availableFonts.some(f => f.value === settings.editorFont)) {
+      onChange({ ...settings, editorFont: 'ibm-plex-mono' });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleRemoveCustomWord(word: string) {
+    removeCustomWord(word);
+    setCustomWordList(getCustomWords());
+  }
 
   async function runCheck() {
     setCheckState('checking');
@@ -185,13 +230,59 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
         <div style={{ padding: '10px 0' }}>
           <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>App theme</div>
           <div style={{ display: 'flex', gap: 6 }}>
-            {(['dark', 'light'] as const).map((value) => (
+            {([
+              { value: 'auto',  label: 'Auto'  },
+              { value: 'dark',  label: 'Dark'  },
+              { value: 'light', label: 'Light' },
+            ] as const).map(({ value, label }) => (
               <button key={value} type="button" onClick={() => set('uiTheme', value)}
                 style={groupBtnStyle(settings.uiTheme === value)}
               >
-                {value === 'dark' ? 'Dark' : 'Light'}
+                {label}
               </button>
             ))}
+          </div>
+          {settings.uiTheme === 'auto' && (
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>
+              Follows your operating system's appearance setting.
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: '10px 0' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>Editor font</div>
+          <div style={{ position: 'relative' }}>
+            <select
+              value={settings.editorFont}
+              onChange={(e) => set('editorFont', e.target.value as AppSettings['editorFont'])}
+              style={{
+                width: '100%',
+                padding: '6px 28px 6px 10px',
+                fontSize: 12,
+                fontFamily: availableFonts.find(o => o.value === settings.editorFont)?.family ?? 'monospace',
+                borderRadius: 4,
+                border: '1px solid var(--border-alt)',
+                background: 'var(--bg-input)',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                outline: 'none',
+              }}
+            >
+              {availableFonts.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            <svg
+              viewBox="0 0 10 6"
+              style={{
+                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                width: 10, height: 6, pointerEvents: 'none', color: 'var(--text-dim)',
+              }}
+            >
+              <path d="M0 0l5 6 5-6z" fill="currentColor" />
+            </svg>
           </div>
         </div>
 
@@ -248,6 +339,110 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
             </div>
           )}
         </div>
+
+        {/* Language & Spelling */}
+        <Section label="Language &amp; Spelling" />
+
+        <Row
+          label="Check spelling while typing"
+          description="Underlines misspelled words in red. Dictionary is loaded on first use."
+          control={<Toggle checked={settings.spellCheckEnabled} onChange={(v) => set('spellCheckEnabled', v)} />}
+        />
+
+        {settings.spellCheckEnabled && (
+          <>
+            <div style={{ paddingBottom: 10 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-label)', marginBottom: 8 }}>Dictionary language</div>
+              <div style={{ position: 'relative' }}>
+                <select
+                  value={settings.spellCheckLanguage}
+                  onChange={(e) => set('spellCheckLanguage', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '6px 28px 6px 10px',
+                    fontSize: 12,
+                    borderRadius: 4,
+                    border: '1px solid var(--border-alt)',
+                    background: 'var(--bg-input)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    outline: 'none',
+                  }}
+                >
+                  {LANGUAGE_OPTIONS.map(({ code, label }) => (
+                    <option key={code} value={code}>{label}</option>
+                  ))}
+                </select>
+                <svg
+                  viewBox="0 0 10 6"
+                  style={{
+                    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                    width: 10, height: 6, pointerEvents: 'none', color: 'var(--text-dim)',
+                  }}
+                >
+                  <path d="M0 0l5 6 5-6z" fill="currentColor" />
+                </svg>
+              </div>
+            </div>
+
+            <div style={{ paddingBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: customWordList.length > 0 && showCustomWords ? 8 : 0 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-label)' }}>
+                  Learned words ({getCustomWordCount()})
+                </div>
+                {customWordList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomWords(!showCustomWords)}
+                    style={{
+                      padding: '3px 10px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
+                      border: '1px solid var(--border-alt)', background: 'var(--bg-input)',
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    {showCustomWords ? 'Hide' : 'Manage'}
+                  </button>
+                )}
+                {customWordList.length === 0 && (
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>None yet</span>
+                )}
+              </div>
+
+              {showCustomWords && customWordList.length > 0 && (
+                <div style={{
+                  marginTop: 8,
+                  maxHeight: 160,
+                  overflowY: 'auto',
+                  border: '1px solid var(--border)',
+                  borderRadius: 4,
+                  background: 'var(--bg-app)',
+                }}>
+                  {customWordList.map((word) => (
+                    <div key={word} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '5px 10px', borderBottom: '1px solid var(--border)',
+                    }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{word}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCustomWord(word)}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px',
+                          color: 'var(--text-dim)', fontSize: 14, lineHeight: 1,
+                        }}
+                        title="Remove from dictionary"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Saving */}
         <Section label="Saving" />
@@ -428,6 +623,74 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
             >
               {checkState.tag} available — download
             </button>
+          )}
+        </div>
+
+        {/* Licenses */}
+        <Section label="Licenses" />
+
+        <div style={{ padding: '10px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Kova is built on open source software.
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowLicenses(v => !v)}
+              style={{
+                flexShrink: 0,
+                marginLeft: 12,
+                padding: '3px 10px',
+                fontSize: 11,
+                borderRadius: 4,
+                border: '1px solid var(--border-alt)',
+                background: 'var(--bg-input)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              {showLicenses ? 'Hide' : 'Show'}
+            </button>
+          </div>
+
+          {showLicenses && (
+            <div style={{
+              marginTop: 10,
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+              overflow: 'hidden',
+            }}>
+              {THIRD_PARTY_LICENSES.map((entry, i) => (
+                <div
+                  key={entry.name}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto',
+                    alignItems: 'baseline',
+                    gap: '6px 12px',
+                    padding: '7px 10px',
+                    background: i % 2 === 0 ? 'var(--bg-app)' : 'transparent',
+                    borderBottom: i < THIRD_PARTY_LICENSES.length - 1 ? '1px solid var(--border)' : 'none',
+                  }}
+                >
+                  <div>
+                    <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500 }}>{entry.name}</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 8 }}>{entry.copyright}</span>
+                  </div>
+                  <span style={{
+                    fontSize: 10,
+                    color: 'var(--text-secondary)',
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-alt)',
+                    borderRadius: 3,
+                    padding: '1px 6px',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {entry.license}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 

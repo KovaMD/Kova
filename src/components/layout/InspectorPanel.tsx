@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { Theme } from '../../engine/theme';
+import { defaultChartPalette } from '../../engine/theme';
 import type { Frontmatter } from '../../engine/types';
 import { ThemePicker } from '../inspector/ThemePicker';
 import { ColorControls } from '../inspector/ColorControls';
@@ -91,6 +92,13 @@ export function InspectorPanel({
           <ColorControls
             colors={theme.colors}
             onChange={(key, val) => onThemeChange({ colors: { ...theme.colors, [key]: val } })}
+            onChartColorChange={(index, val) => {
+              const current = theme.colors.chart_colors ?? defaultChartPalette(theme.colors.accent, 8);
+              const next = [...current];
+              next[index] = val;
+              onThemeChange({ colors: { ...theme.colors, chart_colors: next } });
+            }}
+            onChartPaletteReset={() => onThemeChange({ colors: { ...theme.colors, chart_colors: undefined } })}
           />
         </Accordion>
 
