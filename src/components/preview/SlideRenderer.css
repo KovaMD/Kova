@@ -265,7 +265,7 @@
 .sl-split__title { padding-bottom: 2% !important; }
 .sl-split__body { flex: 1; display: flex; overflow: hidden; padding: 0 4% 4%; gap: 3%; }
 .sl-split__left { flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-.sl-split__right { flex: 1; overflow: hidden; font-size: clamp(8px, 1.8cqi, 16px); line-height: 1.6; font-family: var(--sl-font-body); padding-top: 2%; }
+.sl-split__right { flex: 1; overflow: hidden; font-size: clamp(8px, 1.8cqi, 16px); line-height: 1.6; font-family: var(--sl-font-body); padding: 2% 2% 0; }
 
 /* ── Full-bleed image ────────────────────────────────────────────────────── */
 

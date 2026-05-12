@@ -1,6 +1,8 @@
 import yaml from 'js-yaml';
 import { invoke } from '@tauri-apps/api/core';
 
+export const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/i.test(navigator.platform);
+
 // snake_case file keys → camelCase action ids
 const KEY_MAP: Record<string, string> = {
   new_file:   'newFile',
@@ -60,12 +62,12 @@ export function matchShortcut(e: KeyboardEvent, combo: string): boolean {
     && e.key.toLowerCase() === key;
 }
 
-/** Format a combo string for display: 'ctrl+shift+s' → 'Ctrl+Shift+S'. */
+/** Format a combo string for display: 'ctrl+shift+s' → 'Ctrl+Shift+S' (or 'Cmd+Shift+S' on Mac). */
 export function formatCombo(combo: string): string {
   return combo.split('+').map((p) => {
-    if (p === 'ctrl')  return 'Ctrl';
+    if (p === 'ctrl')  return isMac ? 'Cmd' : 'Ctrl';
     if (p === 'shift') return 'Shift';
-    if (p === 'alt')   return 'Alt';
+    if (p === 'alt')   return isMac ? 'Option' : 'Alt';
     if (p === 'meta')  return 'Cmd';
     return p.length === 1 ? p.toUpperCase() : p.charAt(0).toUpperCase() + p.slice(1);
   }).join('+');

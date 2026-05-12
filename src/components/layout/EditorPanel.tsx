@@ -11,6 +11,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { focusModeCompartment, focusModeExtension } from '../editor/focusMode';
 import { EditorContextMenu } from '../editor/EditorContextMenu';
 import type { MenuEntry } from '../editor/EditorContextMenu';
+import { isMac } from '../../engine/keybindings';
 import '../../styles/editor.css';
 
 interface Props {
@@ -122,6 +123,34 @@ function makeHeadingCommand(level: number) {
     });
     return true;
   };
+}
+
+const INDENT = '  ';
+
+function indentLine(view: EditorView): boolean {
+  const { state } = view;
+  const { from } = state.selection.main;
+  const line = state.doc.lineAt(from);
+  view.dispatch({
+    changes: { from: line.from, insert: INDENT },
+    selection: EditorSelection.cursor(from + INDENT.length),
+  });
+  view.focus();
+  return true;
+}
+
+function dedentLine(view: EditorView): boolean {
+  const { state } = view;
+  const { from } = state.selection.main;
+  const line = state.doc.lineAt(from);
+  const leading = line.text.match(/^ {1,2}/)?.[0] ?? '';
+  if (!leading) return false;
+  view.dispatch({
+    changes: { from: line.from, to: line.from + leading.length, insert: '' },
+    selection: EditorSelection.cursor(Math.max(line.from, from - leading.length)),
+  });
+  view.focus();
+  return true;
 }
 
 const LIST_PREFIX_RE = /^(\d+\.\s+|- )/;
@@ -275,14 +304,19 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
         markdown({ codeLanguages: languages }),
         keymap.of([
           indentWithTab,
-          { key: 'Ctrl-b', run: makeWrapCommand('**', '**', 'bold text') },
-          { key: 'Ctrl-i', run: makeWrapCommand('*',  '*',  'italic text') },
-          { key: 'Ctrl-1', run: makeHeadingCommand(1) },
-          { key: 'Ctrl-2', run: makeHeadingCommand(2) },
-          { key: 'Ctrl-3', run: makeHeadingCommand(3) },
-          { key: 'Ctrl-4', run: makeHeadingCommand(4) },
-          { key: 'Ctrl-5', run: makeHeadingCommand(5) },
-          { key: 'Ctrl-6', run: makeHeadingCommand(6) },
+          { key: 'Mod-b',       run: makeWrapCommand('**',  '**',   'bold text') },
+          { key: 'Mod-i',       run: makeWrapCommand('*',   '*',    'italic text') },
+          { key: 'Mod-u',       run: makeWrapCommand('<u>', '</u>', 'underlined text') },
+          { key: 'Mod-Shift-x', run: makeWrapCommand('~~',  '~~',   'strikethrough text') },
+          { key: 'Mod-`',       run: makeWrapCommand('`',   '`',    'code') },
+          { key: 'Mod-]', run: indentLine },
+          { key: 'Mod-[', run: dedentLine },
+          { key: 'Mod-1', run: makeHeadingCommand(1) },
+          { key: 'Mod-2', run: makeHeadingCommand(2) },
+          { key: 'Mod-3', run: makeHeadingCommand(3) },
+          { key: 'Mod-4', run: makeHeadingCommand(4) },
+          { key: 'Mod-5', run: makeHeadingCommand(5) },
+          { key: 'Mod-6', run: makeHeadingCommand(6) },
         ]),
         updateListener,
         focusModeCompartment.of([]),
@@ -492,17 +526,24 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
     view.focus();
   }
 
+  const mod = isMac ? 'Cmd' : 'Ctrl';
+
   function buildMenuEntries(): MenuEntry[] {
     const hasSel = ctxMenu?.hasSelection ?? false;
     return [
       { type: 'header', label: 'Clipboard' },
-      { type: 'item', label: 'Copy',  shortcut: 'Ctrl+C', action: doCopy,  disabled: !hasSel },
-      { type: 'item', label: 'Cut',   shortcut: 'Ctrl+X', action: doCut,   disabled: !hasSel },
-      { type: 'item', label: 'Paste', shortcut: 'Ctrl+V', action: doPaste },
+      { type: 'item', label: 'Copy',  shortcut: `${mod}+C`, action: doCopy,  disabled: !hasSel },
+      { type: 'item', label: 'Cut',   shortcut: `${mod}+X`, action: doCut,   disabled: !hasSel },
+      { type: 'item', label: 'Paste', shortcut: `${mod}+V`, action: doPaste },
       { type: 'divider' },
       { type: 'header', label: 'Format' },
-      { type: 'item', label: 'Bold',   shortcut: 'Ctrl+B', action: () => doWrap('**', '**', 'bold text') },
-      { type: 'item', label: 'Italic', shortcut: 'Ctrl+I', action: () => doWrap('*', '*', 'italic text') },
+      { type: 'item', label: 'Bold',          shortcut: `${mod}+B`,       action: () => doWrap('**',  '**',   'bold text') },
+      { type: 'item', label: 'Italic',        shortcut: `${mod}+I`,       action: () => doWrap('*',   '*',    'italic text') },
+      { type: 'item', label: 'Underline',     shortcut: `${mod}+U`,       action: () => doWrap('<u>', '</u>', 'underlined text') },
+      { type: 'item', label: 'Strikethrough', shortcut: `${mod}+Shift+X`, action: () => doWrap('~~',  '~~',   'strikethrough text') },
+      { type: 'item', label: 'Inline Code',   shortcut: `${mod}+\``,      action: () => doWrap('`',   '`',    'code') },
+      { type: 'item', label: 'Indent',        shortcut: `${mod}+]`,       action: () => { const v = viewRef.current; if (v) indentLine(v); } },
+      { type: 'item', label: 'Dedent',        shortcut: `${mod}+[`,       action: () => { const v = viewRef.current; if (v) dedentLine(v); } },
       { type: 'divider' },
       { type: 'header', label: 'Insert' },
       { type: 'item', label: 'Code Block',      action: () => doInsert('```\n\n```', 3) },
@@ -511,6 +552,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
       { type: 'item', label: 'Horizontal Rule', action: () => doInsert('\n<hr>\n', 5) },
       { type: 'item', label: 'Image',           action: () => doInsert('![alt text](url)', 2) },
       { type: 'item', label: 'Link',            action: () => doInsert('[link text](url)', 1) },
+      { type: 'item', label: 'Speaker Notes',   action: () => doInsert('\n\n???\n\n', 7) },
       { type: 'divider' },
       { type: 'header', label: 'Charts' },
       {
@@ -576,8 +618,8 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
             gap: 10, color: 'var(--text-dim)', fontSize: 13, pointerEvents: 'none', userSelect: 'none',
           }}>
             <span style={{ fontSize: 28, opacity: 0.3 }}>📄</span>
-            <span>Ctrl+N — new presentation</span>
-            <span>Ctrl+O — open file</span>
+            <span>{mod}+N — new presentation</span>
+            <span>{mod}+O — open file</span>
           </div>
         )}
       </div>
