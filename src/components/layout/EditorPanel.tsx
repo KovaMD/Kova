@@ -2,7 +2,7 @@ import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } f
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { indentWithTab } from '@codemirror/commands';
-import { Compartment, EditorSelection, EditorState } from '@codemirror/state';
+import { Compartment, EditorSelection, EditorState, Prec } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { markdown } from '@codemirror/lang-markdown';
@@ -67,23 +67,203 @@ const editorLightTheme = EditorView.theme({
 
 const editorColorCompartment = new Compartment();
 
-function makeWrapCommand(before: string, after: string, placeholder: string) {
-  return (view: EditorView): boolean => {
-    const { from, to } = view.state.selection.main;
-    if (from === to) {
-      const insert = `${before}${placeholder}${after}`;
-      view.dispatch({
-        changes: { from, insert },
-        selection: EditorSelection.range(from + before.length, from + before.length + placeholder.length),
-      });
+// ── Star-group helpers (for bold/italic which share the * character) ────────
+
+
+type StarGroup = { openAt: number; closeAt: number; openCount: number; closeCount: number };
+
+/**
+ * Collect all runs of consecutive `*` chars in `text`, pair them left-to-right
+ * (1st with 2nd, 3rd with 4th, …), and return the pair whose range contains `pos`.
+ */
+function findStarGroup(text: string, pos: number): StarGroup | null {
+  const groups: { start: number; end: number }[] = [];
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === '*') {
+      const s = i;
+      while (i < text.length && text[i] === '*') i++;
+      groups.push({ start: s, end: i });
     } else {
-      const selected = view.state.sliceDoc(from, to);
-      const insert = `${before}${selected}${after}`;
-      view.dispatch({
-        changes: { from, to, insert },
-        selection: EditorSelection.cursor(from + insert.length),
-      });
+      i++;
     }
+  }
+  for (let k = 0; k + 1 < groups.length; k += 2) {
+    const open = groups[k], close = groups[k + 1];
+    if (open.start <= pos && pos < close.end) {
+      return { openAt: open.start, closeAt: close.start, openCount: open.end - open.start, closeCount: close.end - close.start };
+    }
+  }
+  return null;
+}
+
+// ── Adjacent-star counter (for selection-based bold/italic toggle) ───────────
+
+function countStarsAround(state: EditorState, from: number, to: number): [number, number] {
+  let n = 0;
+  while (from - n > 0 && state.sliceDoc(from - n - 1, from - n) === '*') n++;
+  let m = 0;
+  while (to + m < state.doc.length && state.sliceDoc(to + m, to + m + 1) === '*') m++;
+  return [n, m];
+}
+
+// ── Non-star enclosing pair finder (~~, <u>, `) ──────────────────────────────
+
+function findEnclosingMarkerPair(
+  text: string,
+  pos: number,
+  before: string,
+  after: string,
+): [number, number] | null {
+  const bLen = before.length;
+  const aLen = after.length;
+
+  if (before === after) {
+    const positions: number[] = [];
+    let i = 0;
+    while (i <= text.length - bLen) {
+      if (text.startsWith(before, i)) { positions.push(i); i += bLen; }
+      else i++;
+    }
+    for (let k = 0; k + 1 < positions.length; k += 2) {
+      const open = positions[k], close = positions[k + 1];
+      if (open <= pos && pos < close + aLen) return [open, close];
+    }
+    return null;
+  }
+
+  // Asymmetric (e.g. <u>...</u>)
+  let openIdx = -1, i = 0;
+  while (i + bLen <= text.length) {
+    if (text.startsWith(before, i) && i <= pos) { openIdx = i; i += bLen; }
+    else i++;
+  }
+  if (openIdx === -1) return null;
+  let closeIdx = -1;
+  i = openIdx + bLen;
+  while (i + aLen <= text.length) {
+    if (text.startsWith(after, i)) { closeIdx = i; break; }
+    i++;
+  }
+  return closeIdx === -1 ? null : [openIdx, closeIdx];
+}
+
+// ── Main wrap/toggle command factory ─────────────────────────────────────────
+
+function makeWrapCommand(before: string, after: string, placeholder: string) {
+  const bLen = before.length;
+  const aLen = after.length;
+  const isStarMarker = /^\*+$/.test(before) && /^\*+$/.test(after);
+
+  return (view: EditorView): boolean => {
+    const { state } = view;
+    const { from, to } = state.selection.main;
+
+    // ── Selection present ───────────────────────────────────────────────────
+    if (from !== to) {
+      if (isStarMarker) {
+        const [sBefore, sAfter] = countStarsAround(state, from, to);
+        const min  = Math.min(sBefore, sAfter);
+        const isOn = bLen === 1 ? min % 2 === 1 : min >= bLen;
+
+        if (isOn) {
+          view.dispatch({
+            changes: [
+              { from: from - bLen, to: from,          insert: '' },
+              { from: to,          to: to + bLen,     insert: '' },
+            ],
+            selection: EditorSelection.range(from - bLen, to - bLen),
+          });
+        } else {
+          view.dispatch({
+            changes: [
+              { from, to: from, insert: before },
+              { from: to, to,   insert: after },
+            ],
+            selection: EditorSelection.range(from + bLen, to + bLen),
+          });
+        }
+      } else {
+        // Exact-match toggle for ~~, <u>, `
+        const outerBefore = from >= bLen ? state.sliceDoc(from - bLen, from) : '';
+        const outerAfter  = to + aLen <= state.doc.length ? state.sliceDoc(to, to + aLen) : '';
+        if (outerBefore === before && outerAfter === after) {
+          view.dispatch({
+            changes: [
+              { from: from - bLen, to: from, insert: '' },
+              { from: to, to: to + aLen, insert: '' },
+            ],
+            selection: EditorSelection.range(from - bLen, to - bLen),
+          });
+        } else {
+          view.dispatch({
+            changes: [
+              { from, to: from, insert: before },
+              { from: to, to, insert: after },
+            ],
+            selection: EditorSelection.range(from + bLen, to + bLen),
+          });
+        }
+      }
+      view.focus();
+      return true;
+    }
+
+    // ── No selection ────────────────────────────────────────────────────────
+    const line = state.doc.lineAt(from);
+    const rel  = from - line.from;
+
+    if (isStarMarker) {
+      const group = findStarGroup(line.text, rel);
+      if (group) {
+        const min  = Math.min(group.openCount, group.closeCount);
+        const isOn = bLen === 1 ? min % 2 === 1 : min >= bLen;
+        const absOpen  = line.from + group.openAt;
+        const absClose = line.from + group.closeAt;
+        if (isOn) {
+          // Remove bLen stars from the front of each group
+          view.dispatch({
+            changes: [
+              { from: absOpen,  to: absOpen + bLen,  insert: '' },
+              { from: absClose, to: absClose + bLen, insert: '' },
+            ],
+            selection: EditorSelection.cursor(Math.max(absOpen, from - bLen)),
+          });
+        } else {
+          // Extend existing group by inserting at the front of each
+          view.dispatch({
+            changes: [
+              { from: absOpen,  to: absOpen,  insert: before },
+              { from: absClose, to: absClose, insert: after },
+            ],
+            selection: EditorSelection.cursor(from + bLen),
+          });
+        }
+        view.focus();
+        return true;
+      }
+    } else {
+      const pair = findEnclosingMarkerPair(line.text, rel, before, after);
+      if (pair) {
+        const absOpen = line.from + pair[0], absClose = line.from + pair[1];
+        view.dispatch({
+          changes: [
+            { from: absOpen,  to: absOpen + bLen,  insert: '' },
+            { from: absClose, to: absClose + aLen, insert: '' },
+          ],
+          selection: EditorSelection.cursor(Math.max(absOpen, from - bLen)),
+        });
+        view.focus();
+        return true;
+      }
+    }
+
+    // Nothing found — insert placeholder and select it
+    const insert = `${before}${placeholder}${after}`;
+    view.dispatch({
+      changes: { from, insert },
+      selection: EditorSelection.range(from + bLen, from + bLen + placeholder.length),
+    });
     view.focus();
     return true;
   };
@@ -302,7 +482,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
         ),
         EditorView.lineWrapping,
         markdown({ codeLanguages: languages }),
-        keymap.of([
+        Prec.high(keymap.of([
           indentWithTab,
           { key: 'Mod-b',       run: makeWrapCommand('**',  '**',   'bold text') },
           { key: 'Mod-i',       run: makeWrapCommand('*',   '*',    'italic text') },
@@ -317,7 +497,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
           { key: 'Mod-4', run: makeHeadingCommand(4) },
           { key: 'Mod-5', run: makeHeadingCommand(5) },
           { key: 'Mod-6', run: makeHeadingCommand(6) },
-        ]),
+        ])),
         updateListener,
         focusModeCompartment.of([]),
       ],
@@ -545,45 +725,74 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
       { type: 'item', label: 'Indent',        shortcut: `${mod}+]`,       action: () => { const v = viewRef.current; if (v) indentLine(v); } },
       { type: 'item', label: 'Dedent',        shortcut: `${mod}+[`,       action: () => { const v = viewRef.current; if (v) dedentLine(v); } },
       { type: 'divider' },
-      { type: 'header', label: 'Insert' },
-      { type: 'item', label: 'Code Block',      action: () => doInsert('```\n\n```', 3) },
-      { type: 'item', label: 'Blockquote',      action: () => doInsert('> ', 2) },
-      { type: 'item', label: 'Table',           action: () => doInsert('| Header | Header |\n| ------ | ------ |\n| Cell   | Cell   |', 2) },
-      { type: 'item', label: 'Horizontal Rule', action: () => doInsert('\n<hr>\n', 5) },
-      { type: 'item', label: 'Image',           action: () => doInsert('![alt text](url)', 2) },
-      { type: 'item', label: 'Link',            action: () => doInsert('[link text](url)', 1) },
-      { type: 'item', label: 'Speaker Notes',   action: () => doInsert('\n\n???\n\n', 7) },
-      { type: 'divider' },
-      { type: 'header', label: 'Charts' },
       {
-        type: 'item', label: 'Pie Chart',
-        action: () => doInsert(
-          '\n```mermaid\npie title Distribution\n    "Category A" : 40\n    "Category B" : 35\n    "Category C" : 25\n```\n',
-          22,  // lands on "Distribution"
-        ),
-      },
-      {
-        type: 'item', label: 'Bar Chart',
-        action: () => doInsert(
-          '\n```mermaid\nxychart-beta\n    title "Sales by Quarter"\n    x-axis [Q1, Q2, Q3, Q4]\n    y-axis 0 --> 100\n    bar [40, 65, 55, 80]\n```\n',
-          36,  // lands on "Sales by Quarter"
-        ),
-      },
-      {
-        type: 'item', label: 'Line Chart',
-        action: () => doInsert(
-          '\n```mermaid\nxychart-beta\n    title "Trend Over Time"\n    x-axis [Jan, Feb, Mar, Apr, May]\n    y-axis 0 --> 100\n    line [30, 45, 60, 55, 75]\n```\n',
-          36,  // lands on "Trend Over Time"
-        ),
+        type: 'submenu', label: 'Insert', entries: [
+          { type: 'item', label: 'Code Block',      action: () => doInsert('```\n\n```', 3) },
+          { type: 'item', label: 'Blockquote',      action: () => doInsert('> ', 2) },
+          { type: 'item', label: 'Table',           action: () => doInsert('| Header | Header |\n| ------ | ------ |\n| Cell   | Cell   |', 2) },
+          { type: 'item', label: 'Horizontal Rule', action: () => doInsert('\n<hr>\n', 5) },
+          { type: 'item', label: 'Image',           action: () => doInsert('![alt text](url)', 2) },
+          { type: 'item', label: 'Link',            action: () => doInsert('[link text](url)', 1) },
+          { type: 'item', label: 'Speaker Notes',   action: () => doInsert('\n\n???\n\n', 7) },
+        ],
       },
       { type: 'divider' },
-      { type: 'header', label: 'Diagrams' },
       {
-        type: 'item', label: 'Progress Bars',
-        action: () => doInsert(
-          '\n!progress[Task Complete](75)\n!progress[In Progress](40)\n!progress[Planned](10)\n',
-          11,  // lands on "Task Complete"
-        ),
+        type: 'submenu', label: 'Charts', entries: [
+          {
+            type: 'item', label: 'Pie Chart',
+            action: () => doInsert(
+              '\n```mermaid\npie title Distribution\n    "Category A" : 40\n    "Category B" : 35\n    "Category C" : 25\n```\n',
+              22,  // lands on "Distribution"
+            ),
+          },
+          {
+            type: 'item', label: 'Bar Chart',
+            action: () => doInsert(
+              '\n```mermaid\nxychart-beta\n    title "Sales by Quarter"\n    x-axis [Q1, Q2, Q3, Q4]\n    y-axis 0 --> 100\n    bar [40, 65, 55, 80]\n```\n',
+              36,  // lands on "Sales by Quarter"
+            ),
+          },
+          {
+            type: 'item', label: 'Line Chart',
+            action: () => doInsert(
+              '\n```mermaid\nxychart-beta\n    title "Trend Over Time"\n    x-axis [Jan, Feb, Mar, Apr, May]\n    y-axis 0 --> 100\n    line [30, 45, 60, 55, 75]\n```\n',
+              36,  // lands on "Trend Over Time"
+            ),
+          },
+        ],
+      },
+      {
+        type: 'submenu', label: 'Diagrams', entries: [
+          {
+            type: 'item', label: 'Progress Bars',
+            action: () => doInsert(
+              '\n!progress[Task Complete](75)\n!progress[In Progress](40)\n!progress[Planned](10)\n',
+              11,  // lands on "Task Complete"
+            ),
+          },
+          {
+            type: 'item', label: 'Flowchart',
+            action: () => doInsert(
+              '\n```mermaid\nflowchart TD\n    A([Start]) --> B[Process Step]\n    B --> C{Decision?}\n    C -- Yes --> D([End])\n    C -- No --> B\n```\n',
+              46,  // lands on "Process Step"
+            ),
+          },
+          {
+            type: 'item', label: 'Timeline',
+            action: () => doInsert(
+              '\n```mermaid\ntimeline\n    title Company Milestones\n    2022 : Founded\n         : Seed Funding\n    2023 : Product Launch\n         : 1K Users\n    2024 : Series A\n         : 10K Users\n```\n',
+              31,  // lands on "Company Milestones"
+            ),
+          },
+          {
+            type: 'item', label: 'Sequence Diagram',
+            action: () => doInsert(
+              '\n```mermaid\nsequenceDiagram\n    participant U as User\n    participant A as App\n    participant D as Database\n    U->>A: Login Request\n    A->>D: Verify Credentials\n    D-->>A: User Found\n    A-->>U: Access Granted\n```\n',
+              49,  // lands on "User"
+            ),
+          },
+        ],
       },
     ];
   }

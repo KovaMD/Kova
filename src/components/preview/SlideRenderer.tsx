@@ -54,6 +54,20 @@ function hslToHex(h: number, s: number, l: number): string {
   return `#${[f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, '0')).join('')}`;
 }
 
+// Derives 12 colours for Mermaid's cScale system (used by timeline, mindmap, etc.).
+// Anchored to the accent, hue-rotated 30° per step, saturation/lightness clamped
+// so sections stay vivid on both light and dark slide backgrounds.
+function buildCScalePalette(accentHex: string): Record<string, string> {
+  const [h, rawS, rawL] = hexToHsl(accentHex);
+  const s = Math.min(Math.max(rawS, 0.50), 0.80);
+  const l = Math.min(Math.max(rawL, 0.38), 0.58);
+  const out: Record<string, string> = {};
+  for (let i = 0; i < 12; i++) {
+    out[`cScale${i}`] = hslToHex(h + i * 30, s, l);
+  }
+  return out;
+}
+
 function piePalette(primaryHex: string): Record<string, string> {
   const [h, rawS, rawL] = hexToHsl(primaryHex);
   // Clamp S and L so all slices are vivid enough to read on a white slide
@@ -93,6 +107,7 @@ function buildMermaidInit(theme: Theme): string {
     titleColor:            c.text,
     edgeLabelBackground:   c.background,
     fontFamily:            firstFont(theme.fonts.body),
+    ...buildCScalePalette(c.accent),
     ...piePalette(c.accent),
     pieTitleTextColor:     c.text,
     pieSectionTextColor:   c.background,
@@ -715,7 +730,24 @@ function MermaidDiagram({ value }: { value: string }) {
     const src = value.trimStart().startsWith('%%{') ? value : mermaidInit + value;
     const renderId = `${baseId}-${++counter.current}`;
     mermaid.render(renderId, src)
-      .then(({ svg: out }: { svg: string }) => { if (!cancelled) setSvg(out); })
+      .then(({ svg: out }: { svg: string }) => {
+        if (!cancelled) {
+          // Mermaid injects style="max-width: Npx;" on the SVG element which
+          // caps the rendered size regardless of CSS. Strip it and set
+          // width="100%" so the diagram fills its container.
+          // Mermaid produces two SVG modes depending on diagram type:
+          //   useMaxWidth=true  (most diagrams): width="100%", style="max-width:Npx;", no height attr
+          //   useMaxWidth=false (timeline, etc.): width="Npx", height="Npx", no style attr
+          // Normalise both to width/height="100%" + preserveAspectRatio so the
+          // diagram scales to fill its container like object-fit:contain.
+          const scaled = out
+            .replace(/\bwidth="[^"]*"/, 'width="100%"')
+            .replace(/\bheight="[^"]*"/, 'height="100%"')
+            .replace(/style="[^"]*max-width[^"]*"/, 'style=""')
+            .replace(/<svg (?![^>]*preserveAspectRatio)/, '<svg preserveAspectRatio="xMidYMid meet" ');
+          setSvg(scaled);
+        }
+      })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [baseId, value, mermaidInit]);
