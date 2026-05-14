@@ -459,7 +459,8 @@ export default function App() {
         defaultPath,
       });
       if (!target) return;
-      await invoke('write_file_bytes', { path: target, data: base64 });
+      const savePath = target.toLowerCase().endsWith('.pptx') ? target : `${target}.pptx`;
+      await invoke('write_file_bytes', { path: savePath, data: base64 });
       if (warnings.length > 0) {
         window.alert(`Export complete with ${warnings.length} warning(s):\n\n${warnings.join('\n')}`);
       }
