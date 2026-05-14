@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { emit, listen } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getCurrentWindow, availableMonitors, primaryMonitor, PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window';
 import { SlideRenderer } from './components/preview/SlideRenderer';
 import type { Slide, AspectRatio } from './engine/types';
 import type { Theme } from './engine/theme';
@@ -30,10 +30,25 @@ export function AudienceApp() {
         slidesRef.current = e.payload.slides;
         setInitData(e.payload);
         setCurrentIndex(e.payload.index);
-        // Fullscreen here so the window is already on the correct screen when it enters
-        // fullscreen — avoids the Linux bug where fullscreen in WebviewWindow config
-        // ignores x/y and goes fullscreen on the primary monitor instead.
-        await getCurrentWindow().setFullscreen(true).catch(() => {});
+
+        // Explicitly move to the external monitor before fullscreening.
+        // On Linux (X11 and Wayland) the x/y set in WebviewWindow config is
+        // frequently ignored by the WM, so the window lands on the primary
+        // display. Calling setPosition here — after the window is running —
+        // is more reliable. setFullscreen then targets the correct screen.
+        const win = getCurrentWindow();
+        try {
+          const [all, primary] = await Promise.all([availableMonitors(), primaryMonitor()]);
+          const external = all.length > 1
+            ? (all.find(m => m.name !== primary?.name) ?? null)
+            : null;
+          if (external) {
+            await win.setPosition(new PhysicalPosition(external.position.x, external.position.y));
+            await win.setSize(new PhysicalSize(external.size.width, external.size.height));
+          }
+        } catch { /* best-effort — ignore if monitor API unavailable */ }
+
+        await win.setFullscreen(true).catch(() => {});
       });
 
       unlistenNav = await listen<{ index: number }>('present:navigate', (e) => {
