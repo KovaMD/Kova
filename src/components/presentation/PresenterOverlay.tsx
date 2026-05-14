@@ -21,6 +21,7 @@ interface Props {
 
 const HUD_H       = 56;  // px
 const RIGHT_W     = 280; // px
+const SLIDE_W     = 960; // virtual slide width — matches PresentationOverlay / AudienceApp
 
 function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -38,11 +39,35 @@ export function PresenterOverlay({
   const nextSlide = slides[currentIndex + 1] ?? null;
   const total     = slides.length;
 
-  const [elapsed, setElapsed] = useState(0);
-  const startTime = useRef(Date.now());
-  const overlayRef = useRef<HTMLDivElement>(null);
+  const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
+
+  const [elapsed, setElapsed]           = useState(0);
+  const [currentScale, setCurrentScale] = useState(1);
+  const [nextScale, setNextScale]       = useState(1);
+  const startTime      = useRef(Date.now());
+  const overlayRef     = useRef<HTMLDivElement>(null);
+  const currentFrameRef = useRef<HTMLDivElement>(null);
+  const nextFrameRef    = useRef<HTMLDivElement>(null);
 
   useEffect(() => { overlayRef.current?.focus(); }, []);
+
+  useEffect(() => {
+    if (!currentFrameRef.current) return;
+    const obs = new ResizeObserver(([entry]) => {
+      setCurrentScale(entry.contentRect.width / SLIDE_W);
+    });
+    obs.observe(currentFrameRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!showNextSlide || !nextSlide || !nextFrameRef.current) return;
+    const obs = new ResizeObserver(([entry]) => {
+      setNextScale(entry.contentRect.width / SLIDE_W);
+    });
+    obs.observe(nextFrameRef.current);
+    return () => obs.disconnect();
+  }, [showNextSlide, nextSlide]);
 
   // Timer
   useEffect(() => {
@@ -100,14 +125,21 @@ export function PresenterOverlay({
 
         {/* ── Current slide ── */}
         <div className="pres-presenter__current">
-          <div className="pres-presenter__current-frame">
-            <SlideRenderer
-              slide={slide}
-              theme={theme}
-              slideNumber={currentIndex + 1}
-              totalSlides={total}
-              docTitle={docTitle}
-            />
+          <div className="pres-presenter__current-frame" ref={currentFrameRef}>
+            <div style={{
+              width: SLIDE_W,
+              height: slideH,
+              transform: `scale(${currentScale})`,
+              transformOrigin: 'top left',
+            }}>
+              <SlideRenderer
+                slide={slide}
+                theme={theme}
+                slideNumber={currentIndex + 1}
+                totalSlides={total}
+                docTitle={docTitle}
+              />
+            </div>
           </div>
         </div>
 
@@ -121,14 +153,21 @@ export function PresenterOverlay({
                 {nextSlide ? 'Next' : 'End of presentation'}
               </div>
               {nextSlide && (
-                <div className="pres-presenter__next-frame">
-                  <SlideRenderer
-                    slide={nextSlide}
-                    theme={theme}
-                    slideNumber={currentIndex + 2}
-                    totalSlides={total}
-                    docTitle={docTitle}
-                  />
+                <div className="pres-presenter__next-frame" ref={nextFrameRef}>
+                  <div style={{
+                    width: SLIDE_W,
+                    height: slideH,
+                    transform: `scale(${nextScale})`,
+                    transformOrigin: 'top left',
+                  }}>
+                    <SlideRenderer
+                      slide={nextSlide}
+                      theme={theme}
+                      slideNumber={currentIndex + 2}
+                      totalSlides={total}
+                      docTitle={docTitle}
+                    />
+                  </div>
                 </div>
               )}
             </div>
