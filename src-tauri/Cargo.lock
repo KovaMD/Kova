@@ -1915,6 +1915,8 @@ name = "kova"
 version = "0.1.3"
 dependencies = [
  "base64 0.22.1",
+ "gdk",
+ "gtk",
  "notify",
  "serde",
  "serde_json",
