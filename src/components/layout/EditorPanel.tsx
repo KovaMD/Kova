@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
+import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { indentWithTab } from '@codemirror/commands';
 import { Compartment, EditorSelection, EditorState, Prec } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
@@ -29,6 +30,7 @@ interface Props {
   onChange: (value: string) => void;
   onCursorSlide?: (index: number) => void;
   onWarn?: (msg: string) => void;
+  onSaveAs?: () => Promise<string | null>;
   focusMode?: boolean;
   filePath?: string | null;
   uiTheme?: 'dark' | 'light';
@@ -400,7 +402,7 @@ export interface EditorHandle {
 interface ContextMenuState { x: number; y: number; hasSelection: boolean; clickPos: number | null }
 
 export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
-  { content, onChange, onCursorSlide, onWarn, focusMode = false, filePath, uiTheme = 'dark', editorFontFamily = DEFAULT_FONT_FAMILY, spellCheckEnabled = false, spellCheckLanguage = 'en_US' }: Props,
+  { content, onChange, onCursorSlide, onWarn, onSaveAs, focusMode = false, filePath, uiTheme = 'dark', editorFontFamily = DEFAULT_FONT_FAMILY, spellCheckEnabled = false, spellCheckLanguage = 'en_US' }: Props,
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -408,6 +410,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
   const onChangeRef = useRef(onChange);
   const onCursorSlideRef = useRef(onCursorSlide);
   const onWarnRef = useRef(onWarn);
+  const onSaveAsRef = useRef(onSaveAs);
   const filePathRef = useRef(filePath);
   const uiThemeRef = useRef(uiTheme);
   const spellCheckEnabledRef = useRef(spellCheckEnabled);
@@ -418,6 +421,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { onCursorSlideRef.current = onCursorSlide; }, [onCursorSlide]);
   useEffect(() => { onWarnRef.current = onWarn; }, [onWarn]);
+  useEffect(() => { onSaveAsRef.current = onSaveAs; }, [onSaveAs]);
   useEffect(() => { filePathRef.current = filePath; }, [filePath]);
   useEffect(() => { uiThemeRef.current = uiTheme; }, [uiTheme]);
   useEffect(() => { spellCheckEnabledRef.current = spellCheckEnabled; }, [spellCheckEnabled]);
@@ -835,7 +839,48 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
           { type: 'item', label: 'Blockquote',      action: () => doInsert('> ', 2) },
           { type: 'item', label: 'Table',           action: () => doInsert('| Header | Header |\n| ------ | ------ |\n| Cell   | Cell   |', 2) },
           { type: 'item', label: 'Horizontal Rule', action: () => doInsert('\n<hr>\n', 5) },
-          { type: 'item', label: 'Image',           action: () => doInsert('![alt text](url)', 2) },
+          {
+            type: 'item', label: 'Image', action: async () => {
+              const selected = await openFileDialog({
+                multiple: false,
+                filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'avif', 'tiff'] }],
+              });
+              if (!selected) return;
+              const abs = selected;
+              const label = abs.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') ?? 'image';
+
+              // Resolve the document path — prompt Save As if not yet saved
+              let docPath = filePathRef.current ?? null;
+              if (!docPath) {
+                docPath = await onSaveAsRef.current?.() ?? null;
+                if (!docPath) return;
+              }
+              const docDir = docPath.substring(0, Math.max(docPath.lastIndexOf('/'), docPath.lastIndexOf('\\')));
+
+              let imgPath: string;
+              const normAbs = abs.replace(/\\/g, '/');
+              const normDir = docDir.replace(/\\/g, '/');
+              if (normAbs.startsWith(normDir + '/')) {
+                imgPath = makeRelativePath(docPath, abs);
+              } else {
+                try {
+                  const filename = await invoke<string>('copy_image_to_assets', { src: abs, destDir: docDir });
+                  imgPath = `assets/${filename}`;
+                } catch (e) {
+                  console.error('[Kova] copy_image_to_assets failed:', e);
+                  onWarnRef.current?.('Could not copy image — on macOS, grant Kova access under System Settings → Privacy & Security → Files and Folders.');
+                  return;
+                }
+              }
+
+              const snippet = `![${label}](${encodeMarkdownPath(imgPath)})`;
+              const view = viewRef.current;
+              if (!view) return;
+              const { from, to } = view.state.selection.main;
+              view.dispatch({ changes: { from, to, insert: snippet }, selection: EditorSelection.cursor(from + snippet.length) });
+              view.focus();
+            },
+          },
           { type: 'item', label: 'Link',            action: () => doInsert('[link text](url)', 1) },
           { type: 'item', label: 'Speaker Notes',   action: () => doInsert('\n\n???\n\n', 7) },
         ],

@@ -467,20 +467,21 @@ export default function App() {
     } catch (err) { console.error('Save failed:', err); }
   }, [filePath, content, buildSaveContent]);
 
-  const handleSaveAs = useCallback(async () => {
+  const handleSaveAs = useCallback(async (): Promise<string | null> => {
     try {
       const target = await save({
         filters: [{ name: 'Markdown', extensions: ['md'] }],
         defaultPath: filePath ?? undefined,
       });
-      if (!target) return;
+      if (!target) return null;
       const toWrite = buildSaveContent();
       await invoke('write_file', { path: target, content: toWrite });
       if (toWrite !== content) setContent(toWrite);
       setFilePath(target);
       setIsDirty(false);
       await invoke('start_watching', { path: target }).catch(console.error);
-    } catch (err) { console.error('Save As failed:', err); }
+      return target;
+    } catch (err) { console.error('Save As failed:', err); return null; }
   }, [filePath, content, buildSaveContent]);
 
   const handleExport = useCallback(async () => {
@@ -719,6 +720,7 @@ export default function App() {
               onChange={handleContentChange}
               onCursorSlide={setCurrentSlideIndex}
               onWarn={handleWarn}
+              onSaveAs={handleSaveAs}
               focusMode={focusMode}
               filePath={filePath}
               uiTheme={resolvedUiTheme}

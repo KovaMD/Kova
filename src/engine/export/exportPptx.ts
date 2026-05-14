@@ -329,7 +329,7 @@ function addTitleContentSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: num
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 28, bold: true,
-      color: hex(t.colors.primary),
+      color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
       align: 'left', valign: 'middle', wrap: true,
     });
@@ -347,7 +347,7 @@ function addTitleImageSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: numbe
     s.addText(slide.title, {
       x: M, y: cy, w: colW, h: ch,
       fontSize: 26, bold: true,
-      color: hex(t.colors.primary),
+      color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
       align: 'left', valign: 'middle', wrap: true,
     });
@@ -365,7 +365,7 @@ function addSplitSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, wa
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 24, bold: true,
-      color: hex(t.colors.primary),
+      color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
       wrap: true,
     });
@@ -436,7 +436,7 @@ function addTwoColumnSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 24, bold: true,
-      color: hex(t.colors.primary),
+      color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
       wrap: true,
     });
@@ -466,7 +466,7 @@ function addBspSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warn
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 24, bold: true,
-      color: hex(t.colors.primary),
+      color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
       wrap: true,
     });
@@ -522,7 +522,7 @@ function addGridSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, war
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 24, bold: true,
-      color: hex(t.colors.primary),
+      color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
       wrap: true,
     });
@@ -555,7 +555,7 @@ function addMediaSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) {
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 24, bold: true,
-      color: hex(t.colors.primary),
+      color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
       wrap: true,
     });
@@ -599,7 +599,7 @@ function addCodeSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, war
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 24, bold: true,
-      color: hex(t.colors.primary),
+      color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
       wrap: true,
     });
