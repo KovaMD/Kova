@@ -8,23 +8,44 @@ use tauri::{AppHandle, State};
 /// which requires path scopes to be configured before it works on macOS.
 #[tauri::command]
 pub fn show_in_file_manager(path: String) -> Result<(), String> {
+    let is_file = std::path::Path::new(&path).is_file();
+
     #[cfg(target_os = "macos")]
-    std::process::Command::new("open")
-        .arg(&path)
-        .spawn()
-        .map_err(|e| e.to_string())?;
+    {
+        let mut cmd = std::process::Command::new("open");
+        if is_file {
+            cmd.arg("-R"); // reveal file in Finder rather than opening it
+        }
+        cmd.arg(&path).spawn().map_err(|e| e.to_string())?;
+    }
 
     #[cfg(target_os = "linux")]
-    std::process::Command::new("xdg-open")
-        .arg(&path)
-        .spawn()
-        .map_err(|e| e.to_string())?;
+    {
+        // xdg-open handles both files (opens parent dir) and directories
+        let target = if is_file {
+            std::path::Path::new(&path)
+                .parent()
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or(path.clone())
+        } else {
+            path.clone()
+        };
+        std::process::Command::new("xdg-open")
+            .arg(&target)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
 
     #[cfg(target_os = "windows")]
-    std::process::Command::new("explorer")
-        .arg(&path)
-        .spawn()
-        .map_err(|e| e.to_string())?;
+    {
+        let mut cmd = std::process::Command::new("explorer");
+        if is_file {
+            cmd.arg(format!("/select,{path}")); // select file in Explorer
+        } else {
+            cmd.arg(&path);
+        }
+        cmd.spawn().map_err(|e| e.to_string())?;
+    }
 
     Ok(())
 }
@@ -231,26 +252,58 @@ pub fn load_custom_themes(app: AppHandle) -> Result<(String, Vec<(String, String
 }
 
 /// Returns a sorted, deduplicated list of font family names available on the system.
-/// Uses fontconfig (fc-list) on Linux/macOS; returns an empty list if unavailable.
 #[tauri::command]
 pub fn list_system_fonts() -> Vec<String> {
-    let output = match std::process::Command::new("fc-list")
-        .arg("--format")
-        .arg("%{family[0]}\n")
-        .output()
+    #[cfg(not(target_os = "windows"))]
     {
-        Ok(o) => o,
-        Err(_) => return vec![],
-    };
+        // Linux and macOS: use fontconfig
+        let output = match std::process::Command::new("fc-list")
+            .arg("--format")
+            .arg("%{family[0]}\n")
+            .output()
+        {
+            Ok(o) => o,
+            Err(_) => return vec![],
+        };
 
-    let mut fonts: Vec<String> = String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(String::from)
-        .collect();
+        let mut fonts: Vec<String> = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(String::from)
+            .collect();
 
-    fonts.sort_unstable_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
-    fonts.dedup();
-    fonts
+        fonts.sort_unstable_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+        fonts.dedup();
+        fonts
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Windows: enumerate fonts via PowerShell (.NET InstalledFontCollection)
+        let output = match std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "[System.Drawing.Text.InstalledFontCollection]::new().Families | \
+                 ForEach-Object { $_.Name }",
+            ])
+            .output()
+        {
+            Ok(o) => o,
+            Err(_) => return vec![],
+        };
+
+        let mut fonts: Vec<String> = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(String::from)
+            .collect();
+
+        fonts.sort_unstable_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+        fonts.dedup();
+        fonts
+    }
 }

@@ -26,10 +26,14 @@ export function AudienceApp() {
 
     async function setup() {
       // Register all listeners before signalling ready so we don't miss init
-      unlistenInit = await listen<PresentInitPayload>('present:init', (e) => {
+      unlistenInit = await listen<PresentInitPayload>('present:init', async (e) => {
         slidesRef.current = e.payload.slides;
         setInitData(e.payload);
         setCurrentIndex(e.payload.index);
+        // Fullscreen here so the window is already on the correct screen when it enters
+        // fullscreen — avoids the Linux bug where fullscreen in WebviewWindow config
+        // ignores x/y and goes fullscreen on the primary monitor instead.
+        await getCurrentWindow().setFullscreen(true).catch(() => {});
       });
 
       unlistenNav = await listen<{ index: number }>('present:navigate', (e) => {

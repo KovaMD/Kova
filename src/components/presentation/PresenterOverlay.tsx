@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { emit } from '@tauri-apps/api/event';
+import { emitTo } from '@tauri-apps/api/event';
 import type { Slide, AspectRatio } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import type { NotesFontSize } from '../../store/settings';
@@ -55,7 +55,7 @@ export function PresenterOverlay({
 
   // Sync navigation to audience window
   useEffect(() => {
-    emit('present:navigate', { index: currentIndex }).catch(() => {});
+    emitTo('audience', 'present:navigate', { index: currentIndex }).catch(() => {});
   }, [currentIndex]);
 
   const goNext = useCallback(() => {

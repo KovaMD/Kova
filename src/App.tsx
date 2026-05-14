@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
-import { emit, listen } from '@tauri-apps/api/event';
+import { emit, emitTo, listen } from '@tauri-apps/api/event';
 import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, usePanelRef, useDefaultLayout } from 'react-resizable-panels';
@@ -325,7 +325,7 @@ export default function App() {
         // Register ready listener BEFORE creating the window to avoid missing the event
         const unlistenReady = await listen('present:ready', async () => {
           unlistenReady();
-          await emit('present:init', initPayload);
+          await emitTo('audience', 'present:init', initPayload);
         });
 
         new WebviewWindow('audience', {
@@ -334,7 +334,8 @@ export default function App() {
           y: external.position.y,
           width: external.size.width,
           height: external.size.height,
-          fullscreen: true,
+          // Don't pass fullscreen:true here — on Linux it ignores x/y and goes fullscreen
+          // on the primary monitor. The AudienceApp fullscreens itself after init instead.
           decorations: false,
           title: 'Kova — Presentation',
           resizable: false,
@@ -343,7 +344,8 @@ export default function App() {
 
         if (mode === 'dual') {
           setPresenterMode(true);
-          return; // don't fullscreen the main window — it shows the presenter view
+          await getCurrentWindow().setFullscreen(true).catch(() => {});
+          return;
         }
         // Mirror: audience window shows slide, main window also fullscreens with normal overlay
       }
