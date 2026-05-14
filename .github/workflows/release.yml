@@ -103,7 +103,10 @@ jobs:
             |---|---|---|
             | **macOS** (Apple Silicon + Intel) | `.dmg` | Double-click to install — app is signed and notarised |
             | **Windows 10/11** | `.msi` or `_x64-setup.exe` | Click **More info → Run anyway** if SmartScreen appears (app is unsigned) |
-            | **Linux** | `.AppImage` | `chmod +x kova_*.AppImage && ./kova_*.AppImage` |
+            | **Linux (recommended)** | `.deb` (Debian/Ubuntu) or `.rpm` (Fedora/RHEL) | Install via your package manager |
+            | **Linux (AppImage)** | `.AppImage` | `chmod +x kova_*.AppImage && ./kova_*.AppImage` — see note below |
+
+            > **Linux note:** The `.deb` and `.rpm` packages are the recommended Linux install. The AppImage is also provided but must disable the WebKit renderer sandbox to work around a limitation of the AppImage runtime — this has no practical impact since Kova only renders its own bundled UI, but the `.deb`/`.rpm` packages avoid this entirely.
 
             > **Alpha release** — expect rough edges. Please report bugs via [Issues](../../issues).
           releaseDraft: true    # appears as a draft; publish manually after reviewing the assets
