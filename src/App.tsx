@@ -338,6 +338,9 @@ export default function App() {
           const logX = external.position.x / external.scaleFactor;
           const logY = external.position.y / external.scaleFactor;
           await invoke('setup_audience_window', { x: logX, y: logY }).catch(() => {});
+          // Reclaim focus on the presenter window — the audience window creation
+          // may steal it even with focus:false, depending on the compositor.
+          await getCurrentWindow().setFocus().catch(() => {});
         });
 
         new WebviewWindow('audience', {
