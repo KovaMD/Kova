@@ -379,6 +379,17 @@ export default function App() {
     await getCurrentWindow().setFullscreen(false).catch(() => {});
   }, []);
 
+  // When the audience window has OS focus (common on Wayland where compositors
+  // ignore focus:false), forward its keydown events so arrow-key navigation
+  // works in the presenter without requiring a manual click.
+  useEffect(() => {
+    if (!presentMode && !presenterMode) return;
+    const unlisten = listen<{ key: string }>('audience:key', (e) => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: e.payload.key, bubbles: true, cancelable: true }));
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, [presentMode, presenterMode]);
+
   // Mirror mode: keep the audience window in sync with the presenter's slide.
   // Dual mode sync is handled by PresenterOverlay; this covers mirror mode where
   // PresentationOverlay drives navigation but never emits present:navigate.

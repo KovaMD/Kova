@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { emit, listen } from '@tauri-apps/api/event';
+import { emit, emitTo, listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SlideRenderer } from './components/preview/SlideRenderer';
 import type { Slide, AspectRatio } from './engine/types';
@@ -49,6 +49,17 @@ export function AudienceApp() {
     setup();
     return () => { unlistenInit?.(); unlistenNav?.(); unlistenExit?.(); };
   }, []);
+
+  // Forward keyboard events to the main presenter window so navigation works
+  // even when the compositor gave OS focus to the audience window instead.
+  useEffect(() => {
+    if (!initData) return;
+    const handler = (e: KeyboardEvent) => {
+      emitTo('main', 'audience:key', { key: e.key }).catch(() => {});
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [initData]);
 
   // Attach ResizeObserver once the frame div is in the DOM (after initData arrives).
   useEffect(() => {
