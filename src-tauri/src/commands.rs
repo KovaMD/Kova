@@ -51,26 +51,69 @@ pub fn show_in_file_manager(path: String) -> Result<(), String> {
 }
 
 /// Move the audience window to the correct external monitor then fullscreen it.
-/// Done in Rust so the position change and fullscreen hint are issued in the
-/// same OS-level sequence. A blocking sleep between the two gives the X11 WM
-/// time to finish processing XMoveWindow before _NET_WM_STATE_FULLSCREEN
-/// arrives — the JS setTimeout approach was not reliable enough.
+///
+/// On Linux/Wayland setPosition is a no-op — the compositor controls window
+/// placement and ignores application-supplied coordinates. The only reliable
+/// protocol to target a specific output is xdg_toplevel_set_fullscreen(output),
+/// exposed through GTK3 as gtk_window.fullscreen_on_monitor(screen, n).
+///
+/// On macOS and Windows the classic set_position → sleep → set_fullscreen
+/// sequence works fine because those compositors honour the move.
 #[tauri::command]
 pub async fn setup_audience_window(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
-    if let Some(win) = app.get_webview_window("audience") {
-        win.set_position(tauri::LogicalPosition::<f64>::new(x, y))
-            .map_err(|e: tauri::Error| e.to_string())?;
-    }
-    // Yield the async task while we block a worker thread for the WM delay.
+    // Give the audience window time to finish creating its native GTK/NS/HWND
+    // handle before we try to fullscreen it.
     tauri::async_runtime::spawn_blocking(|| {
-        std::thread::sleep(std::time::Duration::from_millis(250));
+        std::thread::sleep(std::time::Duration::from_millis(300));
     })
     .await
     .ok();
-    if let Some(win) = app.get_webview_window("audience") {
-        win.set_fullscreen(true).map_err(|e: tauri::Error| e.to_string())?;
+
+    #[cfg(target_os = "linux")]
+    {
+        let _ = (x, y); // position hints are ignored on Wayland; we use GDK instead
+        let app2 = app.clone();
+        // GTK calls must happen on the main (GTK) thread.
+        app.run_on_main_thread(move || {
+            use gtk::prelude::GtkWindowExt;
+            if let Some(win) = app2.get_webview_window("audience") {
+                if let Ok(gtk_win) = win.gtk_window() {
+                    if let Some(display) = gdk::Display::default() {
+                        let screen  = display.default_screen();
+                        let n       = display.n_monitors();
+                        let primary = display.primary_monitor(); // Option<Monitor>
+                        // Find the first output that is not the primary monitor.
+                        // Falls back to 0 only in single-monitor mode (JS guards against this).
+                        let target: i32 = (0..n)
+                            .find(|&i| display.monitor(i) != primary)
+                            .unwrap_or(0);
+                        gtk_win.fullscreen_on_monitor(&screen, target);
+                    }
+                }
+            }
+        })
+        .ok();
+        return Ok(());
     }
-    Ok(())
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        // macOS / Windows: move to the external monitor, pause for the WM to
+        // process the reposition, then go fullscreen.
+        if let Some(win) = app.get_webview_window("audience") {
+            win.set_position(tauri::LogicalPosition::<f64>::new(x, y))
+                .map_err(|e: tauri::Error| e.to_string())?;
+        }
+        tauri::async_runtime::spawn_blocking(|| {
+            std::thread::sleep(std::time::Duration::from_millis(250));
+        })
+        .await
+        .ok();
+        if let Some(win) = app.get_webview_window("audience") {
+            win.set_fullscreen(true).map_err(|e: tauri::Error| e.to_string())?;
+        }
+        Ok(())
+    }
 }
 
 pub struct AppState {
