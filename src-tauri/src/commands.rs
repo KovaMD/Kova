@@ -1,7 +1,7 @@
 use crate::{file_io, watcher};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 /// Opens a path in the native file manager (Finder / Nautilus / Explorer).
 /// Uses platform process commands directly rather than tauri-plugin-opener,
@@ -58,8 +58,8 @@ pub fn show_in_file_manager(path: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn setup_audience_window(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("audience") {
-        win.set_position(tauri::LogicalPosition::new(x, y))
-            .map_err(|e| e.to_string())?;
+        win.set_position(tauri::LogicalPosition::<f64>::new(x, y))
+            .map_err(|e: tauri::Error| e.to_string())?;
     }
     // Yield the async task while we block a worker thread for the WM delay.
     tauri::async_runtime::spawn_blocking(|| {
@@ -68,7 +68,7 @@ pub async fn setup_audience_window(app: AppHandle, x: f64, y: f64) -> Result<(),
     .await
     .ok();
     if let Some(win) = app.get_webview_window("audience") {
-        win.set_fullscreen(true).map_err(|e| e.to_string())?;
+        win.set_fullscreen(true).map_err(|e: tauri::Error| e.to_string())?;
     }
     Ok(())
 }
