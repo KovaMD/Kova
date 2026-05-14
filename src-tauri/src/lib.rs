@@ -25,6 +25,7 @@ pub fn run() {
             commands::write_file_bytes,
             commands::copy_image_to_assets,
             commands::show_in_file_manager,
+            commands::setup_audience_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

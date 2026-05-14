@@ -50,6 +50,29 @@ pub fn show_in_file_manager(path: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Move the audience window to the correct external monitor then fullscreen it.
+/// Done in Rust so the position change and fullscreen hint are issued in the
+/// same OS-level sequence. A blocking sleep between the two gives the X11 WM
+/// time to finish processing XMoveWindow before _NET_WM_STATE_FULLSCREEN
+/// arrives — the JS setTimeout approach was not reliable enough.
+#[tauri::command]
+pub async fn setup_audience_window(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("audience") {
+        win.set_position(tauri::LogicalPosition::new(x, y))
+            .map_err(|e| e.to_string())?;
+    }
+    // Yield the async task while we block a worker thread for the WM delay.
+    tauri::async_runtime::spawn_blocking(|| {
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    })
+    .await
+    .ok();
+    if let Some(win) = app.get_webview_window("audience") {
+        win.set_fullscreen(true).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 pub struct AppState {
     pub current_file: Mutex<Option<PathBuf>>,
     pub watcher: Mutex<Option<notify::RecommendedWatcher>>,

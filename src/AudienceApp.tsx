@@ -14,10 +14,14 @@ export interface PresentInitPayload {
   docTitle?: string;
 }
 
+const SLIDE_W = 960;
+
 export function AudienceApp() {
-  const [initData, setInitData]     = useState<PresentInitPayload | null>(null);
+  const [initData, setInitData]         = useState<PresentInitPayload | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [scale, setScale]               = useState(1);
   const slidesRef = useRef<Slide[]>([]);
+  const frameRef  = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let unlistenInit: (() => void) | undefined;
@@ -25,13 +29,10 @@ export function AudienceApp() {
     let unlistenExit: (() => void) | undefined;
 
     async function setup() {
-      // Register all listeners before signalling ready so we don't miss init
       unlistenInit = await listen<PresentInitPayload>('present:init', (e) => {
         slidesRef.current = e.payload.slides;
         setInitData(e.payload);
         setCurrentIndex(e.payload.index);
-        // Positioning and fullscreen are driven by the main window via
-        // WebviewWindow.getByLabel after present:ready — see App.tsx.
       });
 
       unlistenNav = await listen<{ index: number }>('present:navigate', (e) => {
@@ -42,13 +43,22 @@ export function AudienceApp() {
         getCurrentWindow().close();
       });
 
-      // Signal ready — main window responds with present:init
       await emit('present:ready', null);
     }
 
     setup();
     return () => { unlistenInit?.(); unlistenNav?.(); unlistenExit?.(); };
   }, []);
+
+  // Attach ResizeObserver once the frame div is in the DOM (after initData arrives).
+  useEffect(() => {
+    if (!frameRef.current) return;
+    const obs = new ResizeObserver(([entry]) => {
+      setScale(entry.contentRect.width / SLIDE_W);
+    });
+    obs.observe(frameRef.current);
+    return () => obs.disconnect();
+  }, [initData]);
 
   if (!initData) {
     return (
@@ -61,30 +71,42 @@ export function AudienceApp() {
     );
   }
 
-  const slide = slidesRef.current[currentIndex];
+  const slide  = slidesRef.current[currentIndex];
   const { theme, aspectRatio, docTitle } = initData;
-  const total = slidesRef.current.length;
+  const total  = slidesRef.current.length;
+  const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
 
   return (
     <div style={{
       position: 'fixed', inset: 0, background: '#000',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
+      {/* Outer box constrains to the slide's aspect ratio */}
       <div style={{
         position: 'relative',
         width: `min(100vw, calc(100vh * ${aspectRatio.w} / ${aspectRatio.h}))`,
         aspectRatio: `${aspectRatio.w} / ${aspectRatio.h}`,
         overflow: 'hidden',
       }}>
-        {slide && (
-          <SlideRenderer
-            slide={slide}
-            theme={theme}
-            slideNumber={currentIndex + 1}
-            totalSlides={total}
-            docTitle={docTitle}
-          />
-        )}
+        {/* frameRef measures actual rendered width; scale = actualWidth / SLIDE_W */}
+        <div ref={frameRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+          {slide && (
+            <div style={{
+              width: SLIDE_W,
+              height: slideH,
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left',
+            }}>
+              <SlideRenderer
+                slide={slide}
+                theme={theme}
+                slideNumber={currentIndex + 1}
+                totalSlides={total}
+                docTitle={docTitle}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { emit, emitTo, listen } from '@tauri-apps/api/event';
-import { availableMonitors, getCurrentWindow, primaryMonitor, PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window';
+import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, usePanelRef, useDefaultLayout } from 'react-resizable-panels';
 
@@ -327,32 +327,26 @@ export default function App() {
           unlistenReady();
           await emitTo('audience', 'present:init', initPayload);
 
-          // Drive positioning + fullscreen from here — the main window already
-          // holds the external monitor coords. Separating setPosition/setSize
-          // from setFullscreen with a 200 ms pause gives the X11 WM time to
-          // process the XMoveWindow request before the fullscreen hint arrives.
-          // On Wayland setPosition is a no-op but setFullscreen still runs.
-          const audienceWin = await WebviewWindow.getByLabel('audience');
-          if (audienceWin) {
-            await audienceWin.setPosition(new PhysicalPosition(external.position.x, external.position.y)).catch(() => {});
-            await audienceWin.setSize(new PhysicalSize(external.size.width, external.size.height)).catch(() => {});
-            await new Promise<void>(resolve => setTimeout(resolve, 200));
-            await audienceWin.setFullscreen(true).catch(() => {});
-          }
+          // Drive positioning + fullscreen via Rust — the 250 ms blocking sleep
+          // on the Rust side is more reliable than JS setTimeout for convincing
+          // the X11 WM to process XMoveWindow before _NET_WM_STATE_FULLSCREEN.
+          const logX = external.position.x / external.scaleFactor;
+          const logY = external.position.y / external.scaleFactor;
+          await invoke('setup_audience_window', { x: logX, y: logY }).catch(() => {});
         });
 
         new WebviewWindow('audience', {
           url: '/#audience',
-          x: external.position.x,
-          y: external.position.y,
-          width: external.size.width,
-          height: external.size.height,
+          x: external.position.x / external.scaleFactor,
+          y: external.position.y / external.scaleFactor,
+          width: external.size.width / external.scaleFactor,
+          height: external.size.height / external.scaleFactor,
           // No fullscreen:true — on Linux that ignores x/y and captures the primary monitor.
-          // Fullscreen is applied by the present:ready handler above after repositioning.
+          // Fullscreen is applied via setup_audience_window after present:ready fires.
           decorations: false,
           title: 'Kova — Presentation',
           resizable: false,
-          focus: false, // keep focus on presenter window
+          focus: false,
         });
 
         if (mode === 'dual') {
