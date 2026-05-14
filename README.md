@@ -21,6 +21,8 @@ Pre-built binaries are available for macOS, Windows, and Linux:
 **[→ Go to the latest release](https://github.com/KovaMD/Kova/releases/latest)**
 
 > **Alpha software.** Expect rough edges. Please [report bugs](https://github.com/KovaMD/Kova/issues) if you find them.
+>
+> **Presentation mode is actively in development and currently unstable.** Multi-monitor setups in particular are known to be buggy — use with caution.
 
 ---
 
@@ -33,7 +35,7 @@ Pre-built binaries are available for macOS, Windows, and Linux:
 - **Mermaid diagrams** — pie, bar, line charts and flowcharts inline
 - **Themes** — built-in themes plus custom YAML themes from `~/.kova/themes/`
 - **Focus mode** — dims non-active slides, collapses side panels
-- **Fullscreen presentation** — speaker notes, slide counter, keyboard and click navigation
+- **Fullscreen presentation** — speaker notes, slide counter, keyboard and click navigation *(in development — multi-monitor mode is currently unstable)*
 - **PPTX export** — export to PowerPoint (16:9 and 4:3)
 - **YouTube & poll embeds** — `!youtube[label](url)` opens in browser; `!poll[label](url)` renders a QR code
 - **File watcher** — reloads automatically when the file is edited externally
