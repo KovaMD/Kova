@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { emit, emitTo, listen } from '@tauri-apps/api/event';
-import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
+import { availableMonitors, currentMonitor, getCurrentWindow } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, usePanelRef, useDefaultLayout } from 'react-resizable-panels';
 
@@ -299,12 +299,17 @@ export default function App() {
     const startIndex = e?.altKey ? safeSlideIndex : 0;
     if (!e?.altKey) setCurrentSlideIndex(0);
 
-    // Resolve 'auto': detect monitors first, then pick mode
+    // Resolve 'auto': detect monitors first, then pick mode.
+    // Use currentMonitor() (not primaryMonitor()) to find the monitor Kova is
+    // running on — on Wayland, primaryMonitor() returns null for both monitors
+    // because "primary" is an X11 concept the compositor doesn't expose.
     let all: Awaited<ReturnType<typeof availableMonitors>> = [];
-    let primary: Awaited<ReturnType<typeof primaryMonitor>> = null;
-    try { [all, primary] = await Promise.all([availableMonitors(), primaryMonitor()]); } catch { /* ignore */ }
+    let currentMon: Awaited<ReturnType<typeof currentMonitor>> = null;
+    try {
+      [all, currentMon] = await Promise.all([availableMonitors(), currentMonitor()]);
+    } catch { /* ignore */ }
     const external = all.length > 1
-      ? (all.find((m) => m.name !== primary?.name) ?? all[all.length - 1])
+      ? (all.find((m) => m.name !== currentMon?.name) ?? all[all.length - 1])
       : null;
 
     const rawMode = settings.presentationMode;

@@ -161,7 +161,6 @@ pub async fn setup_audience_window(app: AppHandle, x: f64, y: f64) -> Result<(),
 ///   await window.__TAURI__.core.invoke('debug_monitors')
 #[tauri::command]
 pub fn debug_monitors(app: AppHandle) -> String {
-    use tauri::Manager;
     let mut out = String::new();
 
     match app.primary_monitor() {
