@@ -54,8 +54,8 @@ pub fn show_in_file_manager(path: String) -> Result<(), String> {
 ///
 /// On Linux/Wayland setPosition is a no-op — the compositor controls window
 /// placement and ignores application-supplied coordinates. The only reliable
-/// protocol to target a specific output is xdg_toplevel_set_fullscreen(output),
-/// exposed through GTK3 as gtk_window.fullscreen_on_monitor(screen, n).
+/// protocol is xdg_toplevel_set_fullscreen(output), exposed through GTK3 as
+/// gtk_window_fullscreen_on_monitor(screen, n).
 ///
 /// On macOS and Windows the classic set_position → sleep → set_fullscreen
 /// sequence works fine because those compositors honour the move.
@@ -64,42 +64,82 @@ pub async fn setup_audience_window(app: AppHandle, x: f64, y: f64) -> Result<(),
     // Give the audience window time to finish creating its native GTK/NS/HWND
     // handle before we try to fullscreen it.
     tauri::async_runtime::spawn_blocking(|| {
-        std::thread::sleep(std::time::Duration::from_millis(300));
+        std::thread::sleep(std::time::Duration::from_millis(400));
     })
     .await
     .ok();
 
     #[cfg(target_os = "linux")]
     {
-        let _ = (x, y); // position hints are ignored on Wayland; we use GDK instead
+        eprintln!("[kova] setup_audience_window: logical x={x:.0} y={y:.0}");
         let app2 = app.clone();
-        // GTK calls must happen on the main (GTK) thread.
         app.run_on_main_thread(move || {
             use gtk::prelude::GtkWindowExt;
-            if let Some(win) = app2.get_webview_window("audience") {
-                if let Ok(gtk_win) = win.gtk_window() {
-                    if let Some(display) = gdk::Display::default() {
-                        let screen  = display.default_screen();
-                        let n       = display.n_monitors();
-                        let primary = display.primary_monitor(); // Option<Monitor>
-                        // Find the first output that is not the primary monitor.
-                        // Falls back to 0 only in single-monitor mode (JS guards against this).
-                        let target: i32 = (0..n)
-                            .find(|&i| display.monitor(i) != primary)
-                            .unwrap_or(0);
-                        gtk_win.fullscreen_on_monitor(&screen, target);
-                    }
+            use gdk::prelude::MonitorExt;
+
+            let win = match app2.get_webview_window("audience") {
+                Some(w) => w,
+                None => { eprintln!("[kova] audience window not found in GTK thread"); return; }
+            };
+            let gtk_win = match win.gtk_window() {
+                Ok(w) => w,
+                Err(e) => { eprintln!("[kova] gtk_window() failed: {e}"); return; }
+            };
+            let display = match gdk::Display::default() {
+                Some(d) => d,
+                None => { eprintln!("[kova] no default GDK display"); return; }
+            };
+
+            let screen  = display.default_screen();
+            let n       = display.n_monitors();
+            let primary = display.primary_monitor();
+
+            eprintln!("[kova] GDK sees {n} monitor(s):");
+            for i in 0..n {
+                if let Some(m) = display.monitor(i) {
+                    let g = m.geometry();
+                    let is_primary = primary.as_ref()
+                        .map(|p| p.geometry() == g)
+                        .unwrap_or(false);
+                    eprintln!("[kova]   [{i}] pos=({},{}) size={}×{} primary={is_primary}",
+                        g.x(), g.y(), g.width(), g.height());
                 }
             }
+
+            // Use the logical position passed from JS to identify the target monitor.
+            // monitor_at_point is more reliable than "find non-primary" because it
+            // works regardless of which monitor the OS considers primary.
+            let cx = x as i32 + 1;
+            let cy = y as i32 + 1;
+            let target: i32 = if let Some(mon) = display.monitor_at_point(cx, cy) {
+                let geom = mon.geometry();
+                eprintln!("[kova] monitor_at_point({cx},{cy}) → ({},{}) {}×{}",
+                    geom.x(), geom.y(), geom.width(), geom.height());
+                (0..n)
+                    .find(|&i| display.monitor(i).map(|m| m.geometry() == geom).unwrap_or(false))
+                    .unwrap_or(0)
+            } else {
+                eprintln!("[kova] monitor_at_point({cx},{cy}) returned None; falling back to first non-primary");
+                (0..n)
+                    .find(|&i| {
+                        display.monitor(i)
+                            .map(|m| primary.as_ref().map(|p| p.geometry() != m.geometry()).unwrap_or(true))
+                            .unwrap_or(false)
+                    })
+                    .unwrap_or(0)
+            };
+
+            eprintln!("[kova] calling fullscreen_on_monitor({target})");
+            gtk_win.fullscreen_on_monitor(&screen, target);
+            eprintln!("[kova] fullscreen_on_monitor done");
         })
-        .ok();
+        .map_err(|e| format!("run_on_main_thread failed: {e}"))?;
         return Ok(());
     }
 
     #[cfg(not(target_os = "linux"))]
     {
-        // macOS / Windows: move to the external monitor, pause for the WM to
-        // process the reposition, then go fullscreen.
+        // macOS / Windows: move to the external monitor, pause, then go fullscreen.
         if let Some(win) = app.get_webview_window("audience") {
             win.set_position(tauri::LogicalPosition::<f64>::new(x, y))
                 .map_err(|e: tauri::Error| e.to_string())?;
@@ -114,6 +154,62 @@ pub async fn setup_audience_window(app: AppHandle, x: f64, y: f64) -> Result<(),
         }
         Ok(())
     }
+}
+
+/// Returns a formatted string describing monitor layout from both Tauri's and
+/// GDK's perspective. Call from the browser devtools console:
+///   await window.__TAURI__.core.invoke('debug_monitors')
+#[tauri::command]
+pub fn debug_monitors(app: AppHandle) -> String {
+    use tauri::Manager;
+    let mut out = String::new();
+
+    match app.primary_monitor() {
+        Ok(Some(pm)) => out.push_str(&format!("Tauri primary: {:?}\n", pm.name())),
+        Ok(None)     => out.push_str("Tauri primary: (none)\n"),
+        Err(e)       => out.push_str(&format!("Tauri primary error: {e}\n")),
+    }
+    match app.available_monitors() {
+        Ok(monitors) => {
+            for (i, m) in monitors.iter().enumerate() {
+                out.push_str(&format!(
+                    "Tauri[{i}]: {:?}  pos=({},{})  {}×{}  scale={:.1}\n",
+                    m.name(),
+                    m.position().x, m.position().y,
+                    m.size().width, m.size().height,
+                    m.scale_factor(),
+                ));
+            }
+        }
+        Err(e) => out.push_str(&format!("Tauri monitors error: {e}\n")),
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        use gdk::prelude::MonitorExt;
+        out.push('\n');
+        if let Some(display) = gdk::Display::default() {
+            let n       = display.n_monitors();
+            let primary = display.primary_monitor();
+            out.push_str(&format!("GDK: {n} monitor(s)\n"));
+            for i in 0..n {
+                if let Some(m) = display.monitor(i) {
+                    let g = m.geometry();
+                    let is_primary = primary.as_ref()
+                        .map(|p| p.geometry() == g)
+                        .unwrap_or(false);
+                    out.push_str(&format!(
+                        "GDK[{i}]: pos=({},{})  {}×{}  primary={is_primary}\n",
+                        g.x(), g.y(), g.width(), g.height()
+                    ));
+                }
+            }
+        } else {
+            out.push_str("GDK: no default display\n");
+        }
+    }
+
+    out
 }
 
 pub struct AppState {
