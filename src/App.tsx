@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { emit, emitTo, listen } from '@tauri-apps/api/event';
-import { availableMonitors, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
+import { availableMonitors, getCurrentWindow, primaryMonitor, PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, usePanelRef, useDefaultLayout } from 'react-resizable-panels';
 
@@ -326,6 +326,19 @@ export default function App() {
         const unlistenReady = await listen('present:ready', async () => {
           unlistenReady();
           await emitTo('audience', 'present:init', initPayload);
+
+          // Drive positioning + fullscreen from here — the main window already
+          // holds the external monitor coords. Separating setPosition/setSize
+          // from setFullscreen with a 200 ms pause gives the X11 WM time to
+          // process the XMoveWindow request before the fullscreen hint arrives.
+          // On Wayland setPosition is a no-op but setFullscreen still runs.
+          const audienceWin = await WebviewWindow.getByLabel('audience');
+          if (audienceWin) {
+            await audienceWin.setPosition(new PhysicalPosition(external.position.x, external.position.y)).catch(() => {});
+            await audienceWin.setSize(new PhysicalSize(external.size.width, external.size.height)).catch(() => {});
+            await new Promise<void>(resolve => setTimeout(resolve, 200));
+            await audienceWin.setFullscreen(true).catch(() => {});
+          }
         });
 
         new WebviewWindow('audience', {
@@ -334,8 +347,8 @@ export default function App() {
           y: external.position.y,
           width: external.size.width,
           height: external.size.height,
-          // Don't pass fullscreen:true here — on Linux it ignores x/y and goes fullscreen
-          // on the primary monitor. The AudienceApp fullscreens itself after init instead.
+          // No fullscreen:true — on Linux that ignores x/y and captures the primary monitor.
+          // Fullscreen is applied by the present:ready handler above after repositioning.
           decorations: false,
           title: 'Kova — Presentation',
           resizable: false,
@@ -363,6 +376,14 @@ export default function App() {
     setPresenterMode(false);
     await getCurrentWindow().setFullscreen(false).catch(() => {});
   }, []);
+
+  // Mirror mode: keep the audience window in sync with the presenter's slide.
+  // Dual mode sync is handled by PresenterOverlay; this covers mirror mode where
+  // PresentationOverlay drives navigation but never emits present:navigate.
+  useEffect(() => {
+    if (!presentMode) return;
+    emitTo('audience', 'present:navigate', { index: safeSlideIndex }).catch(() => {});
+  }, [presentMode, safeSlideIndex]);
 
   const handleThemeSelect = useCallback((id: string) => {
     setActiveThemeId(id);
