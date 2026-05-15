@@ -85,10 +85,17 @@ jobs:
           mkdir -p repo/rpm
           cp assets/*.rpm repo/rpm/
 
-          # Override the full GPG sign command to force non-interactive mode
+          # Configure GPG globally for non-interactive use
+          mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
+          printf 'no-tty\npinentry-mode loopback\nbatch\n' > ~/.gnupg/gpg.conf
+
+          # Debug: show what macros RPM will use
+          rpm --eval "%{__gpg}" || true
+          rpm --eval "%{__gpg_sign_cmd}" || true
+
           cat >> ~/.rpmmacros << EOF
           %_gpg_name $GPG_KEY_ID
-          %__gpg_sign_cmd %{__gpg} gpg --batch --no-verbose --no-armor --no-tty --pinentry-mode loopback -u "%{_gpg_name}" -sbo %{__signature_filename} %{__plaintext_filename}
+          %_gpg_sign_cmd_extra_args --no-tty --pinentry-mode loopback --batch
           EOF
 
           # Sign each RPM package and verify the signature was applied
