@@ -94,11 +94,20 @@ jobs:
             -e GPG_KEY_ID="$GPG_KEY_ID" \
             fedora:latest bash -c '
               dnf install -y rpm-sign gnupg2 -q 2>/dev/null
-              gpg --batch --import /signing-key.asc
+
+              # Configure GPG agent for loopback BEFORE importing key
               mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
-              echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
-              echo "%_gpg_name $GPG_KEY_ID" >> ~/.rpmmacros
-              rpmsign --addsign /rpm/*.rpm
+              echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
+              echo "pinentry-mode loopback" > ~/.gnupg/gpg.conf
+              echo "no-tty" >> ~/.gnupg/gpg.conf
+              gpg-connect-agent reloadagent /bye 2>/dev/null || gpg-agent --daemon
+
+              gpg --batch --import /signing-key.asc
+
+              echo "%_gpg_name $GPG_KEY_ID" > ~/.rpmmacros
+              echo "%_gpg_sign_cmd_extra_args --no-tty --pinentry-mode loopback" >> ~/.rpmmacros
+
+              rpmsign --resign /rpm/*.rpm
               rpm --checksig /rpm/*.rpm
             '
           rm /tmp/signing-key.asc
