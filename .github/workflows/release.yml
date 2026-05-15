@@ -114,7 +114,7 @@ jobs:
 
             > **Alpha release** — expect rough edges. Please report bugs via [Issues](../../issues).
           releaseDraft: true    # appears as a draft; publish manually after reviewing the assets
-          prerelease: true
+          prerelease: false
           args: ${{ matrix.args }}
 
       # Submit the signed DMG to Apple, then wait up to 10 minutes for acceptance,
