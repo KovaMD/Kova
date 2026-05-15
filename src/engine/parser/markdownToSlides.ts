@@ -285,7 +285,8 @@ function escHtml(s: string): string {
 
 function escUrl(url: string): string {
   const lower = url.trim().toLowerCase();
-  if (lower.startsWith('javascript:') || lower.startsWith('vbscript:')) return '#';
+  const ALLOWED = ['https:', 'http:', 'asset:', 'tauri:'];
+  if (!ALLOWED.some(s => lower.startsWith(s))) return '#';
   return url.replace(/"/g, '%22');
 }
 

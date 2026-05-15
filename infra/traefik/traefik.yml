@@ -1,5 +1,6 @@
 api:
-  dashboard: false
+  dashboard: false  # KEEP FALSE — enabling without auth middleware exposes routing config publicly.
+  # To enable for debugging: add BasicAuth middleware AND bind to 127.0.0.1 before setting true.
 
 entryPoints:
   web:

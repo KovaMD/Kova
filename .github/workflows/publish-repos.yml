@@ -81,16 +81,17 @@ jobs:
           gpg --armor --export "$GPG_KEY_ID" > key.gpg
 
       - name: Build RPM repo
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
           mkdir -p repo/rpm
           cp assets/*.rpm repo/rpm/
 
           # Sign RPMs inside a Fedora container — Ubuntu's RPM macros are
           # incomplete for signing; Fedora is the native RPM signing environment
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" > /tmp/signing-key.asc
           docker run --rm \
             -v "$(pwd)/repo/rpm:/rpm" \
-            -v "/tmp/signing-key.asc:/signing-key.asc:ro" \
+            -e GPG_PRIVATE_KEY="$GPG_PRIVATE_KEY" \
             -e GPG_KEY_ID="$GPG_KEY_ID" \
             fedora:latest bash -c '
               dnf install -y rpm-sign gnupg2 -q 2>/dev/null
@@ -104,7 +105,7 @@ jobs:
 
               gpg-agent --daemon --homedir $GNUPGHOME 2>/dev/null || true
 
-              gpg --batch --import /signing-key.asc
+              echo "$GPG_PRIVATE_KEY" | gpg --batch --import
               gpg --list-secret-keys
 
               # Import public key into RPM keyring for checksig verification
@@ -116,9 +117,6 @@ jobs:
               rpmsign --resign /rpm/*.rpm
               rpm --checksig /rpm/*.rpm
             '
-          rm /tmp/signing-key.asc
-
-
           createrepo_c repo/rpm
 
           # Sign the repo metadata
@@ -144,10 +142,16 @@ jobs:
           SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
           HOST: ${{ secrets.HETZNER_HOST }}
           USER: ${{ secrets.HETZNER_USER }}
+          # Populate with: ssh-keyscan <host> 2>/dev/null
+          KNOWN_HOSTS: ${{ secrets.HETZNER_KNOWN_HOSTS }}
         run: |
+          mkdir -p ~/.ssh
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
           echo "$SSH_KEY" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
-          SSH_OPTS="-i /tmp/deploy_key -o StrictHostKeyChecking=accept-new"
+          SSH_OPTS="-i /tmp/deploy_key -o StrictHostKeyChecking=yes"
 
           rsync -avz --delete -e "ssh $SSH_OPTS" \
             repo/deb/ $USER@$HOST:/opt/kova/deb-repo/data/
