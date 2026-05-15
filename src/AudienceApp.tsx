@@ -12,6 +12,7 @@ export interface PresentInitPayload {
   index: number;
   aspectRatio: AspectRatio;
   docTitle?: string;
+  slideTransition?: boolean;
 }
 
 const SLIDE_W = 960;
@@ -83,7 +84,7 @@ export function AudienceApp() {
   }
 
   const slide  = slidesRef.current[currentIndex];
-  const { theme, aspectRatio, docTitle } = initData;
+  const { theme, aspectRatio, docTitle, slideTransition } = initData;
   const total  = slidesRef.current.length;
   const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
 
@@ -102,12 +103,16 @@ export function AudienceApp() {
         {/* frameRef measures actual rendered width; scale = actualWidth / SLIDE_W */}
         <div ref={frameRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
           {slide && (
-            <div style={{
-              width: SLIDE_W,
-              height: slideH,
-              transform: `scale(${scale})`,
-              transformOrigin: 'top left',
-            }}>
+            <div
+              key={currentIndex}
+              style={{
+                width: SLIDE_W,
+                height: slideH,
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
+                animation: slideTransition !== false ? 'pres-fadein 0.3s ease' : undefined,
+              }}
+            >
               <SlideRenderer
                 slide={slide}
                 theme={theme}

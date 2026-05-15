@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Kova",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "identifier": "md.kova.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -30,7 +30,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU5QkFGQUY2N0YyRkQ5MUQKUldRZDJTOS85dnE2V1JoWkM4bS9QWkZuM0F5NU9yRUIxOEw3NDZSVFVKTGFyTmkxTkNvcTAyRnYK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEEzNzA0REEwNzIyN0QzRkUKUldUKzB5ZHlvRTF3b3lFTFEvQ3BrdmZaaC9PdmRHdVpPTWcxTkJxNGswSWJiSlJEUkFRaVZzRlEK",
       "endpoints": [
         "https://github.com/KovaMD/Kova/releases/latest/download/latest.json"
       ]

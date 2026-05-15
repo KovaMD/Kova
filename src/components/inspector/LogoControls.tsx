@@ -6,10 +6,12 @@ import type { Theme } from '../../engine/theme';
 interface Props {
   logo: string | undefined;
   logoPosition: Theme['logo_position'];
+  logoOpacity: number;
   header: Theme['header'];
   footer: Theme['footer'];
   onLogoChange: (path: string | undefined) => void;
   onLogoPositionChange: (pos: Theme['logo_position']) => void;
+  onLogoOpacityChange: (opacity: number) => void;
   onHeaderChange: (header: Theme['header']) => void;
   onFooterChange: (footer: Theme['footer']) => void;
 }
@@ -22,8 +24,8 @@ const POSITIONS: Array<{ value: Theme['logo_position']; label: string }> = [
 ];
 
 export function LogoControls({
-  logo, logoPosition, header, footer,
-  onLogoChange, onLogoPositionChange, onHeaderChange, onFooterChange,
+  logo, logoPosition, logoOpacity, header, footer,
+  onLogoChange, onLogoPositionChange, onLogoOpacityChange, onHeaderChange, onFooterChange,
 }: Props) {
   const pickLogo = useCallback(async () => {
     const selected = await open({
@@ -57,31 +59,49 @@ export function LogoControls({
           )}
         </div>
         {logo && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, marginTop: 6 }}>
-            {POSITIONS.map((p) => {
-              const active = logoPosition === p.value;
-              return (
-                <button
-                  key={p.value}
-                  type="button"
-                  onClick={() => onLogoPositionChange(p.value)}
-                  style={{
-                    padding: '4px 0',
-                    fontSize: 11,
-                    borderRadius: 3,
-                    border: `1px solid ${active ? 'var(--accent)' : 'var(--btn-border)'}`,
-                    background: active ? 'var(--accent-bg)' : 'var(--bg-input)',
-                    color: active ? 'var(--accent)' : 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    fontWeight: active ? 600 : 400,
-                    transition: 'all 0.12s',
-                  }}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
-          </div>
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, marginTop: 6 }}>
+              {POSITIONS.map((p) => {
+                const active = logoPosition === p.value;
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => onLogoPositionChange(p.value)}
+                    style={{
+                      padding: '4px 0',
+                      fontSize: 11,
+                      borderRadius: 3,
+                      border: `1px solid ${active ? 'var(--accent)' : 'var(--btn-border)'}`,
+                      background: active ? 'var(--accent-bg)' : 'var(--bg-input)',
+                      color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      fontWeight: active ? 600 : 400,
+                      transition: 'all 0.12s',
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-label)' }}>Opacity</span>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                  {Math.round(logoOpacity * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(logoOpacity * 100)}
+                onChange={(e) => onLogoOpacityChange(Number(e.target.value) / 100)}
+                style={{ width: '100%', cursor: 'pointer' }}
+              />
+            </div>
+          </>
         )}
       </div>
 

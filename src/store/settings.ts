@@ -29,6 +29,7 @@ export interface AppSettings {
   spellCheckLanguage: string;
   // Presentation
   presentationMode: PresentationMode;
+  slideTransition: boolean;
   presenterShowNextSlide: boolean;
   presenterShowTimer: boolean;
   presenterNotesFontSize: NotesFontSize;
@@ -47,6 +48,7 @@ function buildDefaults(): AppSettings {
     spellCheckEnabled: true,
     spellCheckLanguage: detectOsLanguage(),
     presentationMode: 'auto',
+    slideTransition: true,
     presenterShowNextSlide: true,
     presenterShowTimer: true,
     presenterNotesFontSize: 'md',

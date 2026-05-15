@@ -81,7 +81,6 @@
   height: clamp(14px, 3.5cqi, 30px);
   width: auto;
   object-fit: contain;
-  opacity: 0.85;
   margin: 2cqi;
 }
 .sl-logo-float.pos-top-left    { top: 0; left: 0; }

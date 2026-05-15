@@ -325,6 +325,7 @@ export default function App() {
           index: startIndex,
           aspectRatio,
           docTitle: frontmatter.title,
+          slideTransition: settings.slideTransition,
         };
 
         // Register ready listener BEFORE creating the window to avoid missing the event
@@ -568,6 +569,7 @@ export default function App() {
           theme={activeTheme}
           docTitle={frontmatter.title}
           aspectRatio={aspectRatio}
+          slideTransition={settings.slideTransition}
           onNavigate={setCurrentSlideIndex}
           onExit={handlePresentExit}
         />

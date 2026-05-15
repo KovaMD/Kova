@@ -10,6 +10,7 @@ interface Props {
   theme: Theme;
   docTitle?: string;
   aspectRatio?: AspectRatio;
+  slideTransition?: boolean;
   onNavigate: (index: number) => void;
   onExit: () => void;
 }
@@ -19,7 +20,7 @@ const NOTE_H  = 160;  // px — speaker notes panel height
 const SLIDE_W = 960;  // virtual slide width (matches ThumbnailPanel)
 
 export function PresentationOverlay({
-  slides, currentIndex, theme, docTitle, aspectRatio = { w: 16, h: 9 }, onNavigate, onExit,
+  slides, currentIndex, theme, docTitle, aspectRatio = { w: 16, h: 9 }, slideTransition, onNavigate, onExit,
 }: Props) {
   const slide = slides[currentIndex];
   const total = slides.length;
@@ -122,11 +123,13 @@ export function PresentationOverlay({
       >
         <div ref={frameRef} className="pres-slide-frame">
           <div
+            key={currentIndex}
             style={{
               width: SLIDE_W,
               height: slideH,
               transform: `scale(${scale})`,
               transformOrigin: 'top left',
+              animation: slideTransition !== false ? 'pres-fadein 0.3s ease' : undefined,
             }}
           >
             <SlideRenderer

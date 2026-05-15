@@ -113,10 +113,12 @@ export function InspectorPanel({
           <LogoControls
             logo={theme.logo}
             logoPosition={theme.logo_position}
+            logoOpacity={theme.logo_opacity}
             header={theme.header}
             footer={theme.footer}
             onLogoChange={(path) => onThemeChange({ logo: path })}
             onLogoPositionChange={(pos) => onThemeChange({ logo_position: pos })}
+            onLogoOpacityChange={(opacity) => onThemeChange({ logo_opacity: opacity })}
             onHeaderChange={(header) => onThemeChange({ header })}
             onFooterChange={(footer) => onThemeChange({ footer })}
           />

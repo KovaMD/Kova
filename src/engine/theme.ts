@@ -45,6 +45,7 @@ export interface Theme {
   layout: ThemeLayout;
   logo?: string;
   logo_position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  logo_opacity: number;
   header: ThemeHeader;
   footer: ThemeFooter;
 }
@@ -73,6 +74,7 @@ export const BUILT_IN_THEMES: Theme[] = [
     },
     layout: CENTER_LAYOUT,
     logo_position: 'top-right',
+    logo_opacity: 0.85,
     header: { show: false, text: '' },
     footer: { show: false, text: '{title}', show_slide_number: true },
   },
@@ -95,6 +97,7 @@ export const BUILT_IN_THEMES: Theme[] = [
     },
     layout: CENTER_LAYOUT,
     logo_position: 'top-right',
+    logo_opacity: 0.85,
     header: { show: false, text: '' },
     footer: { show: false, text: '{title}', show_slide_number: true },
   },
@@ -117,6 +120,7 @@ export const BUILT_IN_THEMES: Theme[] = [
     },
     layout: CENTER_LAYOUT,
     logo_position: 'top-right',
+    logo_opacity: 0.85,
     header: { show: true, text: '' },
     footer: { show: true, text: '{title}', show_slide_number: true },
   },
@@ -139,6 +143,7 @@ export const BUILT_IN_THEMES: Theme[] = [
     },
     layout: CENTER_LAYOUT,
     logo_position: 'bottom-right',
+    logo_opacity: 0.85,
     header: { show: false, text: '' },
     footer: { show: false, text: '', show_slide_number: false },
   },
@@ -161,6 +166,7 @@ export const BUILT_IN_THEMES: Theme[] = [
     },
     layout: CENTER_LAYOUT,
     logo_position: 'top-right',
+    logo_opacity: 0.85,
     header: { show: false, text: '' },
     footer: { show: true, text: '{title}', show_slide_number: true },
   },
@@ -183,6 +189,7 @@ export const BUILT_IN_THEMES: Theme[] = [
     },
     layout: { title_align: 'left', heading_align: 'left', decoration: 'none' },
     logo_position: 'top-left',
+    logo_opacity: 0.85,
     header: { show: false, text: '' },
     footer: { show: true, text: '{title}', show_slide_number: true },
   },
@@ -205,6 +212,7 @@ export const BUILT_IN_THEMES: Theme[] = [
     },
     layout: { title_align: 'bottom-left', heading_align: 'left', decoration: 'none' },
     logo_position: 'top-left',
+    logo_opacity: 0.85,
     header: { show: false, text: '' },
     footer: { show: false, text: '', show_slide_number: false },
   },
@@ -227,6 +235,7 @@ export const BUILT_IN_THEMES: Theme[] = [
     },
     layout: { title_align: 'center', heading_align: 'left', decoration: 'dots' },
     logo_position: 'top-right',
+    logo_opacity: 0.85,
     header: { show: false, text: '' },
     footer: { show: true, text: '{title}', show_slide_number: true },
   },
@@ -249,6 +258,7 @@ export const BUILT_IN_THEMES: Theme[] = [
     },
     layout: { title_align: 'bottom-left', heading_align: 'left', decoration: 'grid' },
     logo_position: 'top-left',
+    logo_opacity: 0.85,
     header: { show: false, text: '' },
     footer: { show: false, text: '', show_slide_number: false },
   },
@@ -271,6 +281,7 @@ export const BUILT_IN_THEMES: Theme[] = [
     },
     layout: { title_align: 'left', heading_align: 'left', decoration: 'diagonal' },
     logo_position: 'top-left',
+    logo_opacity: 0.85,
     header: { show: false, text: '' },
     footer: { show: true, text: '{title}', show_slide_number: true },
   },
@@ -293,6 +304,7 @@ export const BUILT_IN_THEMES: Theme[] = [
     },
     layout: { title_align: 'left', heading_align: 'left', decoration: 'bar-left' },
     logo_position: 'top-left',
+    logo_opacity: 0.85,
     header: { show: false, text: '' },
     footer: { show: true, text: '{title}', show_slide_number: true },
   },
@@ -429,6 +441,7 @@ function normaliseTheme(id: string, raw: Record<string, unknown>): Theme {
     layout: { ...base.layout, ...layout },
     logo: (raw.logo as string | undefined),
     logo_position: ((raw.logo_position as Theme['logo_position']) ?? base.logo_position),
+    logo_opacity: typeof raw.logo_opacity === 'number' ? Math.min(1, Math.max(0, raw.logo_opacity)) : 0.85,
     header: { ...base.header, ...header },
     footer: { ...base.footer, ...footer },
   };

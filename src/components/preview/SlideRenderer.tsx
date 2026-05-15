@@ -169,7 +169,10 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
         <div className="sl-header-bar">
           {theme.logo && ['top-left', 'top-right'].includes(theme.logo_position) && (
             <img src={theme.logo} alt="Logo" className="sl-logo"
-              style={theme.logo_position === 'top-right' ? { marginLeft: 'auto' } : undefined} />
+              style={{
+                opacity: theme.logo_opacity,
+                ...(theme.logo_position === 'top-right' ? { marginLeft: 'auto' } : {}),
+              }} />
           )}
           {headerText && <span className="sl-header-text">{headerText}</span>}
         </div>
@@ -181,6 +184,7 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
           src={theme.logo}
           alt="Logo"
           className={`sl-logo-float pos-${theme.logo_position}`}
+          style={{ opacity: theme.logo_opacity }}
         />
       )}
 
@@ -194,7 +198,10 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
         <div className="sl-footer-bar">
           {theme.logo && ['bottom-left', 'bottom-right'].includes(theme.logo_position) && (
             <img src={theme.logo} alt="Logo" className="sl-logo-footer"
-              style={theme.logo_position === 'bottom-right' ? { marginLeft: 'auto', order: 2 } : undefined} />
+              style={{
+                opacity: theme.logo_opacity,
+                ...(theme.logo_position === 'bottom-right' ? { marginLeft: 'auto', order: 2 } : {}),
+              }} />
           )}
           {footerText && <span className="sl-footer-text">{footerText}</span>}
           {theme.footer.show_slide_number && slideNumber !== undefined && (

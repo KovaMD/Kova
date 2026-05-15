@@ -4,6 +4,11 @@
   padding: 0;
 }
 
+@keyframes pres-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 :root {
   /* Dark theme (default) */
   --bg-app:        #1a1a1a;
