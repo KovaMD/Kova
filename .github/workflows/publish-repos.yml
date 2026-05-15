@@ -21,7 +21,7 @@ jobs:
       - name: Install repo tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev apt-utils createrepo-c rsync
+          sudo apt-get install -y dpkg-dev apt-utils createrepo-c rsync rpm
 
       - name: Resolve release tag
         run: |
@@ -81,27 +81,45 @@ jobs:
           gpg --armor --export "$GPG_KEY_ID" > key.gpg
 
       - name: Build RPM repo
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           mkdir -p repo/rpm
           cp assets/*.rpm repo/rpm/
+
+          # Wrapper so rpmsign can get the passphrase non-interactively
+          cat > /tmp/gpg-sign.sh << 'SCRIPT'
+          #!/bin/bash
+          echo "$GPG_PASSPHRASE" | gpg --batch --passphrase-fd 0 --pinentry-mode loopback "$@"
+          SCRIPT
+          chmod +x /tmp/gpg-sign.sh
+
+          cat >> ~/.rpmmacros << EOF
+          %_gpg_name $GPG_KEY_ID
+          %__gpg /tmp/gpg-sign.sh
+          EOF
+
+          # Sign each RPM package
+          rpmsign --addsign repo/rpm/*.rpm
+
           createrepo_c repo/rpm
 
+          # Sign the repo metadata
           gpg --batch \
-            --passphrase "${{ secrets.GPG_PASSPHRASE }}" \
+            --passphrase "$GPG_PASSPHRASE" \
             --pinentry-mode loopback \
             --detach-sign --armor repo/rpm/repodata/repomd.xml
 
-          # .repo config file users download
           cat > repo/rpm/kova.repo << 'EOF'
           [kova]
           name=Kova
           baseurl=https://rpm.kova.md
           enabled=1
           gpgcheck=1
+          repo_gpgcheck=1
           gpgkey=https://rpm.kova.md/key.gpg
           EOF
 
-          # Public key copy in rpm repo root too
           gpg --armor --export "$GPG_KEY_ID" > repo/rpm/key.gpg
 
       - name: Deploy to VPS
