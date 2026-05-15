@@ -85,13 +85,11 @@ jobs:
           mkdir -p repo/rpm
           cp assets/*.rpm repo/rpm/
 
-          # Configure gpg-agent for non-interactive signing (key has no passphrase)
-          mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
-          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
-          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
-          gpg-connect-agent reloadagent /bye 2>/dev/null || true
-
-          echo "%_gpg_name $GPG_KEY_ID" >> ~/.rpmmacros
+          # Override the full GPG sign command to force non-interactive mode
+          cat >> ~/.rpmmacros << EOF
+          %_gpg_name $GPG_KEY_ID
+          %__gpg_sign_cmd %{__gpg} gpg --batch --no-verbose --no-armor --no-tty --pinentry-mode loopback -u "%{_gpg_name}" -sbo %{__signature_filename} %{__plaintext_filename}
+          EOF
 
           # Sign each RPM package and verify the signature was applied
           rpmsign --addsign repo/rpm/*.rpm
