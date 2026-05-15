@@ -48,7 +48,12 @@
       "icons/icon.ico"
     ],
     "linux": {
-      "desktopTemplate": "kova.desktop"
+      "deb": {
+        "desktopTemplate": "kova.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "kova.desktop"
+      }
     }
   }
 }
