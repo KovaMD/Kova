@@ -30,7 +30,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEEzNzA0REEwNzIyN0QzRkUKUldUKzB5ZHlvRTF3b3lFTFEvQ3BrdmZaaC9PdmRHdVpPTWcxTkJxNGswSWJiSlJEUkFRaVZzRlEK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM2QkVGOEZBMjQ4QkY1QgpSV1JidjBpaWorOXJEUDZlaEhvTjA3SGNlTUNFMnVRYmV5NjNnTGVTWCtMZElGV1lkV2kzUFRxaQo=",
       "endpoints": [
         "https://github.com/KovaMD/Kova/releases/latest/download/latest.json"
       ]
