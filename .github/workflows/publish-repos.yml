@@ -81,26 +81,22 @@ jobs:
           gpg --armor --export "$GPG_KEY_ID" > key.gpg
 
       - name: Build RPM repo
-        env:
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           mkdir -p repo/rpm
           cp assets/*.rpm repo/rpm/
 
-          # Wrapper so rpmsign can get the passphrase non-interactively
-          cat > /tmp/gpg-sign.sh << 'SCRIPT'
-          #!/bin/bash
-          echo "$GPG_PASSPHRASE" | gpg --batch --passphrase-fd 0 --pinentry-mode loopback "$@"
-          SCRIPT
-          chmod +x /tmp/gpg-sign.sh
+          # Configure gpg-agent for non-interactive signing (key has no passphrase)
+          mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+          gpg-connect-agent reloadagent /bye 2>/dev/null || true
 
-          cat >> ~/.rpmmacros << EOF
-          %_gpg_name $GPG_KEY_ID
-          %__gpg /tmp/gpg-sign.sh
-          EOF
+          echo "%_gpg_name $GPG_KEY_ID" >> ~/.rpmmacros
 
-          # Sign each RPM package
+          # Sign each RPM package and verify the signature was applied
           rpmsign --addsign repo/rpm/*.rpm
+          rpm --checksig repo/rpm/*.rpm | grep -v "digests signatures OK" && \
+            echo "RPM signature verification failed" && exit 1 || true
 
           createrepo_c repo/rpm
 
