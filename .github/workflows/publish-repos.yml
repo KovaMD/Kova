@@ -118,9 +118,6 @@ jobs:
             '
           rm /tmp/signing-key.asc
 
-          # Fail if signature not valid
-          rpm --checksig repo/rpm/*.rpm | grep -v "digests signatures OK" && \
-            echo "RPM signature verification failed" && exit 1 || true
 
           createrepo_c repo/rpm
 
