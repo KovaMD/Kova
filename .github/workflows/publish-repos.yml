@@ -1,0 +1,107 @@
+name: Publish Package Repos
+
+# Fires when a draft release is manually published
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish-repos:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Install repo tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev apt-utils createrepo-c rsync
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download ${{ github.event.release.tag_name }} \
+            --pattern "*.deb" --pattern "*.rpm" \
+            --dir assets \
+            --repo ${{ github.repository }}
+
+      - name: Import GPG signing key
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          GPG_KEY_ID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/{print $5; exit}')
+          echo "GPG_KEY_ID=$GPG_KEY_ID" >> $GITHUB_ENV
+
+      - name: Build APT repo
+        run: |
+          mkdir -p repo/deb/pool/main repo/deb/dists/stable/main/binary-amd64
+          cp assets/*.deb repo/deb/pool/main/
+
+          cd repo/deb
+
+          dpkg-scanpackages pool/main > dists/stable/main/binary-amd64/Packages
+          gzip -k dists/stable/main/binary-amd64/Packages
+
+          apt-ftparchive \
+            -o APT::FTPArchive::Release::Origin=Kova \
+            -o APT::FTPArchive::Release::Label=Kova \
+            -o APT::FTPArchive::Release::Suite=stable \
+            -o APT::FTPArchive::Release::Codename=stable \
+            -o APT::FTPArchive::Release::Architectures=amd64 \
+            -o APT::FTPArchive::Release::Components=main \
+            release dists/stable > dists/stable/Release
+
+          gpg --batch \
+            --passphrase "${{ secrets.GPG_PASSPHRASE }}" \
+            --pinentry-mode loopback \
+            --clearsign -o dists/stable/InRelease dists/stable/Release
+
+          gpg --batch \
+            --passphrase "${{ secrets.GPG_PASSPHRASE }}" \
+            --pinentry-mode loopback \
+            -abs -o dists/stable/Release.gpg dists/stable/Release
+
+          # Public key for users to add
+          gpg --armor --export "$GPG_KEY_ID" > key.gpg
+
+      - name: Build RPM repo
+        run: |
+          mkdir -p repo/rpm
+          cp assets/*.rpm repo/rpm/
+          createrepo_c repo/rpm
+
+          gpg --batch \
+            --passphrase "${{ secrets.GPG_PASSPHRASE }}" \
+            --pinentry-mode loopback \
+            --detach-sign --armor repo/rpm/repodata/repomd.xml
+
+          # .repo config file users download
+          cat > repo/rpm/kova.repo << 'EOF'
+          [kova]
+          name=Kova
+          baseurl=https://rpm.kova.md
+          enabled=1
+          gpgcheck=1
+          gpgkey=https://rpm.kova.md/key.gpg
+          EOF
+
+          # Public key copy in rpm repo root too
+          gpg --armor --export "$GPG_KEY_ID" > repo/rpm/key.gpg
+
+      - name: Deploy to VPS
+        env:
+          SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+          HOST: ${{ secrets.HETZNER_HOST }}
+          USER: ${{ secrets.HETZNER_USER }}
+        run: |
+          echo "$SSH_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          SSH_OPTS="-i /tmp/deploy_key -o StrictHostKeyChecking=accept-new"
+
+          rsync -avz --delete -e "ssh $SSH_OPTS" \
+            repo/deb/ $USER@$HOST:/opt/kova/deb-repo/data/
+
+          rsync -avz --delete -e "ssh $SSH_OPTS" \
+            repo/rpm/ $USER@$HOST:/opt/kova/rpm-repo/data/
+
+          rm /tmp/deploy_key

@@ -1,0 +1,48 @@
+services:
+  traefik:
+    image: traefik:v3.3
+    container_name: traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/traefik.yml:ro
+      - ./traefik/acme.json:/acme.json
+    networks:
+      - proxy
+
+  deb-repo:
+    image: nginx:alpine
+    container_name: deb-repo
+    restart: unless-stopped
+    volumes:
+      - ./deb-repo/data:/usr/share/nginx/html:ro
+      - ./deb-repo/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.deb.rule=Host(`deb.kova.md`)"
+      - "traefik.http.routers.deb.entrypoints=websecure"
+      - "traefik.http.routers.deb.tls.certresolver=letsencrypt"
+    networks:
+      - proxy
+
+  rpm-repo:
+    image: nginx:alpine
+    container_name: rpm-repo
+    restart: unless-stopped
+    volumes:
+      - ./rpm-repo/data:/usr/share/nginx/html:ro
+      - ./rpm-repo/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.rpm.rule=Host(`rpm.kova.md`)"
+      - "traefik.http.routers.rpm.entrypoints=websecure"
+      - "traefik.http.routers.rpm.tls.certresolver=letsencrypt"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    name: proxy
