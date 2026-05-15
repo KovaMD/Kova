@@ -85,21 +85,25 @@ jobs:
           mkdir -p repo/rpm
           cp assets/*.rpm repo/rpm/
 
-          # Configure GPG globally for non-interactive use
-          mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
-          printf 'no-tty\npinentry-mode loopback\nbatch\n' > ~/.gnupg/gpg.conf
+          # Sign RPMs inside a Fedora container — Ubuntu's RPM macros are
+          # incomplete for signing; Fedora is the native RPM signing environment
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" > /tmp/signing-key.asc
+          docker run --rm \
+            -v "$(pwd)/repo/rpm:/rpm" \
+            -v "/tmp/signing-key.asc:/signing-key.asc:ro" \
+            -e GPG_KEY_ID="$GPG_KEY_ID" \
+            fedora:latest bash -c '
+              dnf install -y rpm-sign gnupg2 -q 2>/dev/null
+              gpg --batch --import /signing-key.asc
+              mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
+              echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+              echo "%_gpg_name $GPG_KEY_ID" >> ~/.rpmmacros
+              rpmsign --addsign /rpm/*.rpm
+              rpm --checksig /rpm/*.rpm
+            '
+          rm /tmp/signing-key.asc
 
-          # Debug: show what macros RPM will use
-          rpm --eval "%{__gpg}" || true
-          rpm --eval "%{__gpg_sign_cmd}" || true
-
-          cat >> ~/.rpmmacros << EOF
-          %_gpg_name $GPG_KEY_ID
-          %_gpg_sign_cmd_extra_args --no-tty --pinentry-mode loopback --batch
-          EOF
-
-          # Sign each RPM package and verify the signature was applied
-          rpmsign --addsign repo/rpm/*.rpm
+          # Fail if signature not valid
           rpm --checksig repo/rpm/*.rpm | grep -v "digests signatures OK" && \
             echo "RPM signature verification failed" && exit 1 || true
 
