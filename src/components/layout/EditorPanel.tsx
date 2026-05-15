@@ -400,6 +400,7 @@ export interface EditorHandle {
 }
 
 interface ContextMenuState { x: number; y: number; hasSelection: boolean; clickPos: number | null }
+interface ConfirmState { title: string; message: string; okLabel: string; resolve: (ok: boolean) => void }
 
 export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
   { content, onChange, onCursorSlide, onWarn, onSaveAs, focusMode = false, filePath, uiTheme = 'dark', editorFontFamily = DEFAULT_FONT_FAMILY, spellCheckEnabled = false, spellCheckLanguage = 'en_US' }: Props,
@@ -417,6 +418,8 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
   const spellCheckActiveRef = useRef(false);
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const showConfirmRef = useRef<(title: string, message: string, okLabel?: string) => Promise<boolean>>(null!);
 
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { onCursorSlideRef.current = onCursorSlide; }, [onCursorSlide]);
@@ -425,6 +428,11 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
   useEffect(() => { filePathRef.current = filePath; }, [filePath]);
   useEffect(() => { uiThemeRef.current = uiTheme; }, [uiTheme]);
   useEffect(() => { spellCheckEnabledRef.current = spellCheckEnabled; }, [spellCheckEnabled]);
+
+  useEffect(() => {
+    showConfirmRef.current = (title, message, okLabel = 'OK') =>
+      new Promise<boolean>((resolve) => setConfirmState({ title, message, okLabel, resolve }));
+  }, []);
 
   useImperativeHandle(ref, () => ({
     runFormat(cmd: FormatCmd) {
@@ -841,6 +849,20 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
           { type: 'item', label: 'Horizontal Rule', action: () => doInsert('\n<hr>\n', 5) },
           {
             type: 'item', label: 'Image', action: async () => {
+              // Resolve the document path before opening any picker.
+              // If unsaved, explain why and offer to save first.
+              let docPath = filePathRef.current ?? null;
+              if (!docPath) {
+                const ok = await showConfirmRef.current(
+                  'Save document first',
+                  'Your document needs to be saved before inserting an image, so Kova knows where to place it.',
+                  'Save',
+                );
+                if (!ok) return;
+                docPath = await onSaveAsRef.current?.() ?? null;
+                if (!docPath) return;
+              }
+
               const selected = await openFileDialog({
                 multiple: false,
                 filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'avif', 'tiff'] }],
@@ -848,13 +870,6 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
               if (!selected) return;
               const abs = selected;
               const label = abs.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') ?? 'image';
-
-              // Resolve the document path — prompt Save As if not yet saved
-              let docPath = filePathRef.current ?? null;
-              if (!docPath) {
-                docPath = await onSaveAsRef.current?.() ?? null;
-                if (!docPath) return;
-              }
               const docDir = docPath.substring(0, Math.max(docPath.lastIndexOf('/'), docPath.lastIndexOf('\\')));
 
               let imgPath: string;
@@ -989,6 +1004,33 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
         entries={buildMenuEntries()}
         onClose={() => setCtxMenu(null)}
       />
+    )}
+    {confirmState && (
+      <>
+        <div
+          onClick={() => { confirmState.resolve(false); setConfirmState(null); }}
+          style={{ position: 'fixed', inset: 0, background: 'var(--backdrop)', zIndex: 2000 }}
+        />
+        <div style={{
+          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+          background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8,
+          boxShadow: '0 16px 48px rgba(0,0,0,0.6)', zIndex: 2001,
+          padding: '24px 28px', width: 320, maxWidth: '90vw',
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
+            {confirmState.title}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
+            {confirmState.message}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button className="btn" onClick={() => { confirmState.resolve(false); setConfirmState(null); }}>Cancel</button>
+            <button className="btn btn-primary" onClick={() => { confirmState.resolve(true); setConfirmState(null); }}>
+              {confirmState.okLabel}
+            </button>
+          </div>
+        </div>
+      </>
     )}
     </>
   );

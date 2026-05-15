@@ -22,7 +22,7 @@ import type { Keybindings } from './engine/keybindings';
 
 import { parseDocument } from './engine/parser/markdownToSlides';
 import { extractFrontmatter, patchFrontmatter } from './engine/parser/frontmatter';
-import { checkForUpdate } from './engine/updateCheck';
+import { fetchUpdate } from './engine/updater';
 import { exportToPptx } from './engine/export/exportPptx';
 import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml } from './engine/theme';
 import type { Slide, Frontmatter, ListItem } from './engine/types';
@@ -224,8 +224,8 @@ export default function App() {
   // Startup update check (only when opt-in setting is enabled)
   useEffect(() => {
     if (!settings.checkForUpdates) return;
-    checkForUpdate()
-      .then(({ latestTag, hasUpdate }) => { if (hasUpdate) setAvailableUpdate(latestTag); })
+    fetchUpdate()
+      .then((update) => { if (update) setAvailableUpdate(update.version); })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally runs once on mount

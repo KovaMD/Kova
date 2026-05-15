@@ -1,3 +1,5 @@
+import { APP_VERSION } from '../../version';
+
 const WPM = 110;
 
 interface Props {
@@ -55,7 +57,7 @@ export function StatusBar({ currentSlide, totalSlides, wordCount, isDirty, fileP
           <Divider />
         </>
       )}
-      <Cell>kova v0.1</Cell>
+      <Cell>kova v{APP_VERSION}</Cell>
     </div>
   );
 }

@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
-import { useState, useMemo, useEffect } from 'react';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { AppSettings, PresentationMode, NotesFontSize } from '../store/settings';
 import { EDITOR_FONT_OPTIONS } from '../store/settings';
 import { isFontAvailable } from '../engine/fontDetect';
-import { checkForUpdate } from '../engine/updateCheck';
+import { fetchUpdate } from '../engine/updater';
+import type { AvailableUpdate } from '../engine/updater';
 import { APP_VERSION } from '../version';
 import {
   LANGUAGE_OPTIONS,
@@ -123,7 +123,14 @@ function Section({ label }: { label: string }) {
 
 // ── Main modal ────────────────────────────────────────────────────────────────
 
-type CheckState = 'idle' | 'checking' | { tag: string; hasUpdate: boolean } | 'error';
+type UpdateState =
+  | 'idle'
+  | 'checking'
+  | 'up-to-date'
+  | { phase: 'available'; version: string }
+  | { phase: 'downloading'; version: string; pct: number | null }
+  | { phase: 'done'; version: string }
+  | 'error';
 
 interface Props {
   settings: AppSettings;
@@ -140,9 +147,10 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
   const set = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) =>
     onChange({ ...settings, [key]: value });
 
-  const [checkState, setCheckState] = useState<CheckState>(
-    availableUpdate ? { tag: availableUpdate, hasUpdate: true } : 'idle',
+  const [updateState, setUpdateState] = useState<UpdateState>(
+    availableUpdate ? { phase: 'available', version: availableUpdate } : 'idle',
   );
+  const pendingUpdate = useRef<AvailableUpdate | null>(null);
   const [showLicenses, setShowLicenses] = useState(false);
 
   const [customWordList, setCustomWordList] = useState<string[]>(() => getCustomWords());
@@ -167,13 +175,48 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
   }
 
   async function runCheck() {
-    setCheckState('checking');
+    setUpdateState('checking');
     try {
-      const { latestTag, hasUpdate } = await checkForUpdate();
-      setCheckState({ tag: latestTag, hasUpdate });
-      onUpdateChecked(hasUpdate ? latestTag : null);
+      const update = await fetchUpdate();
+      if (update) {
+        pendingUpdate.current = update;
+        setUpdateState({ phase: 'available', version: update.version });
+        onUpdateChecked(update.version);
+      } else {
+        pendingUpdate.current = null;
+        setUpdateState('up-to-date');
+        onUpdateChecked(null);
+      }
     } catch {
-      setCheckState('error');
+      setUpdateState('error');
+    }
+  }
+
+  async function runInstall() {
+    let update = pendingUpdate.current;
+    if (!update) {
+      // Modal was opened from the startup notification — re-fetch to get the install handle
+      setUpdateState('checking');
+      try {
+        update = await fetchUpdate();
+        if (!update) { setUpdateState('up-to-date'); return; }
+        pendingUpdate.current = update;
+      } catch {
+        setUpdateState('error');
+        return;
+      }
+    }
+    const { version } = update;
+    setUpdateState({ phase: 'downloading', version, pct: null });
+    try {
+      let total: number | null = null;
+      await update.install((downloaded, contentLength) => {
+        if (total === null && contentLength) total = contentLength;
+        setUpdateState({ phase: 'downloading', version, pct: total ? Math.round((downloaded / total) * 100) : null });
+      });
+      setUpdateState({ phase: 'done', version });
+    } catch {
+      setUpdateState('error');
     }
   }
 
@@ -584,45 +627,95 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
         />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 4 }}>
-          <button
-            type="button"
-            onClick={runCheck}
-            disabled={checkState === 'checking'}
-            style={{
-              padding: '5px 14px',
-              fontSize: 11,
-              borderRadius: 4,
-              border: '1px solid var(--border-alt)',
-              background: 'var(--bg-input)',
-              color: checkState === 'checking' ? 'var(--text-dim)' : 'var(--text-secondary)',
-              cursor: checkState === 'checking' ? 'default' : 'pointer',
-            }}
-          >
-            {checkState === 'checking' ? 'Checking…' : 'Check now'}
-          </button>
-
-          {checkState === 'error' && (
-            <span style={{ fontSize: 11, color: '#c0392b' }}>Could not reach GitHub</span>
-          )}
-          {typeof checkState === 'object' && !checkState.hasUpdate && (
-            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Up to date (v{APP_VERSION})</span>
-          )}
-          {typeof checkState === 'object' && checkState.hasUpdate && (
+          {(updateState === 'idle' || updateState === 'up-to-date' || updateState === 'error') && (
             <button
               type="button"
-              onClick={() => openUrl('https://github.com/KovaMD/Kova/releases/latest').catch(() => {})}
+              onClick={runCheck}
               style={{
+                padding: '5px 14px',
                 fontSize: 11,
-                color: 'var(--accent)',
-                background: 'none',
-                border: 'none',
-                padding: 0,
+                borderRadius: 4,
+                border: '1px solid var(--border-alt)',
+                background: 'var(--bg-input)',
+                color: 'var(--text-secondary)',
                 cursor: 'pointer',
-                textDecoration: 'underline',
               }}
             >
-              {checkState.tag} available — download
+              Check now
             </button>
+          )}
+
+          {updateState === 'checking' && (
+            <button
+              type="button"
+              disabled
+              style={{
+                padding: '5px 14px',
+                fontSize: 11,
+                borderRadius: 4,
+                border: '1px solid var(--border-alt)',
+                background: 'var(--bg-input)',
+                color: 'var(--text-dim)',
+                cursor: 'default',
+              }}
+            >
+              Checking…
+            </button>
+          )}
+
+          {updateState === 'up-to-date' && (
+            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Up to date (v{APP_VERSION})</span>
+          )}
+
+          {updateState === 'error' && (
+            <span style={{ fontSize: 11, color: '#c0392b' }}>Could not reach update server</span>
+          )}
+
+          {typeof updateState === 'object' && updateState.phase === 'available' && (
+            <>
+              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{updateState.version} available</span>
+              <button
+                type="button"
+                onClick={runInstall}
+                style={{
+                  padding: '5px 14px',
+                  fontSize: 11,
+                  borderRadius: 4,
+                  border: '1px solid var(--accent)',
+                  background: 'var(--accent-bg)',
+                  color: 'var(--accent)',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                }}
+              >
+                Update Now
+              </button>
+            </>
+          )}
+
+          {typeof updateState === 'object' && updateState.phase === 'downloading' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                Downloading {updateState.version}{updateState.pct !== null ? ` — ${updateState.pct}%` : '…'}
+              </span>
+              {updateState.pct !== null && (
+                <div style={{ width: 80, height: 3, background: 'var(--border)', borderRadius: 2 }}>
+                  <div style={{
+                    width: `${updateState.pct}%`,
+                    height: '100%',
+                    background: 'var(--accent)',
+                    borderRadius: 2,
+                    transition: 'width 0.15s',
+                  }} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {typeof updateState === 'object' && updateState.phase === 'done' && (
+            <span style={{ fontSize: 11, color: 'var(--accent)' }}>
+              {updateState.version} installed — restart Kova to apply
+            </span>
           )}
         </div>
 
