@@ -99,9 +99,10 @@ jobs:
               # operates directly without needing a TTY
               export GNUPGHOME=/tmp/gnupg
               mkdir -p $GNUPGHOME && chmod 700 $GNUPGHOME
-              printf 'no-tty\nbatch\npinentry-mode loopback\nno-autostart\n' > $GNUPGHOME/gpg.conf
+              printf "no-tty\nbatch\npinentry-mode loopback\nno-autostart\n" > $GNUPGHOME/gpg.conf
 
               gpg --batch --import /signing-key.asc
+              gpg --list-secret-keys
 
               # Import public key into RPM keyring for checksig verification
               gpg --armor --export "$GPG_KEY_ID" > /tmp/pub.asc
