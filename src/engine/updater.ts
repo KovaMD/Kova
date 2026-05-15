@@ -1,4 +1,5 @@
 import { check } from '@tauri-apps/plugin-updater';
+import { invoke } from '@tauri-apps/api/core';
 
 // ── Dev stub ──────────────────────────────────────────────────────────────────
 // Simulates a found update with a fake download to exercise all UI states.
@@ -44,4 +45,8 @@ export async function fetchUpdate(): Promise<AvailableUpdate | null> {
       });
     },
   };
+}
+
+export async function canSelfUpdate(): Promise<boolean> {
+  return invoke<boolean>('can_self_update');
 }

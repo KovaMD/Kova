@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { AppSettings, PresentationMode, NotesFontSize } from '../store/settings';
 import { EDITOR_FONT_OPTIONS } from '../store/settings';
 import { isFontAvailable } from '../engine/fontDetect';
-import { fetchUpdate } from '../engine/updater';
+import { fetchUpdate, canSelfUpdate } from '../engine/updater';
 import type { AvailableUpdate } from '../engine/updater';
 import { APP_VERSION } from '../version';
 import {
@@ -151,6 +151,11 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
     availableUpdate ? { phase: 'available', version: availableUpdate } : 'idle',
   );
   const pendingUpdate = useRef<AvailableUpdate | null>(null);
+  const [selfUpdateSupported, setSelfUpdateSupported] = useState(true);
+
+  useEffect(() => {
+    canSelfUpdate().then(setSelfUpdateSupported).catch(() => {});
+  }, []);
   const [showLicenses, setShowLicenses] = useState(false);
 
   const [customWordList, setCustomWordList] = useState<string[]>(() => getCustomWords());
@@ -620,13 +625,20 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
         {/* Updates */}
         <Section label="Updates" />
 
-        <Row
-          label="Check for updates on launch"
-          description="Fetches the latest release tag from github.com/KovaMD/Kova on startup. No personal data is sent."
-          control={<Toggle checked={settings.checkForUpdates} onChange={(v) => set('checkForUpdates', v)} />}
-        />
+        {selfUpdateSupported ? (
+          <Row
+            label="Check for updates on launch"
+            description="Fetches the latest release tag from github.com/KovaMD/Kova on startup. No personal data is sent."
+            control={<Toggle checked={settings.checkForUpdates} onChange={(v) => set('checkForUpdates', v)} />}
+          />
+        ) : (
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6, padding: '10px 0' }}>
+            Updates for this installation are managed by your package manager.
+            Run <code style={{ fontFamily: 'var(--font-mono)', background: 'var(--bg-input)', padding: '1px 5px', borderRadius: 3 }}>apt upgrade</code> or <code style={{ fontFamily: 'var(--font-mono)', background: 'var(--bg-input)', padding: '1px 5px', borderRadius: 3 }}>dnf upgrade</code> to update Kova.
+          </div>
+        )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 4 }}>
+        {selfUpdateSupported && <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 4 }}>
           {(updateState === 'idle' || updateState === 'up-to-date' || updateState === 'error') && (
             <button
               type="button"
@@ -717,7 +729,7 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
               {updateState.version} installed — restart Kova to apply
             </span>
           )}
-        </div>
+        </div>}
 
         {/* Licenses */}
         <Section label="Licenses" />

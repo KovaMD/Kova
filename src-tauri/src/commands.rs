@@ -412,6 +412,17 @@ pub fn load_custom_themes(app: AppHandle) -> Result<(String, Vec<(String, String
     Ok((dir_str, result))
 }
 
+/// Returns true if the running installation supports in-place updates.
+/// On Linux this requires AppImage — deb/rpm users must update via their package manager.
+#[tauri::command]
+pub fn can_self_update() -> bool {
+    if cfg!(target_os = "linux") {
+        std::env::var("APPIMAGE").is_ok()
+    } else {
+        true
+    }
+}
+
 /// Returns a sorted, deduplicated list of font family names available on the system.
 #[tauri::command]
 pub fn list_system_fonts() -> Vec<String> {

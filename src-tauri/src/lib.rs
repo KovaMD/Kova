@@ -28,6 +28,7 @@ pub fn run() {
             commands::show_in_file_manager,
             commands::setup_audience_window,
             commands::debug_monitors,
+            commands::can_self_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
