@@ -1,0 +1,9 @@
+[Desktop Entry]
+Categories=Office;Presentation;
+Comment=Markdown presentation authoring tool
+Exec=kova
+StartupWMClass=kova
+Icon=kova
+Name=Kova
+Terminal=false
+Type=Application
