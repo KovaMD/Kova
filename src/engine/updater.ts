@@ -50,3 +50,7 @@ export async function fetchUpdate(): Promise<AvailableUpdate | null> {
 export async function canSelfUpdate(): Promise<boolean> {
   return invoke<boolean>('can_self_update');
 }
+
+export async function getLinuxPackageManager(): Promise<'apt' | 'dnf' | 'unknown'> {
+  return invoke<'apt' | 'dnf' | 'unknown'>('get_linux_package_manager');
+}

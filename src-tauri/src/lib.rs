@@ -29,6 +29,7 @@ pub fn run() {
             commands::setup_audience_window,
             commands::debug_monitors,
             commands::can_self_update,
+            commands::get_linux_package_manager,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

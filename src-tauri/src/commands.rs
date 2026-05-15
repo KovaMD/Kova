@@ -423,6 +423,21 @@ pub fn can_self_update() -> bool {
     }
 }
 
+/// Returns the package manager used to install Kova on Linux ("apt", "dnf", or "unknown").
+/// Detected via standard distro marker files; only meaningful when can_self_update() is false.
+#[tauri::command]
+pub fn get_linux_package_manager() -> &'static str {
+    if std::path::Path::new("/etc/debian_version").exists() {
+        "apt"
+    } else if std::path::Path::new("/etc/fedora-release").exists()
+        || std::path::Path::new("/etc/redhat-release").exists()
+    {
+        "dnf"
+    } else {
+        "unknown"
+    }
+}
+
 /// Returns a sorted, deduplicated list of font family names available on the system.
 #[tauri::command]
 pub fn list_system_fonts() -> Vec<String> {
