@@ -14,15 +14,58 @@ Pre-built binaries are available for macOS, Windows, and Linux:
 
 | Platform | File | Note |
 |---|---|---|
-| **macOS** (Apple Silicon + Intel) | `.dmg` | Right-click → **Open** on first launch (app is unsigned) |
+| **macOS** (Apple Silicon + Intel) | `.dmg` | Signed and notarised — double-click to install |
 | **Windows 10/11** | `.msi` or `_x64-setup.exe` | Click **More info → Run anyway** if SmartScreen appears |
-| **Linux** | `.AppImage` | `chmod +x kova_*.AppImage && ./kova_*.AppImage` |
+| **Linux (Debian/Ubuntu)** | Package repo or `.deb` | See [Linux package managers](#linux-package-managers) below |
+| **Linux (Fedora/RHEL)** | Package repo or `.rpm` | See [Linux package managers](#linux-package-managers) below |
+| **Linux (AppImage)** | `.AppImage` | `chmod +x kova_*.AppImage && ./kova_*.AppImage` |
 
 **[→ Go to the latest release](https://github.com/KovaMD/Kova/releases/latest)**
 
 > **Alpha software.** Expect rough edges. Please [report bugs](https://github.com/KovaMD/Kova/issues) if you find them.
 >
 > **Presentation mode is actively in development and currently unstable.** Multi-monitor setups in particular are known to be buggy — use with caution.
+
+---
+
+## Linux package managers
+
+### Debian 13+ (DEB822 format)
+
+```bash
+sudo curl -fsSL https://deb.kova.md/key.gpg \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/kova.gpg
+
+sudo tee /etc/apt/sources.list.d/kova.sources > /dev/null << EOF
+Types: deb
+URIs: https://deb.kova.md
+Suites: stable
+Components: main
+Signed-By: /etc/apt/keyrings/kova.gpg
+EOF
+
+sudo apt update && sudo apt install kova
+```
+
+### Ubuntu / older Debian
+
+```bash
+sudo curl -fsSL https://deb.kova.md/key.gpg \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/kova.gpg
+
+echo "deb [signed-by=/etc/apt/keyrings/kova.gpg] https://deb.kova.md stable main" \
+  | sudo tee /etc/apt/sources.list.d/kova.list
+
+sudo apt update && sudo apt install kova
+```
+
+### Fedora / RHEL / CentOS Stream
+
+```bash
+sudo rpm --import https://rpm.kova.md/key.gpg
+sudo curl -o /etc/yum.repos.d/kova.repo https://rpm.kova.md/kova.repo
+sudo dnf install kova
+```
 
 ---
 
