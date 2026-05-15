@@ -95,17 +95,19 @@ jobs:
             fedora:latest bash -c '
               dnf install -y rpm-sign gnupg2 -q 2>/dev/null
 
-              # Configure GPG agent for loopback BEFORE importing key
-              mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
-              echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
-              echo "pinentry-mode loopback" > ~/.gnupg/gpg.conf
-              echo "no-tty" >> ~/.gnupg/gpg.conf
-              gpg-connect-agent reloadagent /bye 2>/dev/null || gpg-agent --daemon
+              # Use isolated GNUPGHOME with agent disabled so GPG
+              # operates directly without needing a TTY
+              export GNUPGHOME=/tmp/gnupg
+              mkdir -p $GNUPGHOME && chmod 700 $GNUPGHOME
+              printf 'no-tty\nbatch\npinentry-mode loopback\nno-autostart\n' > $GNUPGHOME/gpg.conf
 
               gpg --batch --import /signing-key.asc
 
+              # Import public key into RPM keyring for checksig verification
+              gpg --armor --export "$GPG_KEY_ID" > /tmp/pub.asc
+              rpm --import /tmp/pub.asc
+
               echo "%_gpg_name $GPG_KEY_ID" > ~/.rpmmacros
-              echo "%_gpg_sign_cmd_extra_args --no-tty --pinentry-mode loopback" >> ~/.rpmmacros
 
               rpmsign --resign /rpm/*.rpm
               rpm --checksig /rpm/*.rpm
