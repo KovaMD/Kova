@@ -1,6 +1,6 @@
 [package]
 name = "kova"
-version = "0.2.2"
+version = "0.2.3"
 description = "Markdown presentation authoring tool"
 authors = ["Kova contributors"]
 edition = "2021"
