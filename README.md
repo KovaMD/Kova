@@ -9,6 +9,7 @@ Kova turns plain Markdown into polished slides — with live preview, multiple l
 ## Download
 
 [![Latest release](https://img.shields.io/github/v/release/KovaMD/Kova?label=release&color=orange)](https://github.com/KovaMD/Kova/releases/latest)
+[![Service status](https://status.kova.md/api/badge/1/status?style=flat&label=services)](https://status.kova.md/status/infra)
 
 | Platform | Download |
 |---|---|
