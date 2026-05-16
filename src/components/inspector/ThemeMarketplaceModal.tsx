@@ -8,6 +8,7 @@ interface RemoteTheme {
   id: string;
   name: string;
   description?: string;
+  sha256?: string;
   colors: {
     primary: string;
     background: string;
@@ -46,9 +47,16 @@ export function ThemeMarketplaceModal({ installedIds, onThemesChanged, onClose }
   async function install(id: string) {
     setBusy((p) => ({ ...p, [id]: true }));
     try {
+      const theme = themes.find((t) => t.id === id);
       const res = await fetch(THEME_URL(id));
-      if (!res.ok) throw new Error();
-      await invoke('save_theme', { id, yaml: await res.text() });
+      if (!res.ok) throw new Error('Download failed');
+      const buffer = await res.arrayBuffer();
+      if (theme?.sha256) {
+        const digest = await crypto.subtle.digest('SHA-256', buffer);
+        const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+        if (hex !== theme.sha256) throw new Error('Hash mismatch — theme file may have been tampered with');
+      }
+      await invoke('save_theme', { id, yaml: new TextDecoder().decode(buffer) });
       onThemesChanged();
     } catch (err) {
       console.error('Theme install failed:', err);
