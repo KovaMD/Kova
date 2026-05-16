@@ -93,7 +93,7 @@ sudo zypper refresh && sudo zypper install kova
 - **Live preview** — editor and preview stay in sync as you type
 - **Syntax highlighting** — fenced code blocks rendered with highlight.js
 - **Mermaid diagrams** — pie, bar, line charts and flowcharts inline
-- **Themes** — built-in themes plus custom YAML themes from `~/.kova/themes/`
+- **Themes** — 11 built-in themes, community themes via the theme library, and custom YAML themes
 - **Focus mode** — dims non-active slides, collapses side panels
 - **Fullscreen presentation** — speaker notes, slide counter, keyboard and click navigation *(in development — multi-monitor mode is currently unstable)*
 - **PPTX export** — export to PowerPoint (16:9 and 4:3)
@@ -181,9 +181,11 @@ Default shortcuts:
 
 To customise, edit `~/.kova/keybindings.yaml` (created automatically on first launch). Open it from **Settings → Keyboard Shortcuts → Open file**.
 
-## Custom themes
+## Themes
 
-Place YAML theme files in `~/.kova/themes/`. They appear in the Inspector panel under Themes.
+**Theme library** — open the Inspector, expand **Theme**, and click **More Themes…** to browse and install community themes from [themes.kova.md](https://themes.kova.md). Each download is verified against a SHA-256 checksum. Installed themes appear in the picker immediately.
+
+**Custom themes** — place YAML theme files in `~/.kova/themes/`. They appear in the Inspector alongside built-in themes. See the [Themes wiki page](https://github.com/KovaMD/Kova/wiki/Themes) for the full YAML format.
 
 ## License
 
