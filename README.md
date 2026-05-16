@@ -28,7 +28,8 @@ Kova turns plain Markdown into polished slides — with live preview, multiple l
 
 ## Linux package managers
 
-### Debian 13+ (DEB822 format)
+<details>
+<summary><strong>Debian 13+ (DEB822 format)</strong></summary>
 
 ```bash
 sudo curl -fsSL https://deb.kova.md/key.gpg \
@@ -45,7 +46,10 @@ EOF
 sudo apt update && sudo apt install kova
 ```
 
-### Ubuntu / older Debian
+</details>
+
+<details>
+<summary><strong>Ubuntu / older Debian</strong></summary>
 
 ```bash
 sudo curl -fsSL https://deb.kova.md/key.gpg \
@@ -57,13 +61,18 @@ echo "deb [signed-by=/etc/apt/keyrings/kova.gpg] https://deb.kova.md stable main
 sudo apt update && sudo apt install kova
 ```
 
-### Fedora / RHEL / CentOS Stream
+</details>
+
+<details>
+<summary><strong>Fedora / RHEL / CentOS Stream</strong></summary>
 
 ```bash
 sudo rpm --import https://rpm.kova.md/key.gpg
 sudo curl -o /etc/yum.repos.d/kova.repo https://rpm.kova.md/kova.repo
 sudo dnf install kova
 ```
+
+</details>
 
 ---
 
