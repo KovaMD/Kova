@@ -14,7 +14,7 @@ services:
       - proxy
 
   uptime-kuma:
-    image: louislam/uptime-kuma:1.23
+    image: louislam/uptime-kuma:1.23.17
     container_name: uptime-kuma
     restart: unless-stopped
     volumes:
