@@ -15,7 +15,7 @@ Kova turns plain Markdown into polished slides — with live preview, multiple l
 | **macOS** (Apple Silicon + Intel) | [**Download .dmg**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_macOS.dmg) |
 | **Windows 10/11** | [**Download .msi**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Windows.msi) · [Setup .exe](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Windows_setup.exe) |
 | **Linux (Debian/Ubuntu)** | [**.deb package**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Linux.deb) · [or via package manager](#linux-package-managers) |
-| **Linux (Fedora/RHEL)** | [**.rpm package**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Linux.rpm) · [or via package manager](#linux-package-managers) |
+| **Linux (Fedora/RHEL/openSUSE)** | [**.rpm package**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Linux.rpm) · [or via package manager](#linux-package-managers) |
 | **Linux (AppImage)** | [**.AppImage**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Linux.AppImage) |
 
 > macOS: signed and notarised — double-click to install. Windows: click **More info → Run anyway** if SmartScreen appears.
@@ -70,6 +70,17 @@ sudo apt update && sudo apt install kova
 sudo rpm --import https://rpm.kova.md/key.gpg
 sudo curl -o /etc/yum.repos.d/kova.repo https://rpm.kova.md/kova.repo
 sudo dnf install kova
+```
+
+</details>
+
+<details>
+<summary><strong>openSUSE</strong></summary>
+
+```bash
+sudo rpm --import https://rpm.kova.md/key.gpg
+sudo curl -o /etc/zypp/repos.d/kova.repo https://rpm.kova.md/kova.repo
+sudo zypper refresh && sudo zypper install kova
 ```
 
 </details>
