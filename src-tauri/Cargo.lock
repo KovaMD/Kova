@@ -1998,7 +1998,7 @@ dependencies = [
 
 [[package]]
 name = "kova"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "base64 0.22.1",
  "dirs 5.0.1",
