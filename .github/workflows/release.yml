@@ -22,7 +22,7 @@ jobs:
             args: --target universal-apple-darwin
             rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
 
-          # Linux — AppImage (most portable for alpha/testing)
+          # Linux — .deb and .rpm packages
           - platform: ubuntu-22.04
             args: ''
             rust_targets: ''
@@ -107,10 +107,7 @@ jobs:
             |---|---|---|
             | **macOS** (Apple Silicon + Intel) | `.dmg` | Double-click to install — app is signed and notarised |
             | **Windows 10/11** | `.msi` or `_x64-setup.exe` | Click **More info → Run anyway** if SmartScreen appears (app is unsigned) |
-            | **Linux (recommended)** | `.deb` (Debian/Ubuntu) or `.rpm` (Fedora/RHEL) | Install via your package manager |
-            | **Linux (AppImage)** | `.AppImage` | `chmod +x kova_*.AppImage && ./kova_*.AppImage` — see note below |
-
-            > **Linux note:** The `.deb` and `.rpm` packages are the recommended Linux install. The AppImage is also provided but must disable the WebKit renderer sandbox to work around a limitation of the AppImage runtime — this has no practical impact since Kova only renders its own bundled UI, but the `.deb`/`.rpm` packages avoid this entirely.
+            | **Linux** | `.deb` (Debian/Ubuntu) or `.rpm` (Fedora/RHEL/openSUSE) | Install via your package manager |
 
             > **Alpha release** — expect rough edges. Please report bugs via [Issues](../../issues).
           releaseDraft: true    # appears as a draft; publish manually after reviewing the assets
@@ -183,7 +180,7 @@ jobs:
 
           gh release download "$TAG" -R KovaMD/Kova \
             -p "*.dmg" -p "*_en-US.msi" -p "*-setup.exe" \
-            -p "*.deb" -p "*.rpm" -p "*.AppImage" \
+            -p "*.deb" -p "*.rpm" \
             -D /tmp/assets --clobber
 
           cp "/tmp/assets/Kova_${VERSION}_universal.dmg"        "/tmp/assets/Kova_macOS.dmg"
@@ -191,7 +188,6 @@ jobs:
           cp "/tmp/assets/Kova_${VERSION}_x64-setup.exe"        "/tmp/assets/Kova_Windows_setup.exe"
           cp "/tmp/assets/Kova_${VERSION}_amd64.deb"            "/tmp/assets/Kova_Linux.deb"
           cp "/tmp/assets/Kova-${VERSION}-1.x86_64.rpm"         "/tmp/assets/Kova_Linux.rpm"
-          cp "/tmp/assets/Kova_${VERSION}_amd64.AppImage"       "/tmp/assets/Kova_Linux.AppImage"
 
           gh release upload "$TAG" -R KovaMD/Kova \
             /tmp/assets/Kova_macOS.dmg \
@@ -199,7 +195,6 @@ jobs:
             /tmp/assets/Kova_Windows_setup.exe \
             /tmp/assets/Kova_Linux.deb \
             /tmp/assets/Kova_Linux.rpm \
-            /tmp/assets/Kova_Linux.AppImage \
             --clobber
 
           # Remove .sig files — signatures are embedded in latest.json
