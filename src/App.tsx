@@ -15,6 +15,7 @@ import { PresentationOverlay } from './components/presentation/PresentationOverl
 import { PresenterOverlay } from './components/presentation/PresenterOverlay';
 import type { PresentInitPayload } from './AudienceApp';
 import { SettingsModal } from './components/SettingsModal';
+import { ThemeMarketplaceModal } from './components/inspector/ThemeMarketplaceModal';
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
 import type { AppSettings } from './store/settings';
 import { loadKeybindings, matchShortcut, getCombo, formatCombo } from './engine/keybindings';
@@ -84,6 +85,7 @@ export default function App() {
   const [presentMode, setPresentMode]     = useState(false);
   const [settings, setSettings]           = useState<AppSettings>(loadSettings);
   const [showSettings, setShowSettings]   = useState(false);
+  const [showThemeMarketplace, setShowThemeMarketplace] = useState(false);
   const [showInspector, setShowInspector] = useState(true);
   const [presenterMode, setPresenterMode] = useState(false);
   const [confirmCloseAction, setConfirmCloseAction] = useState<(() => void) | null>(null);
@@ -99,6 +101,11 @@ export default function App() {
   const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [themesDir, setThemesDir]         = useState<string>('');
   const [themeLoadErrors, setThemeLoadErrors] = useState<string[]>([]);
+
+  const installedRemoteIds = useMemo(
+    () => new Set(allThemes.filter((t) => !BUILT_IN_THEMES.some((b) => b.id === t.id)).map((t) => t.id)),
+    [allThemes],
+  );
 
   // Resolved theme = base theme merged with overrides
   const activeTheme = useMemo<Theme>(() => {
@@ -197,8 +204,7 @@ export default function App() {
   const filePathRef = useRef(filePath);
   useEffect(() => { filePathRef.current = filePath; }, [filePath]);
 
-  // Load custom themes from ~/.kova/themes/ on startup
-  useEffect(() => {
+  const reloadCustomThemes = useCallback(() => {
     invoke<[string, Array<[string, string]>]>('load_custom_themes')
       .then(([dir, entries]) => {
         setThemesDir(dir);
@@ -210,11 +216,14 @@ export default function App() {
             return t;
           })
           .filter((t): t is Theme => t !== null);
-        if (errors.length > 0) setThemeLoadErrors(errors);
-        if (custom.length > 0) setAllThemes([...BUILT_IN_THEMES, ...custom]);
+        setThemeLoadErrors(errors);
+        setAllThemes(custom.length > 0 ? [...BUILT_IN_THEMES, ...custom] : BUILT_IN_THEMES);
       })
       .catch(() => {});
   }, []);
+
+  // Load custom themes from ~/.kova/themes/ on startup
+  useEffect(() => { reloadCustomThemes(); }, [reloadCustomThemes]);
 
   // Load keybindings from ~/.kova/keybindings.yaml on startup
   useEffect(() => {
@@ -746,6 +755,7 @@ export default function App() {
                 onThemeChange={handleThemeChange}
                 onFormat={handleFormat}
                 onExport={handleExport}
+                onOpenMarketplace={() => setShowThemeMarketplace(true)}
               />
             </Panel>
           )}
@@ -771,6 +781,14 @@ export default function App() {
           onChange={handleSettingsChange}
           onUpdateChecked={setAvailableUpdate}
           onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {showThemeMarketplace && (
+        <ThemeMarketplaceModal
+          installedIds={installedRemoteIds}
+          onThemesChanged={reloadCustomThemes}
+          onClose={() => setShowThemeMarketplace(false)}
         />
       )}
 

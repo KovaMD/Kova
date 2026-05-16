@@ -19,6 +19,7 @@ interface Props {
   onThemeChange: (patch: Partial<Theme>) => void;
   onFormat: (cmd: FormatCmd) => void;
   onExport?: () => Promise<void>;
+  onOpenMarketplace: () => void;
 }
 
 type Section = 'format' | 'theme' | 'colours' | 'fonts' | 'branding';
@@ -26,7 +27,7 @@ const ALL_SECTIONS: Section[] = ['format', 'theme', 'colours', 'fonts', 'brandin
 
 export function InspectorPanel({
   filePath, slideCount, frontmatter,
-  theme, allThemes, onThemeSelect, onThemeChange, onFormat, onExport,
+  theme, allThemes, onThemeSelect, onThemeChange, onFormat, onExport, onOpenMarketplace,
 }: Props) {
   const [open, setOpen] = useState<Set<Section>>(new Set(['format']));
   const [exporting, setExporting] = useState(false);
@@ -86,6 +87,24 @@ export function InspectorPanel({
         {/* Theme picker */}
         <Accordion label="Theme" open={open.has('theme')} onToggle={() => toggle('theme')}>
           <ThemePicker themes={allThemes} activeId={theme.id} onSelect={onThemeSelect} />
+          <button
+            type="button"
+            onClick={onOpenMarketplace}
+            style={{
+              width: '100%',
+              marginTop: 8,
+              padding: '5px 8px',
+              fontSize: 11,
+              borderRadius: 4,
+              border: '1px solid var(--border)',
+              background: 'transparent',
+              color: 'var(--text-dim)',
+              cursor: 'pointer',
+              textAlign: 'center',
+            }}
+          >
+            More Themes…
+          </button>
         </Accordion>
 
         <Accordion label="Colours" open={open.has('colours')} onToggle={() => toggle('colours')}>

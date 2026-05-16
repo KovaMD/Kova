@@ -1,20 +1,6 @@
 services:
-  traefik:
-    image: traefik:v3
-    container_name: traefik
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik/traefik.yml:/traefik.yml:ro
-      - ./traefik/acme.json:/acme.json
-    networks:
-      - proxy
-
   deb-repo:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     container_name: deb-repo
     restart: unless-stopped
     volumes:
@@ -29,7 +15,7 @@ services:
       - proxy
 
   rpm-repo:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     container_name: rpm-repo
     restart: unless-stopped
     volumes:
@@ -43,6 +29,21 @@ services:
     networks:
       - proxy
 
+  themes:
+    image: nginx:1.27-alpine
+    container_name: themes
+    restart: unless-stopped
+    volumes:
+      - ./themes/data:/usr/share/nginx/html:ro
+      - ./themes/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.themes.rule=Host(`themes.kova.md`)"
+      - "traefik.http.routers.themes.entrypoints=websecure"
+      - "traefik.http.routers.themes.tls.certresolver=letsencrypt"
+    networks:
+      - proxy
+
 networks:
   proxy:
-    name: proxy
+    external: true

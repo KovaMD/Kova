@@ -412,6 +412,36 @@ pub fn load_custom_themes(app: AppHandle) -> Result<(String, Vec<(String, String
     Ok((dir_str, result))
 }
 
+/// Writes a theme YAML file to ~/.kova/themes/{id}.yaml (remote install).
+#[tauri::command]
+pub fn save_theme(app: AppHandle, id: String, yaml: String) -> Result<(), String> {
+    use tauri::Manager;
+    if id.is_empty() || !id.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        return Err("invalid theme id".into());
+    }
+    let home = app.path().home_dir().map_err(|e| e.to_string())?;
+    let themes_dir = home.join(".kova").join("themes");
+    std::fs::create_dir_all(&themes_dir).map_err(|e| e.to_string())?;
+    let path = themes_dir.join(format!("{id}.yaml"));
+    std::fs::write(path, yaml).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Removes ~/.kova/themes/{id}.yaml (remote uninstall). Silent if file absent.
+#[tauri::command]
+pub fn delete_theme(app: AppHandle, id: String) -> Result<(), String> {
+    use tauri::Manager;
+    if id.is_empty() || !id.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        return Err("invalid theme id".into());
+    }
+    let path = app.path().home_dir().map_err(|e| e.to_string())?
+        .join(".kova").join("themes").join(format!("{id}.yaml"));
+    if path.exists() {
+        std::fs::remove_file(path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Returns true if the running installation supports in-place updates.
 /// On Linux this requires AppImage — deb/rpm users must update via their package manager.
 #[tauri::command]

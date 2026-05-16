@@ -29,6 +29,8 @@ pub fn run() {
             commands::setup_audience_window,
             commands::debug_monitors,
             commands::can_self_update,
+            commands::save_theme,
+            commands::delete_theme,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
