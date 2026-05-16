@@ -1,7 +1,5 @@
 # Kova
 
-A fast, keyboard-driven presentation editor for people who'd rather write than click.
-
 Kova turns plain Markdown into polished slides — with live preview, multiple layouts, theming, and PPTX export — all in a native desktop app.
 
 ---
@@ -18,11 +16,6 @@ Kova turns plain Markdown into polished slides — with live preview, multiple l
 | **Linux (Debian/Ubuntu)** | [**.deb package**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Linux.deb) · [or via package manager](#linux-package-managers) |
 | **Linux (Fedora/RHEL/openSUSE)** | [**.rpm package**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Linux.rpm) · [or via package manager](#linux-package-managers) |
 
-> macOS: signed and notarised — double-click to install. Windows: click **More info → Run anyway** if SmartScreen appears.
-
-> **Alpha software.** Expect rough edges. Please [report bugs](https://github.com/KovaMD/Kova/issues) if you find them.
->
-> **Presentation mode is actively in development and currently unstable.** Multi-monitor setups in particular are known to be buggy — use with caution.
 
 ---
 
@@ -102,46 +95,6 @@ sudo zypper refresh && sudo zypper install kova
 - **File watcher** — reloads automatically when the file is edited externally
 - **Keybindings** — configurable via `~/.kova/keybindings.yaml`
 
-## Special syntax
-
-```markdown
-# Title slide (H1)
-
----
-
-## Section break (H2, no body)
-
----
-
-### Regular slide with auto-detected layout
-
-Content here.
-
-|||
-
-This goes in the right column (two-column layout).
-
----
-
-!youtube[Watch demo](https://youtu.be/example)
-
----
-
-!poll[Vote now](https://example.com/poll)
-
----
-
-!progress[Complete](80)
-!progress[In progress](45)
-
----
-
-> "A quote-only slide gets the quote layout automatically."
-
-???
-
-Speaker notes go here — only visible in presentation mode.
-```
 
 ## Building from source
 
