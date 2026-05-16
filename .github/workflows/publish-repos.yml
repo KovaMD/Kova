@@ -83,6 +83,7 @@ jobs:
       - name: Build RPM repo
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           mkdir -p repo/rpm
           cp assets/*.rpm repo/rpm/
