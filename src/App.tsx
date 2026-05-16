@@ -630,6 +630,7 @@ export default function App() {
         <button className="btn" onClick={handleOpenFile} title={`Open (${formatCombo(getCombo(keybindings.combos, 'openFile'))})`}>Open</button>
         <button className="btn" onClick={handleSave} disabled={!filePath || !isDirty} title={`Save (${formatCombo(getCombo(keybindings.combos, 'save'))})`}>Save</button>
         <button className="btn" onClick={handleSaveAs} disabled={!content} title={`Save As (${formatCombo(getCombo(keybindings.combos, 'saveAs'))})`}>Save As</button>
+        <button className="btn" onClick={handleExport} disabled={slides.length === 0} title="Export as PowerPoint (.pptx)">Export</button>
         <div className="toolbar-spacer" data-tauri-drag-region />
         <div className="toolbar-doctitle" data-tauri-drag-region>
           {filePath ? filePath.split('/').pop() : 'Untitled.md'}{isDirty ? ' *' : ''}
@@ -754,7 +755,6 @@ export default function App() {
                 onThemeSelect={handleThemeSelect}
                 onThemeChange={handleThemeChange}
                 onFormat={handleFormat}
-                onExport={handleExport}
                 onOpenLibrary={() => setShowThemeMarketplace(true)}
               />
             </Panel>

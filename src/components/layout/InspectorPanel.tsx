@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import type { Theme } from '../../engine/theme';
 import { defaultChartPalette } from '../../engine/theme';
 import type { Frontmatter } from '../../engine/types';
@@ -18,7 +18,6 @@ interface Props {
   onThemeSelect: (id: string) => void;
   onThemeChange: (patch: Partial<Theme>) => void;
   onFormat: (cmd: FormatCmd) => void;
-  onExport?: () => Promise<void>;
   onOpenLibrary: () => void;
 }
 
@@ -27,10 +26,9 @@ const ALL_SECTIONS: Section[] = ['format', 'theme', 'colours', 'fonts', 'brandin
 
 export function InspectorPanel({
   filePath, slideCount, frontmatter,
-  theme, allThemes, onThemeSelect, onThemeChange, onFormat, onExport, onOpenLibrary,
+  theme, allThemes, onThemeSelect, onThemeChange, onFormat, onOpenLibrary,
 }: Props) {
   const [open, setOpen] = useState<Set<Section>>(new Set(['format']));
-  const [exporting, setExporting] = useState(false);
 
   const toggle = (s: Section) =>
     setOpen((prev) => {
@@ -42,12 +40,6 @@ export function InspectorPanel({
   const allOpen = open.size === ALL_SECTIONS.length;
   const toggleAll = () =>
     setOpen(allOpen ? new Set() : new Set(ALL_SECTIONS));
-
-  const handleExport = useCallback(async () => {
-    if (!onExport) return;
-    setExporting(true);
-    try { await onExport(); } finally { setExporting(false); }
-  }, [onExport]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-panel-alt)' }}>
@@ -142,21 +134,6 @@ export function InspectorPanel({
             onFooterChange={(footer) => onThemeChange({ footer })}
           />
         </Accordion>
-
-        <Divider />
-
-        {/* Export */}
-        <div style={{ padding: '10px 12px' }}>
-          <button
-            className="btn btn-primary"
-            style={{ width: '100%', justifyContent: 'center' }}
-            disabled={exporting || slideCount === 0 || !onExport}
-            onClick={handleExport}
-            title={slideCount === 0 ? 'Open a file to export' : 'Export as PowerPoint (.pptx)'}
-          >
-            {exporting ? 'Exporting…' : 'Export PPTX'}
-          </button>
-        </div>
 
       </div>
     </div>
