@@ -25,7 +25,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function ThemeMarketplaceModal({ installedIds, onThemesChanged, onClose }: Props) {
+export function ThemeLibraryModal({ installedIds, onThemesChanged, onClose }: Props) {
   const [themes, setThemes] = useState<RemoteTheme[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [busy, setBusy] = useState<Record<string, boolean>>({});

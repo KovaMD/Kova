@@ -19,7 +19,7 @@ interface Props {
   onThemeChange: (patch: Partial<Theme>) => void;
   onFormat: (cmd: FormatCmd) => void;
   onExport?: () => Promise<void>;
-  onOpenMarketplace: () => void;
+  onOpenLibrary: () => void;
 }
 
 type Section = 'format' | 'theme' | 'colours' | 'fonts' | 'branding';
@@ -27,7 +27,7 @@ const ALL_SECTIONS: Section[] = ['format', 'theme', 'colours', 'fonts', 'brandin
 
 export function InspectorPanel({
   filePath, slideCount, frontmatter,
-  theme, allThemes, onThemeSelect, onThemeChange, onFormat, onExport, onOpenMarketplace,
+  theme, allThemes, onThemeSelect, onThemeChange, onFormat, onExport, onOpenLibrary,
 }: Props) {
   const [open, setOpen] = useState<Set<Section>>(new Set(['format']));
   const [exporting, setExporting] = useState(false);
@@ -89,7 +89,7 @@ export function InspectorPanel({
           <ThemePicker themes={allThemes} activeId={theme.id} onSelect={onThemeSelect} />
           <button
             type="button"
-            onClick={onOpenMarketplace}
+            onClick={onOpenLibrary}
             style={{
               width: '100%',
               marginTop: 8,

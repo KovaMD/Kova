@@ -15,7 +15,7 @@ import { PresentationOverlay } from './components/presentation/PresentationOverl
 import { PresenterOverlay } from './components/presentation/PresenterOverlay';
 import type { PresentInitPayload } from './AudienceApp';
 import { SettingsModal } from './components/SettingsModal';
-import { ThemeMarketplaceModal } from './components/inspector/ThemeMarketplaceModal';
+import { ThemeLibraryModal } from './components/inspector/ThemeLibraryModal';
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
 import type { AppSettings } from './store/settings';
 import { loadKeybindings, matchShortcut, getCombo, formatCombo } from './engine/keybindings';
@@ -85,7 +85,7 @@ export default function App() {
   const [presentMode, setPresentMode]     = useState(false);
   const [settings, setSettings]           = useState<AppSettings>(loadSettings);
   const [showSettings, setShowSettings]   = useState(false);
-  const [showThemeMarketplace, setShowThemeMarketplace] = useState(false);
+  const [showThemeLibrary, setShowThemeMarketplace] = useState(false);
   const [showInspector, setShowInspector] = useState(true);
   const [presenterMode, setPresenterMode] = useState(false);
   const [confirmCloseAction, setConfirmCloseAction] = useState<(() => void) | null>(null);
@@ -755,7 +755,7 @@ export default function App() {
                 onThemeChange={handleThemeChange}
                 onFormat={handleFormat}
                 onExport={handleExport}
-                onOpenMarketplace={() => setShowThemeMarketplace(true)}
+                onOpenLibrary={() => setShowThemeMarketplace(true)}
               />
             </Panel>
           )}
@@ -784,8 +784,8 @@ export default function App() {
         />
       )}
 
-      {showThemeMarketplace && (
-        <ThemeMarketplaceModal
+      {showThemeLibrary && (
+        <ThemeLibraryModal
           installedIds={installedRemoteIds}
           onThemesChanged={reloadCustomThemes}
           onClose={() => setShowThemeMarketplace(false)}
