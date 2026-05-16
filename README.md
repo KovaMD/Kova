@@ -8,19 +8,17 @@ Kova turns plain Markdown into polished slides — with live preview, multiple l
 
 ## Download
 
-[![Latest release](https://img.shields.io/github/v/release/KovaMD/Kova?include_prereleases&label=release&color=orange)](https://github.com/KovaMD/Kova/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/KovaMD/Kova?label=release&color=orange)](https://github.com/KovaMD/Kova/releases/latest)
 
-Pre-built binaries are available for macOS, Windows, and Linux:
+| Platform | Download |
+|---|---|
+| **macOS** (Apple Silicon + Intel) | [**Download .dmg**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_macOS.dmg) |
+| **Windows 10/11** | [**Download .msi**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Windows.msi) · [Setup .exe](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Windows_setup.exe) |
+| **Linux (Debian/Ubuntu)** | [**.deb package**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Linux.deb) · [or via package manager](#linux-package-managers) |
+| **Linux (Fedora/RHEL)** | [**.rpm package**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Linux.rpm) · [or via package manager](#linux-package-managers) |
+| **Linux (AppImage)** | [**.AppImage**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Linux.AppImage) |
 
-| Platform | File | Note |
-|---|---|---|
-| **macOS** (Apple Silicon + Intel) | `.dmg` | Signed and notarised — double-click to install |
-| **Windows 10/11** | `.msi` or `_x64-setup.exe` | Click **More info → Run anyway** if SmartScreen appears |
-| **Linux (Debian/Ubuntu)** | Package repo or `.deb` | See [Linux package managers](#linux-package-managers) below |
-| **Linux (Fedora/RHEL)** | Package repo or `.rpm` | See [Linux package managers](#linux-package-managers) below |
-| **Linux (AppImage)** | `.AppImage` | `chmod +x kova_*.AppImage && ./kova_*.AppImage` |
-
-**[→ Go to the latest release](https://github.com/KovaMD/Kova/releases/latest)**
+> macOS: signed and notarised — double-click to install. Windows: click **More info → Run anyway** if SmartScreen appears.
 
 > **Alpha software.** Expect rough edges. Please [report bugs](https://github.com/KovaMD/Kova/issues) if you find them.
 >

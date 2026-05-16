@@ -162,3 +162,47 @@ jobs:
           gh release upload "${{ github.ref_name }}" "$DMG" --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Runs after all platform builds. Adds stable-named (version-free) download
+  # aliases so README links never need updating, then removes .sig files to
+  # keep the release page clean for non-technical users.
+  finalize:
+    needs: release
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Add stable download aliases and remove .sig files
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          mkdir /tmp/assets
+
+          gh release download "$TAG" -R KovaMD/Kova \
+            -p "*.dmg" -p "*_en-US.msi" -p "*-setup.exe" \
+            -p "*.deb" -p "*.rpm" -p "*.AppImage" \
+            -D /tmp/assets --clobber
+
+          cp "/tmp/assets/Kova_${VERSION}_universal.dmg"        "/tmp/assets/Kova_macOS.dmg"
+          cp "/tmp/assets/Kova_${VERSION}_x64_en-US.msi"        "/tmp/assets/Kova_Windows.msi"
+          cp "/tmp/assets/Kova_${VERSION}_x64-setup.exe"        "/tmp/assets/Kova_Windows_setup.exe"
+          cp "/tmp/assets/Kova_${VERSION}_amd64.deb"            "/tmp/assets/Kova_Linux.deb"
+          cp "/tmp/assets/Kova-${VERSION}-1.x86_64.rpm"         "/tmp/assets/Kova_Linux.rpm"
+          cp "/tmp/assets/Kova_${VERSION}_amd64.AppImage"       "/tmp/assets/Kova_Linux.AppImage"
+
+          gh release upload "$TAG" -R KovaMD/Kova \
+            /tmp/assets/Kova_macOS.dmg \
+            /tmp/assets/Kova_Windows.msi \
+            /tmp/assets/Kova_Windows_setup.exe \
+            /tmp/assets/Kova_Linux.deb \
+            /tmp/assets/Kova_Linux.rpm \
+            /tmp/assets/Kova_Linux.AppImage \
+            --clobber
+
+          # Remove .sig files — signatures are embedded in latest.json
+          gh release view "$TAG" -R KovaMD/Kova --json assets \
+            --jq '.assets[] | select(.name | endswith(".sig")) | .name' \
+            | xargs -I{} gh release delete-asset "$TAG" {} -R KovaMD/Kova --yes
