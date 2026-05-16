@@ -1,6 +1,6 @@
 services:
   deb-repo:
-    image: nginx:1.27-alpine
+    image: nginx:1.30.1-alpine
     container_name: deb-repo
     restart: unless-stopped
     volumes:
@@ -15,7 +15,7 @@ services:
       - proxy
 
   rpm-repo:
-    image: nginx:1.27-alpine
+    image: nginx:1.30.1-alpine
     container_name: rpm-repo
     restart: unless-stopped
     volumes:
@@ -30,7 +30,7 @@ services:
       - proxy
 
   themes:
-    image: nginx:1.27-alpine
+    image: nginx:1.30.1-alpine
     container_name: themes
     restart: unless-stopped
     volumes:
