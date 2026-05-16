@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { AppSettings, PresentationMode, NotesFontSize } from '../store/settings';
 import { EDITOR_FONT_OPTIONS } from '../store/settings';
 import { isFontAvailable } from '../engine/fontDetect';
-import { fetchUpdate, canSelfUpdate, getLinuxPackageManager } from '../engine/updater';
+import { fetchUpdate, canSelfUpdate } from '../engine/updater';
 import type { AvailableUpdate } from '../engine/updater';
 import { APP_VERSION } from '../version';
 import {
@@ -152,12 +152,9 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
   );
   const pendingUpdate = useRef<AvailableUpdate | null>(null);
   const [selfUpdateSupported, setSelfUpdateSupported] = useState(true);
-  const [linuxPackageManager, setLinuxPackageManager] = useState<'apt' | 'dnf' | 'unknown'>('unknown');
-
   useEffect(() => {
     canSelfUpdate().then((supported) => {
       setSelfUpdateSupported(supported);
-      if (!supported) getLinuxPackageManager().then(setLinuxPackageManager).catch(() => {});
     }).catch(() => {});
   }, []);
   const [showLicenses, setShowLicenses] = useState(false);
@@ -643,16 +640,7 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
           />
         ) : (
           <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6, padding: '10px 0' }}>
-            Updates for this installation are managed by your package manager.
-            {linuxPackageManager === 'apt' && (
-              <> Run <code style={{ fontFamily: 'var(--font-mono)', background: 'var(--bg-input)', padding: '1px 5px', borderRadius: 3 }}>sudo apt update && sudo apt upgrade kova</code> to update.</>
-            )}
-            {linuxPackageManager === 'dnf' && (
-              <> Run <code style={{ fontFamily: 'var(--font-mono)', background: 'var(--bg-input)', padding: '1px 5px', borderRadius: 3 }}>sudo dnf upgrade kova</code> to update.</>
-            )}
-            {linuxPackageManager === 'unknown' && (
-              <> Use <code style={{ fontFamily: 'var(--font-mono)', background: 'var(--bg-input)', padding: '1px 5px', borderRadius: 3 }}>apt upgrade</code> or <code style={{ fontFamily: 'var(--font-mono)', background: 'var(--bg-input)', padding: '1px 5px', borderRadius: 3 }}>dnf upgrade</code> to update Kova.</>
-            )}
+            Updates for this installation are managed by your distribution's package manager.
           </div>
         )}
 
