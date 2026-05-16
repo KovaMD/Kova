@@ -433,13 +433,15 @@ function normaliseTheme(id: string, raw: Record<string, unknown>): Theme {
   const layout = (raw.layout as Partial<ThemeLayout>) ?? {};
   const header = (raw.header as Partial<ThemeHeader>) ?? {};
   const footer = (raw.footer as Partial<ThemeFooter>) ?? {};
+  const rawLogo = raw.logo as string | undefined;
+  const logo = rawLogo && /^(https?:|data:image\/)/.test(rawLogo) ? rawLogo : undefined;
   return {
     id,
     name: (raw.name as string) ?? id,
     colors: { ...base.colors, ...colors },
     fonts: { ...base.fonts, ...fonts },
     layout: { ...base.layout, ...layout },
-    logo: (raw.logo as string | undefined),
+    logo,
     logo_position: ((raw.logo_position as Theme['logo_position']) ?? base.logo_position),
     logo_opacity: typeof raw.logo_opacity === 'number' ? Math.min(1, Math.max(0, raw.logo_opacity)) : 0.85,
     header: { ...base.header, ...header },
