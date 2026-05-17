@@ -4,7 +4,7 @@ fn home_dir() -> Result<PathBuf, String> {
     dirs::home_dir().ok_or_else(|| "Cannot determine home directory".to_string())
 }
 
-fn check_in_home(path: &Path) -> Result<(), String> {
+pub fn check_in_home(path: &Path) -> Result<(), String> {
     let home = home_dir()?;
     if path.starts_with(&home) {
         Ok(())
@@ -14,7 +14,7 @@ fn check_in_home(path: &Path) -> Result<(), String> {
 }
 
 // For reads the file must exist, so canonicalize resolves symlinks and traversal.
-fn safe_read_path(path: &str) -> Result<PathBuf, String> {
+pub fn safe_read_path(path: &str) -> Result<PathBuf, String> {
     let canonical = std::fs::canonicalize(path)
         .map_err(|e| format!("Failed to read file: {e}"))?;
     check_in_home(&canonical)?;

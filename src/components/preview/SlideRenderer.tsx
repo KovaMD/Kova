@@ -9,7 +9,7 @@ import type { Theme } from '../../engine/theme';
 import { themeToVars, resolveTemplate, DEFAULT_THEME, hexToHsl, hslToHex, defaultChartPalette } from '../../engine/theme';
 import './SlideRenderer.css';
 
-mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'antiscript' });
+mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'strict' });
 
 // Parse an image title like "50%" or "300px" into an inline width style.
 // Returning a style disables the default max-height cap on the wrapper.
@@ -23,6 +23,24 @@ function parseSizeHint(title?: string): React.CSSProperties | null {
 // Context passed to child components so they can adapt for thumbnail vs full rendering
 interface SlideCtxValue { isThumbnail: boolean; textColor: string; mermaidInit: string }
 const SlideCtx = createContext<SlideCtxValue>({ isThumbnail: false, textColor: '#1a1a1a', mermaidInit: '' });
+
+// Strips any `securityLevel` key from a user-supplied `%%{init: {...}}%%` pragma
+// so users cannot downgrade from the application's enforced 'strict' setting.
+// All other init keys (theme, themeVariables, etc.) are preserved unchanged.
+function sanitizeMermaidSource(source: string): string {
+  return source.replace(
+    /^(%%\{init:\s*)(\{[\s\S]*?\})(\s*\}%%)(\r?\n)?/m,
+    (match, prefix, jsonStr, suffix, nl) => {
+      try {
+        const config = JSON.parse(jsonStr) as Record<string, unknown>;
+        delete config.securityLevel;
+        return `${prefix}${JSON.stringify(config)}${suffix}${nl ?? '\n'}`;
+      } catch {
+        return match; // leave unparseable pragma as-is
+      }
+    },
+  );
+}
 
 // ── Diagram colour palette builders ──────────────────────────────────────────
 
@@ -744,7 +762,10 @@ function MermaidDiagram({ value }: { value: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    const src = value.trimStart().startsWith('%%{') ? value : mermaidInit + value;
+    // Sanitize first: strip any user-supplied securityLevel override, then
+    // prepend theme init when no custom pragma is present.
+    const sanitized = sanitizeMermaidSource(value);
+    const src = sanitized.trimStart().startsWith('%%{') ? sanitized : mermaidInit + sanitized;
     const renderId = `${baseId}-${++counter.current}`;
     mermaid.render(renderId, src)
       .then(({ svg: out }: { svg: string }) => {

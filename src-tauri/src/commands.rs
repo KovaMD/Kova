@@ -8,7 +8,12 @@ use tauri::{AppHandle, Manager, State};
 /// which requires path scopes to be configured before it works on macOS.
 #[tauri::command]
 pub fn show_in_file_manager(path: String) -> Result<(), String> {
-    let is_file = std::path::Path::new(&path).is_file();
+    // Canonicalize (resolves symlinks/traversal) and enforce home boundary.
+    let canonical = std::fs::canonicalize(&path)
+        .map_err(|e| format!("Invalid path: {e}"))?;
+    file_io::check_in_home(&canonical)?;
+
+    let is_file = canonical.is_file();
 
     #[cfg(target_os = "macos")]
     {
@@ -16,19 +21,18 @@ pub fn show_in_file_manager(path: String) -> Result<(), String> {
         if is_file {
             cmd.arg("-R"); // reveal file in Finder rather than opening it
         }
-        cmd.arg(&path).spawn().map_err(|e| e.to_string())?;
+        cmd.arg(&canonical).spawn().map_err(|e| e.to_string())?;
     }
 
     #[cfg(target_os = "linux")]
     {
         // xdg-open handles both files (opens parent dir) and directories
         let target = if is_file {
-            std::path::Path::new(&path)
-                .parent()
+            canonical.parent()
                 .map(|p| p.to_string_lossy().into_owned())
-                .unwrap_or(path.clone())
+                .unwrap_or_else(|| canonical.to_string_lossy().into_owned())
         } else {
-            path.clone()
+            canonical.to_string_lossy().into_owned()
         };
         std::process::Command::new("xdg-open")
             .arg(&target)
@@ -40,9 +44,9 @@ pub fn show_in_file_manager(path: String) -> Result<(), String> {
     {
         let mut cmd = std::process::Command::new("explorer");
         if is_file {
-            cmd.arg(format!("/select,{path}")); // select file in Explorer
+            cmd.arg(format!("/select,{}", canonical.display())); // select file in Explorer
         } else {
-            cmd.arg(&path);
+            cmd.arg(&canonical);
         }
         cmd.spawn().map_err(|e| e.to_string())?;
     }
@@ -161,6 +165,10 @@ pub async fn setup_audience_window(app: AppHandle, x: f64, y: f64) -> Result<(),
 ///   await window.__TAURI__.core.invoke('debug_monitors')
 #[tauri::command]
 pub fn debug_monitors(app: AppHandle) -> String {
+    // Diagnostic output is only meaningful during development.
+    #[cfg(not(debug_assertions))]
+    return String::new();
+
     let mut out = String::new();
 
     match app.primary_monitor() {
@@ -256,7 +264,9 @@ pub fn stop_watching(state: State<'_, AppState>) {
 /// If a file with the same name already exists, appends a numeric suffix.
 #[tauri::command]
 pub fn copy_image_to_assets(src: String, dest_dir: String) -> Result<String, String> {
-    let src_path = std::path::Path::new(&src);
+    // Validate src: canonicalize (resolves symlinks/traversal) and enforce home boundary.
+    let src_path = file_io::safe_read_path(&src)?;
+
     let raw_stem = src_path.file_stem().and_then(|s| s.to_str()).unwrap_or("image");
     let ext      = src_path.extension().and_then(|s| s.to_str()).unwrap_or("png");
 
@@ -265,7 +275,12 @@ pub fn copy_image_to_assets(src: String, dest_dir: String) -> Result<String, Str
         .map(|c| if c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']' | '"' | '\'') { '_' } else { c })
         .collect();
 
-    let assets_dir = std::path::Path::new(&dest_dir).join("assets");
+    // Validate dest_dir: canonicalize and enforce home boundary.
+    let canonical_dest = std::fs::canonicalize(&dest_dir)
+        .map_err(|e| format!("Cannot access destination directory: {e}"))?;
+    file_io::check_in_home(&canonical_dest)?;
+
+    let assets_dir = canonical_dest.join("assets");
     std::fs::create_dir_all(&assets_dir)
         .map_err(|e| format!("Cannot create assets dir: {e}"))?;
 
@@ -274,7 +289,7 @@ pub fn copy_image_to_assets(src: String, dest_dir: String) -> Result<String, Str
     loop {
         let dest = assets_dir.join(&name);
         if !dest.exists() {
-            std::fs::copy(src_path, &dest)
+            std::fs::copy(&src_path, &dest)
                 .map_err(|e| format!("Cannot copy image: {e}"))?;
             return Ok(name);
         }

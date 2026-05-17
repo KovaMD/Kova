@@ -29,6 +29,7 @@ export function ThemeLibraryModal({ installedIds, onThemesChanged, onClose }: Pr
   const [themes, setThemes] = useState<RemoteTheme[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => { fetchManifest(); }, []);
 
@@ -46,20 +47,22 @@ export function ThemeLibraryModal({ installedIds, onThemesChanged, onClose }: Pr
 
   async function install(id: string) {
     setBusy((p) => ({ ...p, [id]: true }));
+    setErrors((p) => ({ ...p, [id]: '' }));
     try {
       const theme = themes.find((t) => t.id === id);
+      if (!theme?.sha256) {
+        throw new Error('Cannot install: theme is missing its integrity hash');
+      }
       const res = await fetch(THEME_URL(id));
       if (!res.ok) throw new Error('Download failed');
       const buffer = await res.arrayBuffer();
-      if (theme?.sha256) {
-        const digest = await crypto.subtle.digest('SHA-256', buffer);
-        const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
-        if (hex !== theme.sha256) throw new Error('Hash mismatch — theme file may have been tampered with');
-      }
+      const digest = await crypto.subtle.digest('SHA-256', buffer);
+      const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+      if (hex !== theme.sha256) throw new Error('Integrity check failed — file may have been tampered with');
       await invoke('save_theme', { id, yaml: new TextDecoder().decode(buffer) });
       onThemesChanged();
     } catch (err) {
-      console.error('Theme install failed:', err);
+      setErrors((p) => ({ ...p, [id]: err instanceof Error ? err.message : 'Install failed' }));
     } finally {
       setBusy((p) => ({ ...p, [id]: false }));
     }
@@ -159,18 +162,26 @@ export function ThemeLibraryModal({ installedIds, onThemesChanged, onClose }: Pr
           {status === 'ready' && themes.map((t) => {
             const installed = installedIds.has(t.id);
             const loading = busy[t.id] ?? false;
+            const installError = errors[t.id] ?? '';
             return (
               <div
                 key={t.id}
                 style={{
                   display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0,
+                  marginBottom: 6,
+                }}
+              >
+              <div
+                style={{
+                  display: 'flex',
                   alignItems: 'center',
                   gap: 12,
                   padding: '10px 12px',
-                  marginBottom: 6,
                   background: 'var(--bg-panel)',
-                  border: `1px solid ${installed ? 'var(--accent)' : 'var(--border)'}`,
-                  borderRadius: 6,
+                  border: `1px solid ${installError ? 'var(--danger, #c0392b)' : installed ? 'var(--accent)' : 'var(--border)'}`,
+                  borderRadius: installError ? '6px 6px 0 0' : 6,
                 }}
               >
                 <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
@@ -214,6 +225,20 @@ export function ThemeLibraryModal({ installedIds, onThemesChanged, onClose }: Pr
                     {loading ? 'Installing…' : 'Install'}
                   </button>
                 )}
+              </div>
+              {installError && (
+                <div style={{
+                  fontSize: 11,
+                  color: 'var(--danger, #c0392b)',
+                  background: 'var(--danger-bg, rgba(192,57,43,0.08))',
+                  border: '1px solid var(--danger, #c0392b)',
+                  borderTop: 'none',
+                  borderRadius: '0 0 6px 6px',
+                  padding: '5px 12px',
+                }}>
+                  {installError}
+                </div>
+              )}
               </div>
             );
           })}
