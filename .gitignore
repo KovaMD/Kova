@@ -29,3 +29,8 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Flatpak build artefacts
+.flatpak-builder/
+build-dir/
+.flatpak-builder-tools/

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>md.kova.Kova</id>
+
+  <name>Kova</name>
+  <summary>Markdown presentation authoring tool</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <description>
+    <p>
+      Kova lets you write presentation slides in plain Markdown and see them
+      rendered live as you type. Slides are separated by horizontal rules, with
+      frontmatter support for per-deck settings.
+    </p>
+    <p>
+      Features include a built-in theme library, custom theme support via YAML,
+      an audience window for multi-monitor presenting, Mermaid diagram rendering,
+      syntax-highlighted code blocks, and PPTX export.
+    </p>
+  </description>
+
+  <developer id="md.kova">
+    <name>Kova MD</name>
+  </developer>
+
+  <url type="homepage">https://kova.md</url>
+  <url type="bugtracker">https://github.com/KovaMD/Kova/issues</url>
+  <url type="vcs-browser">https://github.com/KovaMD/Kova</url>
+
+  <launchable type="desktop-id">md.kova.Kova.desktop</launchable>
+
+  <categories>
+    <category>Office</category>
+    <category>Presentation</category>
+  </categories>
+
+  <keywords>
+    <keyword>markdown</keyword>
+    <keyword>presentation</keyword>
+    <keyword>slides</keyword>
+    <keyword>mermaid</keyword>
+  </keywords>
+
+  <provides>
+    <binary>kova</binary>
+  </provides>
+
+  <!-- OARS: general-purpose text editor, no user-generated content concerns -->
+  <content_rating type="oars-1.1"/>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Editor and live preview in light mode</caption>
+      <image>https://kova.md/assets/screenshot-editor-light.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Editor and live preview in dark mode</caption>
+      <image>https://kova.md/assets/screenshot-editor-dark.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Slide with charts rendered from Mermaid diagrams</caption>
+      <image>https://kova.md/assets/screenshot-drinks-light.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Syntax-highlighted code block slide</caption>
+      <image>https://kova.md/assets/slide-features-code.png</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="0.2.8" date="2026-05-17">
+      <description>
+        <p>Security fixes and stability improvements.</p>
+      </description>
+    </release>
+  </releases>
+</component>

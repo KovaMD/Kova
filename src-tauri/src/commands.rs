@@ -164,8 +164,8 @@ pub async fn setup_audience_window(app: AppHandle, x: f64, y: f64) -> Result<(),
 /// GDK's perspective. Call from the browser devtools console:
 ///   await window.__TAURI__.core.invoke('debug_monitors')
 #[tauri::command]
+#[cfg_attr(not(debug_assertions), allow(unreachable_code, unused_variables))]
 pub fn debug_monitors(app: AppHandle) -> String {
-    // Diagnostic output is only meaningful during development.
     #[cfg(not(debug_assertions))]
     return String::new();
 

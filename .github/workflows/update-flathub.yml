@@ -1,0 +1,127 @@
+name: Update Flathub
+
+# Fires when a GitHub release is published (not just drafted).
+# Opens a PR against github.com/flathub/md.kova.Kova with fresh vendor
+# sources and an updated tag/commit in the manifest.
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-flathub:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Kova at release tag
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: lts/*
+
+      - name: Install source generators
+        run: |
+          pip install toml aiohttp
+          git clone --depth=1 \
+            https://github.com/flatpak/flatpak-builder-tools.git \
+            /tmp/flatpak-builder-tools
+          pip install /tmp/flatpak-builder-tools/node
+
+      - name: Generate cargo-sources.json
+        run: |
+          python3 /tmp/flatpak-builder-tools/cargo/flatpak-cargo-generator.py \
+            src-tauri/Cargo.lock \
+            -o flatpak/cargo-sources.json
+
+      - name: Generate node-sources.json
+        run: |
+          cd /tmp/flatpak-builder-tools/node && python3 -m flatpak_node_generator \
+            npm $GITHUB_WORKSPACE/package-lock.json \
+            -o $GITHUB_WORKSPACE/flatpak/node-sources.json
+
+      - name: Resolve release commit SHA
+        run: |
+          COMMIT=$(git rev-parse HEAD)
+          echo "RELEASE_COMMIT=$COMMIT" >> $GITHUB_ENV
+
+      - name: Checkout Flathub app repo
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: flathub/md.kova.Kova
+          token: ${{ secrets.FLATHUB_TOKEN }}
+          path: flathub-repo
+
+      - name: Update manifest and copy sources
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          # Swap tag and commit SHA in the manifest (git source block is commented
+          # out in the working copy; sed targets the commented lines too)
+          sed -i \
+            -e "s|tag: v[0-9.]*|tag: ${TAG}|" \
+            -e "s|commit: [0-9a-f]*|commit: ${RELEASE_COMMIT}|" \
+            md.kova.Kova.yml
+
+          # The Flathub manifest uses the git source, not the local dir source.
+          # Swap the comment blocks so the git source is active.
+          python3 - <<'PYEOF'
+          import re, sys
+
+          manifest = open("md.kova.Kova.yml").read()
+
+          # Uncomment the git source block
+          manifest = re.sub(
+              r"      # - type: git\n      #   url:",
+              "      - type: git\n        url:",
+              manifest,
+          )
+          manifest = re.sub(r"      #   (tag|commit): ", r"        \1: ", manifest)
+
+          # Comment out the dir source block
+          manifest = re.sub(
+              r"      - type: dir\n        path: \.",
+              "      # - type: dir\n      #   path: .",
+              manifest,
+          )
+
+          open("md.kova.Kova.yml", "w").write(manifest)
+          PYEOF
+
+          # Copy files into the Flathub repo, preserving the flatpak/ subdir
+          cp md.kova.Kova.yml                      flathub-repo/md.kova.Kova.yml
+          mkdir -p flathub-repo/flatpak
+          cp flatpak/md.kova.Kova.metainfo.xml     flathub-repo/flatpak/md.kova.Kova.metainfo.xml
+          cp flatpak/md.kova.Kova.desktop           flathub-repo/flatpak/md.kova.Kova.desktop
+          cp flatpak/kova.sh                        flathub-repo/flatpak/kova.sh
+          cp flatpak/cargo-sources.json             flathub-repo/flatpak/cargo-sources.json
+          cp flatpak/node-sources.json              flathub-repo/flatpak/node-sources.json
+
+          # Update the release entry in metainfo (Flathub wants newest first)
+          TODAY=$(date +%Y-%m-%d)
+          sed -i \
+            "s|<release version=\"[0-9.]*\" date=\"[0-9-]*\">|<release version=\"${VERSION}\" date=\"${TODAY}\">|" \
+            flathub-repo/flatpak/md.kova.Kova.metainfo.xml
+
+      - name: Open PR against Flathub repo
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.FLATHUB_TOKEN }}
+          path: flathub-repo
+          branch: update-${{ github.ref_name }}
+          commit-message: "Update to ${{ github.ref_name }}"
+          title: "Update to ${{ github.ref_name }}"
+          body: |
+            Automated update from [KovaMD/Kova ${{ github.ref_name }}](https://github.com/KovaMD/Kova/releases/tag/${{ github.ref_name }}).
+
+            - Updated manifest tag and commit SHA
+            - Regenerated `cargo-sources.json` from `Cargo.lock`
+            - Regenerated `node-sources.json` from `package-lock.json`
