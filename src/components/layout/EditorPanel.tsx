@@ -86,6 +86,7 @@ function makeFontTheme(fontFamily: string) {
   return EditorView.theme({ '.cm-scroller': { fontFamily } });
 }
 
+
 const editorColorCompartment = new Compartment();
 const editorFontCompartment  = new Compartment();
 const spellCheckCompartment  = new Compartment();

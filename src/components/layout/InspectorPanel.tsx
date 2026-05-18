@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Theme } from '../../engine/theme';
 import { defaultChartPalette } from '../../engine/theme';
 import type { Frontmatter } from '../../engine/types';
@@ -17,6 +17,7 @@ interface Props {
   allThemes: Theme[];
   onThemeSelect: (id: string) => void;
   onThemeChange: (patch: Partial<Theme>) => void;
+  onMetaChange: (field: 'title' | 'author' | 'date', value: string) => void;
   onFormat: (cmd: FormatCmd) => void;
   onOpenLibrary: () => void;
 }
@@ -26,9 +27,16 @@ const ALL_SECTIONS: Section[] = ['format', 'theme', 'colours', 'fonts', 'brandin
 
 export function InspectorPanel({
   filePath, slideCount, frontmatter,
-  theme, allThemes, onThemeSelect, onThemeChange, onFormat, onOpenLibrary,
+  theme, allThemes, onThemeSelect, onThemeChange, onMetaChange, onFormat, onOpenLibrary,
 }: Props) {
   const [open, setOpen] = useState<Set<Section>>(new Set(['format']));
+  const [localTitle,  setLocalTitle]  = useState(frontmatter.title  ?? '');
+  const [localAuthor, setLocalAuthor] = useState(frontmatter.author ?? '');
+  const [localDate,   setLocalDate]   = useState(frontmatter.date   != null ? String(frontmatter.date) : '');
+
+  useEffect(() => { setLocalTitle(frontmatter.title ?? ''); },  [frontmatter.title]);
+  useEffect(() => { setLocalAuthor(frontmatter.author ?? ''); }, [frontmatter.author]);
+  useEffect(() => { setLocalDate(frontmatter.date != null ? String(frontmatter.date) : ''); }, [frontmatter.date]);
 
   const toggle = (s: Section) =>
     setOpen((prev) => {
@@ -62,9 +70,27 @@ export function InspectorPanel({
         <InfoSection>
           <Row label="File"   value={filePath ? shortPath(filePath) : '—'} />
           <Row label="Slides" value={slideCount > 0 ? String(slideCount) : '—'} />
-          {frontmatter.title  && <Row label="Title"  value={frontmatter.title} />}
-          {frontmatter.author && <Row label="Author" value={frontmatter.author} />}
-          {frontmatter.date   && <Row label="Date"   value={String(frontmatter.date)} />}
+          <EditableRow
+            label="Title"
+            value={localTitle}
+            placeholder="Untitled"
+            onChange={setLocalTitle}
+            onBlur={() => onMetaChange('title', localTitle)}
+          />
+          <EditableRow
+            label="Author"
+            value={localAuthor}
+            placeholder="Author"
+            onChange={setLocalAuthor}
+            onBlur={() => onMetaChange('author', localAuthor)}
+          />
+          <EditableRow
+            label="Date"
+            value={localDate}
+            placeholder="Date"
+            onChange={setLocalDate}
+            onBlur={() => onMetaChange('date', localDate)}
+          />
         </InfoSection>
 
         <Divider />
@@ -182,6 +208,44 @@ function Row({ label, value }: { label: string; value: string }) {
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, gap: 8 }}>
       <span style={{ fontSize: 11, color: 'var(--text-label)', flexShrink: 0 }}>{label}</span>
       <span style={{ fontSize: 11, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }} title={value}>{value}</span>
+    </div>
+  );
+}
+
+function EditableRow({ label, value, placeholder, onChange, onBlur }: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (v: string) => void;
+  onBlur: () => void;
+}) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, gap: 8 }}>
+      <span style={{ fontSize: 11, color: 'var(--text-label)', flexShrink: 0 }}>{label}</span>
+      <input
+        type="text"
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          fontSize: 11,
+          color: 'var(--text-primary)',
+          background: 'transparent',
+          border: 'none',
+          borderBottom: '1px solid transparent',
+          outline: 'none',
+          textAlign: 'right',
+          padding: '1px 2px',
+          borderRadius: 0,
+          fontFamily: 'inherit',
+        }}
+        onFocus={(e) => { e.currentTarget.style.borderBottomColor = 'var(--accent, var(--border))'; }}
+        onBlurCapture={(e) => { e.currentTarget.style.borderBottomColor = 'transparent'; }}
+      />
     </div>
   );
 }

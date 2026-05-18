@@ -110,12 +110,17 @@ export default function App() {
   // Resolved theme = base theme merged with overrides
   const activeTheme = useMemo<Theme>(() => {
     const base = allThemes.find((t) => t.id === activeThemeId) ?? DEFAULT_THEME;
-    return { ...base, ...themeOverrides,
+    const merged: Theme = { ...base, ...themeOverrides,
       colors: { ...base.colors, ...(themeOverrides.colors ?? {}) },
       fonts:  { ...base.fonts,  ...(themeOverrides.fonts  ?? {}) },
       header: { ...base.header, ...(themeOverrides.header ?? {}) },
       footer: { ...base.footer, ...(themeOverrides.footer ?? {}) },
     };
+    // Convert raw local path to display URL (asset://) for the logo
+    if (merged.logo && !/^(https?:|data:|asset:|tauri:)/i.test(merged.logo)) {
+      return { ...merged, logo: convertFileSrc(merged.logo) };
+    }
+    return merged;
   }, [allThemes, activeThemeId, themeOverrides]);
 
   // Persist panel layout across sessions and inspector toggle/hide
@@ -144,6 +149,9 @@ export default function App() {
     try { return parseDocument(content); }
     catch { return { slides: EMPTY_SLIDES, frontmatter: EMPTY_FM }; }
   }, [content]);
+
+  // Body-only view for the editor — frontmatter is managed by the inspector.
+  const editorBody = useMemo(() => extractFrontmatter(content).body, [content]);
 
   // Rewrite relative image srcs to asset:// URLs so Tauri's WebView can load them.
   // Always runs — absolute paths need convertFileSrc even when no file is open.
@@ -422,6 +430,14 @@ export default function App() {
     setThemeOverrides((prev) => ({ ...prev, ...patch }));
   }, []);
 
+  const handleMetaChange = useCallback((field: 'title' | 'author' | 'date', value: string) => {
+    setContent((prev) => {
+      const patched = patchFrontmatter(prev, { [field]: value.trim() || null });
+      if (patched !== prev) setIsDirty(true);
+      return patched;
+    });
+  }, []);
+
   const handleOpenFile = useCallback(() => {
     guardDirty(async () => { try {
       const selected = await open({
@@ -439,6 +455,11 @@ export default function App() {
           setThemeOverrides({
             ...(overrides.colors ? { colors: overrides.colors as never } : {}),
             ...(overrides.fonts  ? { fonts:  overrides.fonts  as never } : {}),
+            ...(overrides.logo !== undefined ? { logo: overrides.logo as string | undefined } : {}),
+            ...(overrides.logo_position ? { logo_position: overrides.logo_position as Theme['logo_position'] } : {}),
+            ...(overrides.logo_opacity !== undefined ? { logo_opacity: overrides.logo_opacity as number } : {}),
+            ...(overrides.header ? { header: overrides.header as never } : {}),
+            ...(overrides.footer ? { footer: overrides.footer as never } : {}),
           });
         } else {
           setThemeOverrides({});
@@ -461,6 +482,16 @@ export default function App() {
       overridePatch.colors = themeOverrides.colors;
     if (themeOverrides.fonts && Object.keys(themeOverrides.fonts).length > 0)
       overridePatch.fonts = themeOverrides.fonts;
+    if (themeOverrides.logo !== undefined)
+      overridePatch.logo = themeOverrides.logo;
+    if (themeOverrides.logo_position !== undefined)
+      overridePatch.logo_position = themeOverrides.logo_position;
+    if (themeOverrides.logo_opacity !== undefined)
+      overridePatch.logo_opacity = themeOverrides.logo_opacity;
+    if (themeOverrides.header !== undefined)
+      overridePatch.header = themeOverrides.header;
+    if (themeOverrides.footer !== undefined)
+      overridePatch.footer = themeOverrides.footer;
     const hasOverrides = Object.keys(overridePatch).length > 0;
     return hasOverrides
       ? patchFrontmatter(content, { theme_overrides: overridePatch })
@@ -514,8 +545,11 @@ export default function App() {
     } catch (err) { console.error('Export failed:', err); }
   }, [slides, frontmatter, activeTheme, filePath]);
 
-  const handleContentChange = useCallback((value: string) => {
-    setContent(value);
+  const handleContentChange = useCallback((newBody: string) => {
+    setContent((prev) => {
+      const fm = prev.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
+      return (fm ? fm[0] : '') + newBody;
+    });
     setIsDirty(true);
   }, []);
 
@@ -728,7 +762,7 @@ export default function App() {
           <Panel id="editor" defaultSize={72} minSize={20}>
             <EditorPanel
               ref={editorRef}
-              content={content}
+              content={editorBody}
               onChange={handleContentChange}
               onCursorSlide={setCurrentSlideIndex}
               onWarn={handleWarn}
@@ -754,6 +788,7 @@ export default function App() {
                 allThemes={allThemes}
                 onThemeSelect={handleThemeSelect}
                 onThemeChange={handleThemeChange}
+                onMetaChange={handleMetaChange}
                 onFormat={handleFormat}
                 onOpenLibrary={() => setShowThemeMarketplace(true)}
               />

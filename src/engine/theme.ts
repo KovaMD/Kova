@@ -24,7 +24,7 @@ export interface ThemeHeader {
 
 export interface ThemeFooter {
   show: boolean;
-  text: string;              // supports {title}, {date}, {slide_number}
+  text: string;              // supports {title}, {date}
   show_slide_number: boolean;
 }
 

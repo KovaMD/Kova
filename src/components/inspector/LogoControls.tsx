@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Theme } from '../../engine/theme';
 
 interface Props {
@@ -33,7 +32,7 @@ export function LogoControls({
       multiple: false,
     });
     if (selected && typeof selected === 'string') {
-      onLogoChange(convertFileSrc(selected));
+      onLogoChange(selected);
     }
   }, [onLogoChange]);
 
@@ -137,7 +136,10 @@ export function LogoControls({
             id="footer-show"
             type="checkbox"
             checked={footer.show}
-            onChange={(e) => onFooterChange({ ...footer, show: e.target.checked })}
+            onChange={(e) => {
+              const show = e.target.checked;
+              onFooterChange({ ...footer, show, text: show && !footer.text.trim() ? '{title}' : footer.text });
+            }}
             style={{ cursor: 'pointer' }}
           />
           <label htmlFor="footer-show" style={{ fontSize: 11, color: 'var(--text-label)', cursor: 'pointer' }}>
@@ -149,7 +151,7 @@ export function LogoControls({
             <input
               type="text"
               value={footer.text}
-              placeholder="Footer text ({title}, {date}, {slide_number})"
+              placeholder="Footer text ({title}, {date})"
               onChange={(e) => onFooterChange({ ...footer, text: e.target.value })}
               style={{ width: '100%', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-input)', borderRadius: 4, padding: '4px 7px', fontSize: 11, marginBottom: 4 }}
             />

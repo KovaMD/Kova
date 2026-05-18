@@ -16,7 +16,6 @@ Kova turns plain Markdown into polished slides — with live preview, multiple l
 | **Linux (Debian/Ubuntu)** | [**.deb package**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Linux.deb) · [or via package manager](#linux-package-managers) |
 | **Linux (Fedora/RHEL/openSUSE)** | [**.rpm package**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Linux.rpm) · [or via package manager](#linux-package-managers) |
 
-
 ---
 
 ## Linux package managers
@@ -94,7 +93,6 @@ sudo zypper refresh && sudo zypper install kova
 - **YouTube & poll embeds** — `!youtube[label](url)` opens in browser; `!poll[label](url)` renders a QR code
 - **File watcher** — reloads automatically when the file is edited externally
 - **Keybindings** — configurable via `~/.kova/keybindings.yaml`
-
 
 ## Building from source
 
