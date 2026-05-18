@@ -14,8 +14,6 @@ finish-args:
   - --device=dri
   - --share=network
   - --filesystem=home
-  - --talk-name=org.freedesktop.portal.Flatpak
-  - --filesystem=/tmp
 
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node24/bin
@@ -33,7 +31,7 @@ modules:
 
       # Build the Tauri binary with the flatpak feature so the self-updater
       # plugin is disabled (Flatpak manages updates itself).
-      - cargo build --release --features flatpak --manifest-path src-tauri/Cargo.toml
+      - cargo build --release --features flatpak,custom-protocol --manifest-path src-tauri/Cargo.toml
 
       # Install binary and desktop integration files
       - install -Dm755 src-tauri/target/release/kova /app/bin/kova-bin
