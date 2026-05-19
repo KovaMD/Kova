@@ -1,4 +1,5 @@
 import PptxGenJS from 'pptxgenjs';
+import { mermaidSvgCache } from './mermaidSvgCache';
 import mermaid from 'mermaid';
 import hljs from 'highlight.js';
 import type { Slide, SlideElement, Frontmatter } from '../types';
@@ -76,8 +77,11 @@ function buildExportMermaidInit(t: Theme): string {
 }
 
 async function svgToPngDataUrl(svgString: string, bgColor: string): Promise<{ dataUrl: string; aspectRatio: number }> {
-  // Step 1: insert the SVG into the DOM and call getBBox() to get the real bounding
-  // box of all drawn content — exactly what MermaidDiagram does to fix clipped legends.
+  // Insert via the HTML parser (innerHTML) rather than DOMParser/image/svg+xml —
+  // the HTML parser is lenient about non-XML-valid content inside <foreignObject>,
+  // whereas the XML parser rejects it and returns the SVG unchanged (still tainted).
+  // We then strip <foreignObject> elements from the live DOM before serialising,
+  // which is the only reliable way to avoid the WebKit canvas SecurityError.
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:-99999px;top:0;visibility:hidden;width:1200px;height:900px;';
   container.innerHTML = svgString;
@@ -86,6 +90,49 @@ async function svgToPngDataUrl(svgString: string, bgColor: string): Promise<{ da
   const svgEl = container.querySelector('svg');
   let correctedSvg = svgString;
   if (svgEl) {
+    // Replace each <foreignObject> (used by Mermaid for <br/>-split node labels)
+    // with a native SVG <text>/<tspan> block. This must happen in the live DOM so
+    // the result is guaranteed free of foreignObject regardless of XML validity.
+    const ns = 'http://www.w3.org/2000/svg';
+    for (const fo of Array.from(svgEl.querySelectorAll('foreignObject'))) {
+      const foX = parseFloat(fo.getAttribute('x') || '0');
+      const foY = parseFloat(fo.getAttribute('y') || '0');
+      const foW = parseFloat(fo.getAttribute('width') || '100');
+      const foH = parseFloat(fo.getAttribute('height') || '20');
+      const cx  = foX + foW / 2;
+
+      const lines: string[] = [];
+      let cur = '';
+      const walk = (node: Node) => {
+        if (node.nodeType === Node.TEXT_NODE) { cur += node.textContent ?? ''; }
+        else if ((node as Element).tagName?.toLowerCase() === 'br') { lines.push(cur); cur = ''; }
+        else { node.childNodes.forEach(walk); }
+      };
+      fo.childNodes.forEach(walk);
+      if (cur) lines.push(cur);
+      const nonEmpty = lines.map(l => l.trim()).filter(Boolean);
+
+      if (nonEmpty.length === 0) { fo.remove(); continue; }
+
+      const fontSize   = 14;
+      const lineHeight = fontSize * 1.35;
+      const blockH     = nonEmpty.length * lineHeight;
+      const startY     = foY + (foH - blockH) / 2 + fontSize * 0.85;
+
+      const textEl = document.createElementNS(ns, 'text');
+      textEl.setAttribute('text-anchor', 'middle');
+      textEl.setAttribute('font-size', String(fontSize));
+      textEl.setAttribute('font-family', 'Arial, sans-serif');
+      nonEmpty.forEach((line, i) => {
+        const tspan = document.createElementNS(ns, 'tspan');
+        tspan.setAttribute('x', String(cx));
+        tspan.setAttribute('y', String(startY + i * lineHeight));
+        tspan.textContent = line;
+        textEl.appendChild(tspan);
+      });
+      fo.replaceWith(textEl);
+    }
+
     try {
       const { x, y, width, height } = svgEl.getBBox();
       if (width > 0 && height > 0) {
@@ -128,27 +175,51 @@ async function svgToPngDataUrl(svgString: string, bgColor: string): Promise<{ da
     const url  = URL.createObjectURL(blob);
     const img  = new Image();
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width  = renderW;
-      canvas.height = renderH;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = bgColor;
-      ctx.fillRect(0, 0, renderW, renderH);
-      ctx.drawImage(img, 0, 0, renderW, renderH);
-      URL.revokeObjectURL(url);
-      resolve({ dataUrl: canvas.toDataURL('image/png'), aspectRatio });
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width  = renderW;
+        canvas.height = renderH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { URL.revokeObjectURL(url); reject(new Error('Canvas 2D context unavailable')); return; }
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, renderW, renderH);
+        ctx.drawImage(img, 0, 0, renderW, renderH);
+        URL.revokeObjectURL(url);
+        resolve({ dataUrl: canvas.toDataURL('image/png'), aspectRatio });
+      } catch (e) {
+        URL.revokeObjectURL(url);
+        reject(e);
+      }
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('SVG load failed')); };
     img.src = url;
   });
 }
 
+function makeMermaidTimeout(ms: number): Promise<never> {
+  return new Promise((_, reject) => setTimeout(() => reject(new Error('Mermaid render timeout')), ms));
+}
+
 async function mermaidToDataUrl(value: string, t: Theme): Promise<{ dataUrl: string; aspectRatio: number } | null> {
+  // Prefer the SVG already rendered by the live preview — calling mermaid.render()
+  // concurrently hangs when the same diagram is already present in the live-preview DOM.
+  const cached = mermaidSvgCache.get(value);
+  if (cached) {
+    try {
+      return await svgToPngDataUrl(cached, t.colors.background);
+    } catch {
+      return null;
+    }
+  }
+
+  // Cache miss (slide not yet visible in preview): fall back to direct render.
+  const init = buildExportMermaidInit(t);
+  const normalised = value.replace(/\\n/g, '<br/>');
+  const id = `pptx-mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
   try {
-    const init = buildExportMermaidInit(t);
-    const src  = value.trimStart().startsWith('%%{') ? value : init + value;
-    const id   = `pptx-mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const { svg } = await mermaid.render(id, src);
+    const src = normalised.trimStart().startsWith('%%{') ? normalised : init + normalised;
+    const { svg } = await Promise.race([mermaid.render(id, src), makeMermaidTimeout(15000)]);
     return await svgToPngDataUrl(svg, t.colors.background);
   } catch {
     return null;
@@ -195,27 +266,40 @@ function getImageAspectRatio(src: string): Promise<number | null> {
   });
 }
 
+// Mermaid uses global DOM state and cannot handle concurrent render() calls —
+// running slides in parallel causes the second Mermaid render to hang forever.
+// Process everything sequentially so Mermaid renders one at a time.
 async function resolveSlideImages(slides: Slide[], theme: Theme, warnings: string[]): Promise<Slide[]> {
-  return Promise.all(slides.map(async (slide) => {
-    const elements = await Promise.all(slide.elements.map(async (el) => {
+  const resolved: Slide[] = [];
+  for (const slide of slides) {
+    const elements: SlideElement[] = [];
+    for (const el of slide.elements) {
       if (el.type === 'image') {
-        // Convert proprietary URLs to data URLs so PptxGenJS can embed them.
         const src = (el.src.startsWith('asset://') || el.src.startsWith('tauri://'))
           ? await assetUrlToDataUrl(el.src)
           : el.src;
-        // Measure the natural aspect ratio so tryAddImage can contain-fit it.
         const ar = src.startsWith('data:') ? await getImageAspectRatio(src) : null;
-        return { ...el, src, title: ar != null ? String(ar) : el.title };
-      }
-      if (el.type === 'mermaid') {
+        elements.push({ ...el, src, title: ar != null ? String(ar) : el.title });
+      } else if (el.type === 'mermaid') {
         const result = await mermaidToDataUrl(el.value, theme);
-        if (result) return { type: 'image' as const, src: result.dataUrl, alt: 'Diagram', title: String(result.aspectRatio) };
-        warnings.push(`Mermaid diagram could not be rendered and was skipped (slide: "${slide.title ?? 'untitled'}")`);
+        if (result) {
+          // For portrait diagrams (AR < 1) containArea places them in a narrow
+          // column, making text illegibly small. Omit the AR so tryAddImage fills
+          // the available area instead — the slight horizontal stretch is far
+          // more readable than 4-5pt text. Landscape diagrams keep containArea.
+          const arTitle = result.aspectRatio >= 1 ? String(result.aspectRatio) : undefined;
+          elements.push({ type: 'image' as const, src: result.dataUrl, alt: 'Diagram', title: arTitle });
+        } else {
+          warnings.push(`Mermaid diagram could not be rendered and was skipped (slide: "${slide.title ?? 'untitled'}")`);
+          elements.push(el);
+        }
+      } else {
+        elements.push(el);
       }
-      return el;
-    }));
-    return { ...slide, elements };
-  }));
+    }
+    resolved.push({ ...slide, elements });
+  }
+  return resolved;
 }
 
 export async function exportToPptx(
@@ -279,11 +363,22 @@ function addSlide(s: PS, slide: Slide, t: Theme, meta: Meta, H: number, warnings
 
 // ── Layout renderers ──────────────────────────────────────────────────────────
 
+// Map theme title_align → PptxGenJS horizontal text align
+function titleHAlign(a: Theme['layout']['title_align']): 'left' | 'center' {
+  return a === 'center' ? 'center' : 'left';
+}
+// Map theme title_align → PptxGenJS vertical align for the title block
+function titleVAlign(a: Theme['layout']['title_align'], hasSubs: boolean): 'top' | 'middle' | 'bottom' {
+  if (hasSubs) return 'bottom';
+  return a === 'bottom-left' ? 'bottom' : 'middle';
+}
+
 function addTitleSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) {
   s.background = { fill: hex(t.colors.primary) };
   const subtitles = slide.elements.filter((e) => e.type === 'paragraph') as Extract<SlideElement, { type: 'paragraph' }>[];
   const hasSubs   = subtitles.length > 0;
   const titleH    = hasSubs ? ch * 0.55 : ch;
+  const hAlign    = titleHAlign(t.layout.title_align);
 
   if (slide.title) {
     s.addText(slide.title, {
@@ -291,7 +386,7 @@ function addTitleSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) {
       fontSize: 40, bold: true,
       color: hex(t.colors.title_text),
       fontFace: firstFont(t.fonts.title),
-      align: 'center', valign: hasSubs ? 'bottom' : 'middle', wrap: true,
+      align: hAlign, valign: titleVAlign(t.layout.title_align, hasSubs), wrap: true,
     });
   }
 
@@ -304,7 +399,7 @@ function addTitleSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) {
       x: M, y: cy + titleH + 0.15, w: W - M * 2, h: ch - titleH - 0.15,
       color: hex(t.colors.title_text),
       fontFace: firstFont(t.fonts.body),
-      align: 'center', valign: 'top', wrap: true,
+      align: hAlign, valign: 'top', wrap: true,
     });
   }
 }
@@ -317,7 +412,9 @@ function addSectionSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) 
       fontSize: 32, bold: true,
       color: hex(t.colors.title_text),
       fontFace: firstFont(t.fonts.title),
-      align: 'center', valign: 'middle', wrap: true,
+      align: titleHAlign(t.layout.title_align),
+      valign: t.layout.title_align === 'bottom-left' ? 'bottom' : 'middle',
+      wrap: true,
     });
   }
 }
@@ -331,7 +428,7 @@ function addTitleContentSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: num
       fontSize: 28, bold: true,
       color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
-      align: 'left', valign: 'middle', wrap: true,
+      align: t.layout.heading_align, valign: 'middle', wrap: true,
     });
   }
   addElements(s, slide.elements, t, { x: M, y: cy + hh + 0.1, w: W - M * 2, h: ch - hh - 0.1 }, warnings);
@@ -367,7 +464,7 @@ function addSplitSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, wa
       fontSize: 24, bold: true,
       color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
-      wrap: true,
+      align: t.layout.heading_align, wrap: true,
     });
   }
   const bodyY = cy + hh + 0.1;
@@ -438,7 +535,7 @@ function addTwoColumnSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number
       fontSize: 24, bold: true,
       color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
-      wrap: true,
+      align: t.layout.heading_align, wrap: true,
     });
   }
   const bodyY = cy + hh + 0.1;
@@ -468,7 +565,7 @@ function addBspSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warn
       fontSize: 24, bold: true,
       color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
-      wrap: true,
+      align: t.layout.heading_align, wrap: true,
     });
   }
   const bodyY = cy + hh + 0.1;
@@ -524,7 +621,7 @@ function addGridSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, war
       fontSize: 24, bold: true,
       color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
-      wrap: true,
+      align: t.layout.heading_align, wrap: true,
     });
   }
   const bodyY = cy + hh + 0.1;
@@ -557,7 +654,7 @@ function addMediaSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) {
       fontSize: 24, bold: true,
       color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
-      wrap: true,
+      align: t.layout.heading_align, wrap: true,
     });
   }
   const bodyY = cy + hh + 0.1;
@@ -601,7 +698,7 @@ function addCodeSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, war
       fontSize: 24, bold: true,
       color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.title),
-      wrap: true,
+      align: t.layout.heading_align, wrap: true,
     });
   }
   const codeY = cy + hh + 0.1;

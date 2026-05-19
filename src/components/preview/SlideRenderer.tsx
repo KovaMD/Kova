@@ -8,6 +8,7 @@ import type { Slide, SlideElement, ListItem } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import { themeToVars, resolveTemplate, DEFAULT_THEME, hexToHsl, hslToHex, defaultChartPalette } from '../../engine/theme';
 import './SlideRenderer.css';
+import { mermaidSvgCache } from '../../engine/export/mermaidSvgCache';
 
 mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'strict' });
 
@@ -28,7 +29,9 @@ const SlideCtx = createContext<SlideCtxValue>({ isThumbnail: false, textColor: '
 // so users cannot downgrade from the application's enforced 'strict' setting.
 // All other init keys (theme, themeVariables, etc.) are preserved unchanged.
 function sanitizeMermaidSource(source: string): string {
-  return source.replace(
+  // Replace literal \n sequences in node labels with <br/> — Mermaid v11 hangs on \n.
+  const normalised = source.replace(/\\n/g, '<br/>');
+  return normalised.replace(
     /^(%%\{init:\s*)(\{[\s\S]*?\})(\s*\}%%)(\r?\n)?/m,
     (match, prefix, jsonStr, suffix, nl) => {
       try {
@@ -770,6 +773,8 @@ function MermaidDiagram({ value }: { value: string }) {
     mermaid.render(renderId, src)
       .then(({ svg: out }: { svg: string }) => {
         if (!cancelled) {
+          // Cache raw SVG for the PPTX exporter before rewriting dimensions.
+          mermaidSvgCache.set(value, out);
           // Only rewrite attributes on the <svg> opening tag to avoid
           // accidentally mutating inner element attributes (e.g. legend rects).
           const scaled = out.replace(/<svg\b([^>]*)>/i, (_m, attrs: string) => {

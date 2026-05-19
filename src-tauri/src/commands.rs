@@ -253,6 +253,14 @@ pub fn start_watching(
 }
 
 #[tauri::command]
+pub fn rename_file(old_path: String, new_path: String) -> Result<(), String> {
+    let old = file_io::safe_read_path(&old_path)?;
+    let new = PathBuf::from(&new_path);
+    file_io::check_in_home(&new)?;
+    std::fs::rename(&old, &new).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn stop_watching(state: State<'_, AppState>) {
     *state.watcher.lock().unwrap() = None;
     *state.current_file.lock().unwrap() = None;

@@ -16,6 +16,7 @@ import { PresenterOverlay } from './components/presentation/PresenterOverlay';
 import type { PresentInitPayload } from './AudienceApp';
 import { SettingsModal } from './components/SettingsModal';
 import { ThemeLibraryModal } from './components/inspector/ThemeLibraryModal';
+import { MissingThemeBanner } from './components/MissingThemeBanner';
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
 import type { AppSettings } from './store/settings';
 import { loadKeybindings, matchShortcut, getCombo, formatCombo } from './engine/keybindings';
@@ -93,6 +94,8 @@ export default function App() {
   const [keybindings, setKeybindings]     = useState<Keybindings>({ path: '', combos: {} });
   const [warnMessage, setWarnMessage]     = useState<string | null>(null);
   const warnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isRenaming, setIsRenaming]       = useState(false);
+  const [renameValue, setRenameValue]     = useState('');
   const [resolvedUiTheme, setResolvedUiTheme] = useState<'dark' | 'light'>('dark');
 
   // Theme state: active theme id + per-session overrides
@@ -101,6 +104,7 @@ export default function App() {
   const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [themesDir, setThemesDir]         = useState<string>('');
   const [themeLoadErrors, setThemeLoadErrors] = useState<string[]>([]);
+  const [missingThemeId, setMissingThemeId]   = useState<string | null>(null);
 
   const installedRemoteIds = useMemo(
     () => new Set(allThemes.filter((t) => !BUILT_IN_THEMES.some((b) => b.id === t.id)).map((t) => t.id)),
@@ -230,6 +234,13 @@ export default function App() {
       .catch(() => {});
   }, []);
 
+  const handleMissingThemeInstalled = useCallback((themeId: string) => {
+    reloadCustomThemes();
+    setActiveThemeId(themeId);
+    setThemeOverrides({});
+    setMissingThemeId(null);
+  }, [reloadCustomThemes]);
+
   // Load custom themes from ~/.kova/themes/ on startup
   useEffect(() => { reloadCustomThemes(); }, [reloadCustomThemes]);
 
@@ -308,6 +319,7 @@ export default function App() {
       setCurrentSlideIndex(0);
       setActiveThemeId(DEFAULT_THEME.id);
       setThemeOverrides({});
+      setMissingThemeId(null);
     });
   }, [guardDirty]);
 
@@ -451,6 +463,7 @@ export default function App() {
         const found = allThemes.find((t) => t.id === fm.theme);
         if (found) {
           setActiveThemeId(found.id);
+          setMissingThemeId(null);
           const overrides = fm.theme_overrides ?? {};
           setThemeOverrides({
             ...(overrides.colors ? { colors: overrides.colors as never } : {}),
@@ -462,10 +475,12 @@ export default function App() {
             ...(overrides.footer ? { footer: overrides.footer as never } : {}),
           });
         } else {
+          setMissingThemeId(fm.theme);
           setThemeOverrides({});
         }
       } else {
         setActiveThemeId(DEFAULT_THEME.id);
+        setMissingThemeId(null);
         setThemeOverrides({});
       }
       setFilePath(selected);
@@ -497,6 +512,26 @@ export default function App() {
       ? patchFrontmatter(content, { theme_overrides: overridePatch })
       : patchFrontmatter(content, { theme_overrides: null });
   }, [content, themeOverrides]);
+
+  const handleRenameCommit = useCallback(async () => {
+    setIsRenaming(false);
+    if (!filePath) return;
+    const trimmed = renameValue.trim();
+    if (!trimmed) return;
+    const sep = filePath.includes('\\') ? '\\' : '/';
+    const dir = filePath.substring(0, filePath.lastIndexOf(sep));
+    const ext = filePath.match(/\.(md|markdown)$/i)?.[0] ?? '.md';
+    const newPath = `${dir}${sep}${trimmed}${ext}`;
+    if (newPath === filePath) return;
+    try {
+      await invoke('rename_file', { oldPath: filePath, newPath });
+      setFilePath(newPath);
+      await invoke('start_watching', { path: newPath }).catch(console.error);
+    } catch (err) {
+      console.error('Rename failed:', err);
+      setWarnMessage(`Rename failed: ${err}`);
+    }
+  }, [filePath, renameValue]);
 
   const handleSave = useCallback(async () => {
     if (!filePath) return;
@@ -666,9 +701,31 @@ export default function App() {
         <button className="btn" onClick={handleSaveAs} disabled={!content} title={`Save As (${formatCombo(getCombo(keybindings.combos, 'saveAs'))})`}>Save As</button>
         <button className="btn" onClick={handleExport} disabled={slides.length === 0} title="Export as PowerPoint (.pptx)">Export</button>
         <div className="toolbar-spacer" data-tauri-drag-region />
-        <div className="toolbar-doctitle" data-tauri-drag-region>
-          {filePath ? filePath.split('/').pop() : 'Untitled.md'}{isDirty ? ' *' : ''}
-        </div>
+        {isRenaming ? (
+          <input
+            className="toolbar-doctitle toolbar-doctitle--editing"
+            value={renameValue}
+            autoFocus
+            onChange={(e) => setRenameValue(e.target.value)}
+            onBlur={handleRenameCommit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); handleRenameCommit(); }
+              if (e.key === 'Escape') { e.preventDefault(); setIsRenaming(false); }
+            }}
+          />
+        ) : (
+          <div
+            className="toolbar-doctitle"
+            onDoubleClick={() => {
+              if (!filePath) return;
+              const base = filePath.split(/[/\\]/).pop() ?? '';
+              setRenameValue(base.replace(/\.(md|markdown)$/i, ''));
+              setIsRenaming(true);
+            }}
+          >
+            {filePath ? filePath.split('/').pop() : 'Untitled.md'}{isDirty ? ' *' : ''}
+          </div>
+        )}
         <button
           className="btn btn-primary"
           onClick={handlePresentEnter}
@@ -824,6 +881,14 @@ export default function App() {
           installedIds={installedRemoteIds}
           onThemesChanged={reloadCustomThemes}
           onClose={() => setShowThemeMarketplace(false)}
+        />
+      )}
+
+      {missingThemeId && (
+        <MissingThemeBanner
+          themeId={missingThemeId}
+          onInstalled={handleMissingThemeInstalled}
+          onDismiss={() => setMissingThemeId(null)}
         />
       )}
 

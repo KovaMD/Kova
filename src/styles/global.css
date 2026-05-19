@@ -122,8 +122,23 @@ html, body, #root {
   font-weight: 500;
   color: var(--text-secondary);
   white-space: nowrap;
-  pointer-events: none;
+  pointer-events: auto;
   letter-spacing: 0.01em;
+  cursor: default;
+}
+
+.toolbar-doctitle--editing {
+  background: var(--input-bg, var(--bg-secondary));
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 1px 6px;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  min-width: 120px;
+  text-align: center;
 }
 
 /* ── Window controls ── */

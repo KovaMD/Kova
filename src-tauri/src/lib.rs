@@ -23,6 +23,7 @@ pub fn run() {
             commands::read_file,
             commands::write_file,
             commands::start_watching,
+            commands::rename_file,
             commands::stop_watching,
             commands::load_keybindings,
             commands::load_custom_themes,
