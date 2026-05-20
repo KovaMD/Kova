@@ -4,7 +4,7 @@
   --sl-text:        #1a1a1a;
   --sl-primary:     #1B3A5C;
   --sl-accent:      #2563EB;
-  --sl-code-bg:     #F5F7FA;
+  --sl-code-bg:     #1e1e1e;
   --sl-title-text:  #ffffff;
   --sl-section-bg:  #E8F0FE;
   --sl-font-title:  Inter, 'Helvetica Neue', Arial, sans-serif;
@@ -156,7 +156,7 @@
 
 .sl-code-inline {
   background: var(--sl-code-bg);
-  color: var(--sl-text);
+  color: #e8e8e8;
   border-radius: 4px;
   padding: 0.6em 0.8em;
   margin: 0.4em 0;
@@ -451,8 +451,8 @@
 .sl-code { height: 100%; display: flex; flex-direction: column; background: var(--sl-bg); }
 .sl-code__title { color: var(--sl-text) !important; }
 .sl-code__block { flex: 1; padding: 2% 4% 4%; overflow: auto; display: flex; flex-direction: column; }
-.sl-code__block pre { margin: 0; flex: 1; overflow: hidden; white-space: pre-wrap; background: color-mix(in srgb, #000 40%, var(--sl-code-bg)); border-radius: 6px; padding: 4%; }
+.sl-code__block pre { margin: 0; flex: 1; overflow: hidden; white-space: pre-wrap; background: var(--sl-code-bg); border-radius: 6px; padding: 4%; }
 .sl-code__block code { font-family: var(--sl-font-code); font-size: clamp(8px, 1.8cqi, 16px); color: #e8e8e8; white-space: pre-wrap; overflow-wrap: break-word; display: block; }
-.sl-code__mermaid { background: color-mix(in srgb, #000 40%, var(--sl-code-bg)); }
+.sl-code__mermaid { background: var(--sl-code-bg); }
 .sl-code__lang { font-size: clamp(7px, 1.4cqi, 11px); color: var(--sl-accent); font-family: var(--sl-font-code); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5em; }
 
