@@ -120,7 +120,6 @@ function buildMermaidInit(theme: Theme): string {
     clusterBkg:            tertiaryBg,
     titleColor:            c.text,
     edgeLabelBackground:   c.background,
-    fontFamily:            firstFont(theme.fonts.body),
     ...cScale,
     ...pie,
     pieTitleTextColor:     c.text,
@@ -143,7 +142,8 @@ function buildMermaidInit(theme: Theme): string {
       yAxisLineColor:    c.text,
     },
   };
-  return `%%{init: ${JSON.stringify({ theme: 'base', themeVariables: vars })}}%%\n`;
+  const fontFamily = firstFont(theme.fonts.body);
+  return `%%{init: ${JSON.stringify({ theme: 'base', fontFamily, themeVariables: vars })}}%%\n`;
 }
 
 interface Props {
