@@ -162,9 +162,9 @@
   margin: 0.4em 0;
   font-family: var(--sl-font-code);
   font-size: 0.82em;
-  overflow: auto;
+  overflow: hidden;
 }
-.sl-code-inline pre { margin: 0; }
+.sl-code-inline pre { margin: 0; white-space: pre-wrap; overflow-wrap: break-word; text-indent: 0.75ch hanging; }
 
 /* ── Title layout ────────────────────────────────────────────────────────── */
 
@@ -382,6 +382,9 @@
 /* ── highlight.js override — let the slide supply the background ─────────── */
 
 .slide-frame .hljs { background: transparent; }
+/* hljs sets `pre code.hljs { overflow-x: auto }` at specificity 0,1,2 which
+   forces a scrollbar and blocks wrapping. Counter-override at 0,2,2. */
+.slide-frame pre code.hljs { overflow-x: hidden; white-space: pre-wrap; overflow-wrap: break-word; padding: 0; text-indent: 0.75ch hanging; }
 
 /* ── Progress bar ────────────────────────────────────────────────────────── */
 
@@ -445,11 +448,11 @@
 
 /* ── Code layout ─────────────────────────────────────────────────────────── */
 
-.sl-code { height: 100%; display: flex; flex-direction: column; background: var(--sl-code-bg); }
-.sl-code__title { color: var(--sl-text) !important; background: var(--sl-code-bg); }
+.sl-code { height: 100%; display: flex; flex-direction: column; background: var(--sl-bg); }
+.sl-code__title { color: var(--sl-text) !important; }
 .sl-code__block { flex: 1; padding: 2% 4% 4%; overflow: auto; display: flex; flex-direction: column; }
-.sl-code__block pre { margin: 0; flex: 1; overflow: auto; background: color-mix(in srgb, #000 40%, var(--sl-code-bg)); border-radius: 6px; padding: 4%; }
-.sl-code__block code { font-family: var(--sl-font-code); font-size: clamp(8px, 1.8cqi, 16px); color: #e8e8e8; white-space: pre; display: block; }
+.sl-code__block pre { margin: 0; flex: 1; overflow: hidden; white-space: pre-wrap; background: color-mix(in srgb, #000 40%, var(--sl-code-bg)); border-radius: 6px; padding: 4%; }
+.sl-code__block code { font-family: var(--sl-font-code); font-size: clamp(8px, 1.8cqi, 16px); color: #e8e8e8; white-space: pre-wrap; overflow-wrap: break-word; display: block; }
 .sl-code__mermaid { background: color-mix(in srgb, #000 40%, var(--sl-code-bg)); }
 .sl-code__lang { font-size: clamp(7px, 1.4cqi, 11px); color: var(--sl-accent); font-family: var(--sl-font-code); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5em; }
 

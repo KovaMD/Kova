@@ -81,8 +81,15 @@ interface ThumbnailProps {
 }
 
 function Thumbnail({ slide, index, totalSlides, isActive, onClick, theme, docTitle, slideH, scale, thumbH }: ThumbnailProps) {
+  const thumbRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isActive) thumbRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [isActive]);
+
   return (
     <div
+      ref={thumbRef}
       onClick={onClick}
       style={{
         marginBottom: 8,

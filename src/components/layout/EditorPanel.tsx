@@ -123,6 +123,21 @@ function findStarGroup(text: string, pos: number): StarGroup | null {
 
 // ── Adjacent-star counter (for selection-based bold/italic toggle) ───────────
 
+// Returns true when text is wrapped by `before`…`after`, disambiguating * vs **.
+function lineIsWrapped(text: string, before: string, after: string): boolean {
+  if (text.length <= before.length + after.length) return false;
+  if (!text.startsWith(before) || !text.endsWith(after)) return false;
+  if (before === '*') {
+    if (text[1] === '*' || text[text.length - 2] === '*') return false;
+  }
+  return true;
+}
+
+// Convenience wrapper for the symmetric star-marker case (bold/italic).
+function selectionIsWrappedInMarker(selText: string, marker: string): boolean {
+  return lineIsWrapped(selText, marker, marker);
+}
+
 function countStarsAround(state: EditorState, from: number, to: number): [number, number] {
   let n = 0;
   while (from - n > 0 && state.sliceDoc(from - n - 1, from - n) === '*') n++;
@@ -185,6 +200,45 @@ function makeWrapCommand(before: string, after: string, placeholder: string) {
 
     // ── Selection present ───────────────────────────────────────────────────
     if (from !== to) {
+      // ── Multi-line: apply markers per line ─────────────────────────────
+      const startLine = state.doc.lineAt(from);
+      const rawEnd    = state.doc.lineAt(to);
+      // If selection ends exactly at a line boundary, don't include that line
+      const endLineNum = (to === rawEnd.from && rawEnd.number > startLine.number)
+        ? rawEnd.number - 1
+        : rawEnd.number;
+
+      if (startLine.number !== endLineNum) {
+        const lines: Array<{ from: number; to: number; text: string }> = [];
+        for (let n = startLine.number; n <= endLineNum; n++) {
+          const l = state.doc.line(n);
+          lines.push({ from: l.from, to: l.to, text: l.text });
+        }
+
+        const contentLines = lines.filter(l => l.text.trim() !== '');
+        const allWrapped   = contentLines.length > 0
+          && contentLines.every(l => lineIsWrapped(l.text, before, after));
+
+        const changes: Array<{ from: number; to: number; insert: string }> = [];
+        if (allWrapped) {
+          for (const l of contentLines) {
+            changes.push({ from: l.from,           to: l.from + bLen, insert: '' });
+            changes.push({ from: l.to   - aLen,    to: l.to,          insert: '' });
+          }
+        } else {
+          for (const l of contentLines) {
+            if (!lineIsWrapped(l.text, before, after)) {
+              changes.push({ from: l.from, to: l.from, insert: before });
+              changes.push({ from: l.to,   to: l.to,   insert: after  });
+            }
+          }
+        }
+
+        if (changes.length > 0) view.dispatch({ changes });
+        view.focus();
+        return true;
+      }
+
       if (isStarMarker) {
         const [sBefore, sAfter] = countStarsAround(state, from, to);
         const min  = Math.min(sBefore, sAfter);
@@ -199,13 +253,26 @@ function makeWrapCommand(before: string, after: string, placeholder: string) {
             selection: EditorSelection.range(from - bLen, to - bLen),
           });
         } else {
-          view.dispatch({
-            changes: [
-              { from, to: from, insert: before },
-              { from: to, to,   insert: after },
-            ],
-            selection: EditorSelection.range(from + bLen, to + bLen),
-          });
+          const selText = state.sliceDoc(from, to);
+          if (selectionIsWrappedInMarker(selText, before)) {
+            // Selection is already wrapped in this marker — toggle off
+            view.dispatch({
+              changes: [
+                { from,            to: from + bLen, insert: '' },
+                { from: to - aLen, to,              insert: '' },
+              ],
+              selection: EditorSelection.range(from, to - bLen - aLen),
+            });
+          } else {
+            // Wrap entire selection (makes the whole line bold/italic)
+            view.dispatch({
+              changes: [
+                { from, to: from, insert: before },
+                { from: to, to,   insert: after },
+              ],
+              selection: EditorSelection.range(from + bLen, to + bLen),
+            });
+          }
         }
       } else {
         // Exact-match toggle for ~~, <u>, `

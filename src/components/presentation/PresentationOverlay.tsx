@@ -10,7 +10,6 @@ interface Props {
   theme: Theme;
   docTitle?: string;
   aspectRatio?: AspectRatio;
-  slideTransition?: boolean;
   onNavigate: (index: number) => void;
   onExit: () => void;
 }
@@ -20,14 +19,18 @@ const NOTE_H  = 160;  // px — speaker notes panel height
 const SLIDE_W = 960;  // virtual slide width (matches ThumbnailPanel)
 
 export function PresentationOverlay({
-  slides, currentIndex, theme, docTitle, aspectRatio = { w: 16, h: 9 }, slideTransition, onNavigate, onExit,
+  slides, currentIndex, theme, docTitle, aspectRatio = { w: 16, h: 9 }, onNavigate, onExit,
 }: Props) {
   const slide = slides[currentIndex];
   const total = slides.length;
 
   const [showNotes, setShowNotes] = useState(false);
   const [hudVisible, setHudVisible] = useState(true);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(() => {
+    // Mirror the CSS: min(100vw, (100vh - HUD_H) * ar.w / ar.h) / SLIDE_W
+    const frameW = Math.min(window.innerWidth, (window.innerHeight - HUD_H) * aspectRatio.w / aspectRatio.h);
+    return frameW / SLIDE_W;
+  });
   const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const overlayRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -123,13 +126,11 @@ export function PresentationOverlay({
       >
         <div ref={frameRef} className="pres-slide-frame">
           <div
-            key={currentIndex}
             style={{
               width: SLIDE_W,
               height: slideH,
               transform: `scale(${scale})`,
               transformOrigin: 'top left',
-              animation: slideTransition !== false ? 'pres-fadein 0.3s ease' : undefined,
             }}
           >
             <SlideRenderer
@@ -140,6 +141,16 @@ export function PresentationOverlay({
               docTitle={docTitle}
             />
           </div>
+          <div
+            key={currentIndex}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: '#000',
+              animation: 'pres-fadeout 0.3s ease forwards',
+              pointerEvents: 'none',
+            }}
+          />
         </div>
       </div>
 

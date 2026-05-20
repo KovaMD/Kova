@@ -551,11 +551,6 @@ export function SettingsModal({ settings, keybindingsPath, themesDir, themeLoadE
           </div>
         </div>
 
-        <Row
-          label="Slide transitions"
-          description="Fades between slides during a presentation."
-          control={<Toggle checked={settings.slideTransition} onChange={(v) => set('slideTransition', v)} />}
-        />
 
         {settings.presentationMode === 'dual' && (
           <>
