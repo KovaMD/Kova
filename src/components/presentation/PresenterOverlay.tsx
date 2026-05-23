@@ -48,6 +48,7 @@ export function PresenterOverlay({
   const overlayRef     = useRef<HTMLDivElement>(null);
   const currentFrameRef = useRef<HTMLDivElement>(null);
   const nextFrameRef    = useRef<HTMLDivElement>(null);
+  const didMountRef    = useRef(false);
 
   useEffect(() => { overlayRef.current?.focus(); }, []);
 
@@ -78,8 +79,13 @@ export function PresenterOverlay({
     return () => clearInterval(id);
   }, [showTimer]);
 
-  // Sync navigation to audience window
+  // Sync navigation to audience window. Skip the mount-time fire because
+  // present:init already carries the starting index; only emit on real navigations.
   useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
     emitTo('audience', 'present:navigate', { index: currentIndex }).catch(() => {});
   }, [currentIndex]);
 

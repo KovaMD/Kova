@@ -323,8 +323,28 @@ export default function App() {
     });
   }, [guardDirty]);
 
+  // Prevents double-exit when the audience window is closed externally while
+  // handlePresentExit is already in flight.
+  const isExitingRef = useRef(false);
+  // Incremented each time a presentation session starts so that a stale
+  // tauri://destroyed handler from a previous session (e.g. close of a leftover
+  // audience window) can detect it is out of date and skip its state reset.
+  const presentSessionRef = useRef(0);
+
+  const handlePresentExit = useCallback(async () => {
+    if (isExitingRef.current) return;
+    isExitingRef.current = true;
+    await emit('present:exit', null).catch(() => {});
+    setPresentMode(false);
+    setPresenterMode(false);
+    await getCurrentWindow().setFullscreen(false).catch(() => {});
+    isExitingRef.current = false;
+  }, []);
+
   const handlePresentEnter = useCallback(async (e?: React.MouseEvent) => {
     if (slides.length === 0) return;
+    isExitingRef.current = false;
+    const sessionId = ++presentSessionRef.current;
     const startIndex = e?.altKey ? safeSlideIndex : 0;
     if (!e?.altKey) setCurrentSlideIndex(0);
 
@@ -354,26 +374,44 @@ export default function App() {
           index: startIndex,
           aspectRatio,
           docTitle: frontmatter.title,
-
         };
 
-        // Register ready listener BEFORE creating the window to avoid missing the event
-        const unlistenReady = await listen('present:ready', async () => {
-          unlistenReady();
+        // Close any stale audience window from a previous failed session to
+        // prevent a name collision that would silence window creation errors.
+        try {
+          const stale = await WebviewWindow.getByLabel('audience');
+          if (stale) await stale.close().catch(() => {});
+        } catch { /* ignore */ }
+
+        // Register ready listener BEFORE creating the window to avoid missing the event.
+        // Use `let` so the timeout callback can also reach it.
+        let unlistenReady: (() => void) | undefined;
+        const readyTimeoutId = setTimeout(() => {
+          // present:ready never fired — window creation silently failed.
+          // Clean up the dangling listener so a future attempt starts fresh.
+          unlistenReady?.();
+        }, 10_000);
+
+        unlistenReady = await listen('present:ready', async () => {
+          clearTimeout(readyTimeoutId);
+          unlistenReady?.();
           await emitTo('audience', 'present:init', initPayload);
 
-          // Drive positioning + fullscreen via Rust — the 250 ms blocking sleep
-          // on the Rust side is more reliable than JS setTimeout for convincing
-          // the X11 WM to process XMoveWindow before _NET_WM_STATE_FULLSCREEN.
+          // Drive positioning + fullscreen via Rust.
           const logX = external.position.x / external.scaleFactor;
           const logY = external.position.y / external.scaleFactor;
-          await invoke('setup_audience_window', { x: logX, y: logY }).catch(() => {});
+          await invoke('setup_audience_window', {
+            x: logX,
+            y: logY,
+            physicalX: external.position.x,
+            physicalY: external.position.y,
+          }).catch(() => {});
           // Reclaim focus on the presenter window — the audience window creation
           // may steal it even with focus:false, depending on the compositor.
           await getCurrentWindow().setFocus().catch(() => {});
         });
 
-        new WebviewWindow('audience', {
+        const audienceWin = new WebviewWindow('audience', {
           url: '/#audience',
           x: external.position.x / external.scaleFactor,
           y: external.position.y / external.scaleFactor,
@@ -386,6 +424,28 @@ export default function App() {
           resizable: false,
           focus: false,
         });
+
+        // If window creation fails, clean up the ready listener and reset state.
+        audienceWin.once('tauri://error', () => {
+          clearTimeout(readyTimeoutId);
+          unlistenReady?.();
+          setPresentMode(false);
+          setPresenterMode(false);
+          getCurrentWindow().setFullscreen(false).catch(() => {});
+        }).catch(() => {});
+
+        // If the audience window is closed externally (compositor, Alt+F4, etc.),
+        // exit presentation mode so the main window doesn't stay stuck fullscreened.
+        // The sessionId guard ensures a stale handler from a previous session
+        // (triggered by closing a leftover window at the start of a new session)
+        // does not reset state that the new session just set.
+        audienceWin.once('tauri://destroyed', () => {
+          if (isExitingRef.current) return; // normal exit already in progress
+          if (presentSessionRef.current !== sessionId) return; // stale session
+          setPresentMode(false);
+          setPresenterMode(false);
+          getCurrentWindow().setFullscreen(false).catch(() => {});
+        }).catch(() => {});
 
         if (mode === 'dual') {
           setPresenterMode(true);
@@ -400,14 +460,6 @@ export default function App() {
     setPresentMode(true);
     await getCurrentWindow().setFullscreen(true).catch(() => {});
   }, [slides, safeSlideIndex, activeTheme, aspectRatio, frontmatter.title, settings.presentationMode]);
-
-  const handlePresentExit = useCallback(async () => {
-    // Close audience window if open
-    await emit('present:exit', null).catch(() => {});
-    setPresentMode(false);
-    setPresenterMode(false);
-    await getCurrentWindow().setFullscreen(false).catch(() => {});
-  }, []);
 
   // When the audience window has OS focus (common on Wayland where compositors
   // ignore focus:false), forward its keydown events so arrow-key navigation
