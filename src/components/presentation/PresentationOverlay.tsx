@@ -26,6 +26,8 @@ export function PresentationOverlay({
 
   const [showNotes, setShowNotes] = useState(false);
   const [hudVisible, setHudVisible] = useState(true);
+  const [laserActive, setLaserActive] = useState(false);
+  const [laserPos, setLaserPos] = useState<{ x: number; y: number } | null>(null);
   const [scale, setScale] = useState(() => {
     // Mirror the CSS: min(100vw, (100vh - HUD_H) * ar.w / ar.h) / SLIDE_W
     const frameW = Math.min(window.innerWidth, (window.innerHeight - HUD_H) * aspectRatio.w / aspectRatio.h);
@@ -74,6 +76,9 @@ export function PresentationOverlay({
         case 'n': case 'N':
           if (slide?.speakerNotes) setShowNotes((p) => !p);
           break;
+        case 'l': case 'L':
+          setLaserActive((p) => !p);
+          break;
         case 'Escape':
           e.preventDefault(); onExit(); break;
       }
@@ -81,6 +86,9 @@ export function PresentationOverlay({
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [goNext, goPrev, onExit, slide]);
+
+  // Clear laser position when deactivated
+  useEffect(() => { if (!laserActive) setLaserPos(null); }, [laserActive]);
 
   // ── Mouse idle → hide HUD and cursor ──────────────────────────────────────
 
@@ -94,6 +102,17 @@ export function PresentationOverlay({
     resetIdle();
     return () => clearTimeout(idleTimer.current);
   }, [resetIdle]);
+
+  // ── Laser pointer tracking ─────────────────────────────────────────────────
+
+  const handleFrameMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!laserActive || !frameRef.current) return;
+    const rect = frameRef.current.getBoundingClientRect();
+    setLaserPos({
+      x: Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)),
+      y: Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)),
+    });
+  }, [laserActive]);
 
   // ── Click-to-navigate (left third = prev, rest = next) ────────────────────
 
@@ -122,9 +141,9 @@ export function PresentationOverlay({
     >
       {/* ── Slide area ── */}
       <div className="pres-slide-area" onClick={handleClick}
-        style={{ cursor: hudVisible ? 'default' : 'none' }}
+        style={{ cursor: laserActive ? 'crosshair' : hudVisible ? 'default' : 'none' }}
       >
-        <div ref={frameRef} className="pres-slide-frame">
+        <div ref={frameRef} className="pres-slide-frame" onMouseMove={handleFrameMouseMove}>
           <div
             style={{
               width: SLIDE_W,
@@ -151,6 +170,12 @@ export function PresentationOverlay({
               pointerEvents: 'none',
             }}
           />
+          {laserActive && laserPos && (
+            <div
+              className="pres-laser-dot"
+              style={{ left: `${laserPos.x * 100}%`, top: `${laserPos.y * 100}%` }}
+            />
+          )}
         </div>
       </div>
 
@@ -187,6 +212,12 @@ export function PresentationOverlay({
             title="Toggle speaker notes (N)"
           >Notes</button>
         )}
+
+        <button
+          className={`pres-hud__btn${laserActive ? ' pres-hud__btn--active' : ''}`}
+          onClick={(e) => { e.stopPropagation(); setLaserActive((p) => !p); }}
+          title="Toggle laser pointer (L)"
+        >Laser</button>
 
         <button
           className="pres-hud__btn pres-hud__btn--exit"

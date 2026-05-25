@@ -44,6 +44,8 @@ export function PresenterOverlay({
   const [elapsed, setElapsed]           = useState(0);
   const [currentScale, setCurrentScale] = useState(1);
   const [nextScale, setNextScale]       = useState(1);
+  const [laserActive, setLaserActive]   = useState(false);
+  const [laserPos, setLaserPos]         = useState<{ x: number; y: number } | null>(null);
   const startTime      = useRef(Date.now());
   const overlayRef     = useRef<HTMLDivElement>(null);
   const currentFrameRef = useRef<HTMLDivElement>(null);
@@ -79,6 +81,14 @@ export function PresenterOverlay({
     return () => clearInterval(id);
   }, [showTimer]);
 
+  // Clear laser and notify audience when deactivated
+  useEffect(() => {
+    if (!laserActive) {
+      setLaserPos(null);
+      emitTo('audience', 'present:laser', { x: 0, y: 0, active: false }).catch(() => {});
+    }
+  }, [laserActive]);
+
   // Sync navigation to audience window. Skip the mount-time fire because
   // present:init already carries the starting index; only emit on real navigations.
   useEffect(() => {
@@ -88,6 +98,17 @@ export function PresenterOverlay({
     }
     emitTo('audience', 'present:navigate', { index: currentIndex }).catch(() => {});
   }, [currentIndex]);
+
+  const handleCurrentFrameMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!currentFrameRef.current) return;
+    const rect = currentFrameRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    setLaserPos({ x, y });
+    if (laserActive) {
+      emitTo('audience', 'present:laser', { x, y, active: true }).catch(() => {});
+    }
+  }, [laserActive]);
 
   const goNext = useCallback(() => {
     if (currentIndex < total - 1) onNavigate(currentIndex + 1);
@@ -104,6 +125,8 @@ export function PresenterOverlay({
           e.preventDefault(); goNext(); break;
         case 'ArrowLeft': case 'ArrowUp': case 'PageUp':
           e.preventDefault(); goPrev(); break;
+        case 'l': case 'L':
+          setLaserActive((p) => !p); break;
         case 'Escape':
           e.preventDefault(); onExit(); break;
       }
@@ -131,7 +154,12 @@ export function PresenterOverlay({
 
         {/* ── Current slide ── */}
         <div className="pres-presenter__current">
-          <div className="pres-presenter__current-frame" ref={currentFrameRef}>
+          <div
+            className="pres-presenter__current-frame"
+            ref={currentFrameRef}
+            onMouseMove={handleCurrentFrameMouseMove}
+            style={{ cursor: laserActive ? 'crosshair' : undefined }}
+          >
             <div style={{
               width: SLIDE_W,
               height: slideH,
@@ -146,6 +174,12 @@ export function PresenterOverlay({
                 docTitle={docTitle}
               />
             </div>
+            {laserActive && laserPos && (
+              <div
+                className="pres-laser-dot"
+                style={{ left: `${laserPos.x * 100}%`, top: `${laserPos.y * 100}%` }}
+              />
+            )}
           </div>
         </div>
 
@@ -220,6 +254,14 @@ export function PresenterOverlay({
             </span>
           </>
         )}
+
+        <div className="pres-presenter__hud-divider" />
+
+        <button
+          className={`pres-presenter__btn${laserActive ? ' pres-presenter__btn--active' : ''}`}
+          onClick={() => setLaserActive((p) => !p)}
+          title="Toggle laser pointer (L)"
+        >Laser</button>
 
         <div className="pres-presenter__hud-divider" />
 

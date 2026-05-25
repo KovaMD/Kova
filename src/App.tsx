@@ -640,6 +640,26 @@ export default function App() {
     setIsDirty(true);
   }, []);
 
+  const handleSlideReorder = useCallback((fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setContent((prev) => {
+      const fmMatch = prev.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
+      const fmBlock = fmMatch ? fmMatch[0] : '';
+      const body = prev.slice(fmBlock.length);
+      const segments = body.split(/^---$/m);
+      if (fromIndex < 0 || fromIndex >= segments.length || toIndex < 0 || toIndex >= segments.length) return prev;
+      const reordered = [...segments];
+      const [moved] = reordered.splice(fromIndex, 1);
+      reordered.splice(toIndex, 0, moved);
+      // Trim each segment and rejoin with normalized separators so the result
+      // is always valid regardless of which segment ends up at which position.
+      return fmBlock + reordered.map((s) => s.trim()).join('\n\n---\n\n') + '\n';
+    });
+    setIsDirty(true);
+    setCurrentSlideIndex(toIndex);
+    setTimeout(() => editorRef.current?.scrollToSlide(toIndex), 50);
+  }, []);
+
   const handleWarn = useCallback((msg: string) => {
     setWarnMessage(msg);
     if (warnTimerRef.current) clearTimeout(warnTimerRef.current);
@@ -860,6 +880,7 @@ export default function App() {
               slides={slides}
               currentIndex={safeSlideIndex}
               onSelect={handleThumbnailSelect}
+              onReorder={handleSlideReorder}
               theme={activeTheme}
               docTitle={frontmatter.title}
               aspectRatio={aspectRatio}

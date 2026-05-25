@@ -3,6 +3,18 @@
   to   { opacity: 0; }
 }
 
+.pres-laser-dot {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 30, 30, 0.9);
+  box-shadow: 0 0 6px 2px rgba(255, 60, 60, 0.7), 0 0 16px 5px rgba(255, 0, 0, 0.3);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 200;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;

@@ -190,6 +190,11 @@
   cursor: default;
 }
 
+.pres-presenter__btn--active {
+  color: #D94F00;
+  border-color: #D94F00;
+}
+
 .pres-presenter__btn--exit {
   margin-left: 8px;
   color: #555;

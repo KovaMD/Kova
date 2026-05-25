@@ -20,13 +20,15 @@ export function AudienceApp() {
   const [initData, setInitData]         = useState<PresentInitPayload | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [scale, setScale]               = useState(1);
+  const [laserPos, setLaserPos]         = useState<{ x: number; y: number } | null>(null);
   const slidesRef = useRef<Slide[]>([]);
   const frameRef  = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let unlistenInit: (() => void) | undefined;
-    let unlistenNav:  (() => void) | undefined;
-    let unlistenExit: (() => void) | undefined;
+    let unlistenInit:  (() => void) | undefined;
+    let unlistenNav:   (() => void) | undefined;
+    let unlistenExit:  (() => void) | undefined;
+    let unlistenLaser: (() => void) | undefined;
 
     async function setup() {
       unlistenInit = await listen<PresentInitPayload>('present:init', (e) => {
@@ -43,11 +45,15 @@ export function AudienceApp() {
         getCurrentWindow().close();
       });
 
+      unlistenLaser = await listen<{ x: number; y: number; active: boolean }>('present:laser', (e) => {
+        setLaserPos(e.payload.active ? { x: e.payload.x, y: e.payload.y } : null);
+      });
+
       await emit('present:ready', null);
     }
 
     setup();
-    return () => { unlistenInit?.(); unlistenNav?.(); unlistenExit?.(); };
+    return () => { unlistenInit?.(); unlistenNav?.(); unlistenExit?.(); unlistenLaser?.(); };
   }, []);
 
   // Forward keyboard events to the main presenter window so navigation works
@@ -129,6 +135,12 @@ export function AudienceApp() {
                   pointerEvents: 'none',
                 }}
               />
+              {laserPos && (
+                <div
+                  className="pres-laser-dot"
+                  style={{ left: `${laserPos.x * 100}%`, top: `${laserPos.y * 100}%` }}
+                />
+              )}
             </>
           )}
         </div>

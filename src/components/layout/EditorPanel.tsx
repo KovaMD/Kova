@@ -487,6 +487,9 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [tablePromptOpen, setTablePromptOpen] = useState(false);
+  const [tableRows, setTableRows] = useState(3);
+  const [tableCols, setTableCols] = useState(3);
   const showConfirmRef = useRef<(title: string, message: string, okLabel?: string) => Promise<boolean>>(null!);
 
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
@@ -829,6 +832,14 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
     view.focus();
   }
 
+  function insertTable(rows: number, cols: number) {
+    const headerCells = Array(cols).fill(' Header ').join('|');
+    const sepCells    = Array(cols).fill(' ------ ').join('|');
+    const dataRow     = '|' + Array(cols).fill(' Cell   ').join('|') + '|';
+    const dataRows    = Array(rows - 1).fill(dataRow).join('\n');
+    doInsert(`|${headerCells}|\n|${sepCells}|\n${dataRows}`, 2);
+  }
+
   function doWrap(before: string, after: string, placeholder: string) {
     const view = viewRef.current;
     if (!view) return;
@@ -913,7 +924,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
         type: 'submenu', label: 'Insert', entries: [
           { type: 'item', label: 'Code Block',      action: () => doInsert('```\n\n```', 3) },
           { type: 'item', label: 'Blockquote',      action: () => doInsert('> ', 2) },
-          { type: 'item', label: 'Table',           action: () => doInsert('| Header | Header |\n| ------ | ------ |\n| Cell   | Cell   |', 2) },
+          { type: 'item', label: 'Table', action: () => { setTableRows(3); setTableCols(3); setTablePromptOpen(true); } },
           { type: 'item', label: 'Horizontal Rule', action: () => doInsert('\n<hr>\n', 5) },
           {
             type: 'item', label: 'Image', action: async () => {
@@ -1095,6 +1106,67 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
             <button className="btn" onClick={() => { confirmState.resolve(false); setConfirmState(null); }}>Cancel</button>
             <button className="btn btn-primary" onClick={() => { confirmState.resolve(true); setConfirmState(null); }}>
               {confirmState.okLabel}
+            </button>
+          </div>
+        </div>
+      </>
+    )}
+    {tablePromptOpen && (
+      <>
+        <div
+          onMouseDown={() => setTablePromptOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'var(--backdrop)', zIndex: 2000 }}
+        />
+        <div style={{
+          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+          background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8,
+          boxShadow: '0 16px 48px rgba(0,0,0,0.6)', zIndex: 2001,
+          padding: '24px 28px', width: 280, maxWidth: '90vw',
+        }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>
+            Insert Table
+          </div>
+          <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
+            <label style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>Columns</div>
+              <input
+                type="number" min={1} max={20} value={tableCols}
+                onChange={e => setTableCols(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                style={{
+                  width: '100%', padding: '6px 8px', fontSize: 13, borderRadius: 5,
+                  border: '1px solid var(--border)', background: 'var(--bg-base)',
+                  color: 'var(--text-primary)', boxSizing: 'border-box',
+                }}
+                autoFocus
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { insertTable(tableRows, tableCols); setTablePromptOpen(false); }
+                  if (e.key === 'Escape') setTablePromptOpen(false);
+                }}
+              />
+            </label>
+            <label style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>Rows</div>
+              <input
+                type="number" min={2} max={50} value={tableRows}
+                onChange={e => setTableRows(Math.max(2, Math.min(50, parseInt(e.target.value) || 2)))}
+                style={{
+                  width: '100%', padding: '6px 8px', fontSize: 13, borderRadius: 5,
+                  border: '1px solid var(--border)', background: 'var(--bg-base)',
+                  color: 'var(--text-primary)', boxSizing: 'border-box',
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { insertTable(tableRows, tableCols); setTablePromptOpen(false); }
+                  if (e.key === 'Escape') setTablePromptOpen(false);
+                }}
+              />
+            </label>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button className="btn" onClick={() => setTablePromptOpen(false)}>Cancel</button>
+            <button className="btn btn-primary" onClick={() => { insertTable(tableRows, tableCols); setTablePromptOpen(false); }}>
+              Insert
             </button>
           </div>
         </div>
