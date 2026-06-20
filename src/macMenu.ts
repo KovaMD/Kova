@@ -18,6 +18,7 @@ export interface MacMenuHandlers {
   saveAs: () => void;
   import: () => void;
   importUrl: () => void;
+  importMarp: () => void;
   export: () => void;
   exportPdf: () => void;
   print: () => void;
@@ -66,8 +67,14 @@ export async function buildMacMenu(h: MacMenuHandlers, recents: string[]): Promi
           { item: 'Separator' },
           { text: 'Save', accelerator: 'CmdOrCtrl+S', action: () => h.save() },
           { text: 'Save As…', accelerator: 'CmdOrCtrl+Shift+S', action: () => h.saveAs() },
-          { text: 'Import from PowerPoint…', action: () => h.import() },
-          { text: 'Import from URL…', action: () => h.importUrl() },
+          await Submenu.new({
+            text: 'Import',
+            items: [
+              { text: 'From PowerPoint…', action: () => h.import() },
+              { text: 'From URL…', action: () => h.importUrl() },
+              { text: 'From Marp…', action: () => h.importMarp() },
+            ],
+          }),
           { item: 'Separator' },
           { text: 'Export PowerPoint (.pptx)', action: () => h.export() },
           { text: 'Export PDF (.pdf)', action: () => h.exportPdf() },

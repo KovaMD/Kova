@@ -35,14 +35,23 @@ function OverflowPane({ className, elements }: { className: string; elements: Sl
   const fitScaleRef = useRef(1);
   const [fitScale, setFitScale] = useState(1);
 
+  const lastRef = useRef({ c: -1, a: -1 });
+
   const remeasure = useCallback(() => {
     const outer = outerRef.current;
     const inner = innerRef.current;
     if (!outer || !inner) return;
+    // Measure unscaled, then bail if nothing changed since last time. The bail is
+    // what makes this loop-proof: once dimensions settle, no setState fires, so the
+    // ResizeObserver → setState → re-render cycle terminates.
+    inner.style.transform = '';
     const contentH = inner.scrollHeight;
     const availH = outer.clientHeight;
-    // transform: scale doesn't affect scrollHeight, so this measurement is always
-    // the true content height regardless of any current scale applied.
+    if (contentH === lastRef.current.c && availH === lastRef.current.a) {
+      inner.style.transform = fitScaleRef.current < 1 ? `scale(${fitScaleRef.current})` : '';
+      return;
+    }
+    lastRef.current = { c: contentH, a: availH };
     const s = contentH > availH + 2 && availH > 0
       ? Math.max(0.4, availH / contentH)
       : 1;
@@ -53,14 +62,21 @@ function OverflowPane({ className, elements }: { className: string; elements: Sl
     }
   }, []);
 
-  useLayoutEffect(() => { remeasure(); });
-
+  // ResizeObserver fires once on observe() (covers mount), then on real box-size
+  // changes: `outer` for available height, `inner` for content growth. The callback
+  // is rAF-debounced — deferring the measure out of the observer's synchronous
+  // delivery is the standard guard against the "ResizeObserver loop" that otherwise
+  // surfaces as React's "Maximum update depth exceeded". Combined with the
+  // unchanged-dimensions bail in remeasure, re-entry is impossible.
   useEffect(() => {
-    const el = outerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(remeasure);
-    ro.observe(el);
-    return () => ro.disconnect();
+    let raf = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(remeasure);
+    });
+    if (outerRef.current) ro.observe(outerRef.current);
+    if (innerRef.current) ro.observe(innerRef.current);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
   }, [remeasure]);
 
   return (
