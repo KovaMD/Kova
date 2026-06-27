@@ -64,7 +64,7 @@ describe('patchFrontmatter', () => {
   });
 
   it('removes keys when patch value is null or undefined', () => {
-    const input = '---\ntitle: Keep\nauthor: Drop\n---\n\n# Slide\n';
+    const input = '---\ntitle: Keep\nauthor: Drop\ndate: 2024\n---\n\n# Slide\n';
     const out = patchFrontmatter(input, { author: null, date: undefined });
     expect(out).toMatch(/title: "?Keep"?/);
     expect(out).not.toMatch(/^author:/m);

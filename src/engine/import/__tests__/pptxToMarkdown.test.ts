@@ -54,6 +54,28 @@ describe('pptxToMarkdown', () => {
     expect(md).toContain('- Second point');
   });
 
+  it('passes single-line body text through as-is', () => {
+    const md = pptxToMarkdown(makeResult({
+      slides: [{
+        blocks: [{ kind: 'body', text: 'Single point', normX: 0, normY: 0.2, normW: 1, normH: 0.5 }],
+        speakerNotes: '',
+      }],
+    }));
+    expect(md).toContain('Single point');
+    expect(md).not.toContain('- Single point');
+  });
+
+  it('passes already-bulleted body through without re-wrapping', () => {
+    const md = pptxToMarkdown(makeResult({
+      slides: [{
+        blocks: [{ kind: 'body', text: '- A\n- B', normX: 0, normY: 0.2, normW: 1, normH: 0.5 }],
+        speakerNotes: '',
+      }],
+    }));
+    expect(md).toContain('- A');
+    expect(md).not.toContain('- - A');
+  });
+
   it('renders tables as GFM and escapes pipe characters', () => {
     const md = pptxToMarkdown(makeResult({
       slides: [{
@@ -93,7 +115,17 @@ describe('pptxToMarkdown', () => {
     }));
     expect(md).toContain('## One');
     expect(md).toContain('## Two');
-    expect(md).toMatch(/\n---\n/);
+    expect(md).toMatch(/\n\n---\n\n/);
+  });
+
+  it('renders image blocks as markdown images', () => {
+    const md = pptxToMarkdown(makeResult({
+      slides: [{
+        blocks: [{ kind: 'image', assetFilename: 'assets/slide1_img1.png', normX: 0, normY: 0.2, normW: 1, normH: 0.5 }],
+        speakerNotes: '',
+      }],
+    }));
+    expect(md).toContain('![](assets/slide1_img1.png)');
   });
 
   it('emits a placeholder comment for empty slides', () => {
