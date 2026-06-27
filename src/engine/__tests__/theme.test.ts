@@ -3,6 +3,11 @@ import {
   themeToVars,
   resolveTemplate,
   parseThemeYaml,
+  hexToHsl,
+  hslToHex,
+  isLightHex,
+  defaultChartPalette,
+  sanitiseThemeOverrides,
   DEFAULT_THEME,
   BUILT_IN_THEMES,
 } from '../theme';
@@ -63,6 +68,134 @@ describe('themeToVars', () => {
     const pitchTheme = BUILT_IN_THEMES.find((t) => t.id === 'pitch')!;
     const pitchVars = themeToVars(pitchTheme) as Record<string, string>;
     expect(pitchVars['--sl-title-ay']).toBe('flex-end');
+  });
+});
+
+// ── Colour utilities ──────────────────────────────────────────────────────────
+
+describe('hexToHsl', () => {
+  it('converts white to zero saturation and full lightness', () => {
+    const [h, s, l] = hexToHsl('#FFFFFF');
+    expect(h).toBe(0);
+    expect(s).toBe(0);
+    expect(l).toBeCloseTo(1, 5);
+  });
+
+  it('converts black to zero lightness', () => {
+    const [, s, l] = hexToHsl('#000000');
+    expect(s).toBe(0);
+    expect(l).toBe(0);
+  });
+
+  it('returns [0, 0, 0] for invalid hex strings', () => {
+    expect(hexToHsl('not-a-color')).toEqual([0, 0, 0]);
+    expect(hexToHsl('#ABC')).toEqual([0, 0, 0]);
+  });
+});
+
+describe('hslToHex', () => {
+  it('round-trips through hexToHsl for a saturated blue', () => {
+    const original = '#2563EB';
+    const [h, s, l] = hexToHsl(original);
+    const roundTripped = hslToHex(h, s, l);
+    expect(roundTripped.toLowerCase()).toBe(original.toLowerCase());
+  });
+
+  it('wraps hue values outside 0–360', () => {
+    expect(hslToHex(450, 0.5, 0.5)).toBe(hslToHex(90, 0.5, 0.5));
+  });
+});
+
+describe('isLightHex', () => {
+  it('returns true for perceptually light colours', () => {
+    expect(isLightHex('#FFFFFF')).toBe(true);
+    expect(isLightHex('#F0F0F0')).toBe(true);
+  });
+
+  it('returns false for dark colours and invalid input', () => {
+    expect(isLightHex('#111111')).toBe(false);
+    expect(isLightHex('#2563EB')).toBe(false);
+    expect(isLightHex('invalid')).toBe(false);
+  });
+});
+
+describe('defaultChartPalette', () => {
+  it('returns the requested number of hex colours', () => {
+    expect(defaultChartPalette('#2563EB', 8)).toHaveLength(8);
+    expect(defaultChartPalette('#2563EB', 4)).toHaveLength(4);
+  });
+
+  it('returns distinct colours anchored to the accent', () => {
+    const palette = defaultChartPalette('#2563EB', 8);
+    expect(new Set(palette).size).toBe(8);
+    expect(palette.every((c) => /^#[0-9a-f]{6}$/i.test(c))).toBe(true);
+  });
+});
+
+describe('sanitiseThemeOverrides', () => {
+  it('passes through valid color and font overrides', () => {
+    const result = sanitiseThemeOverrides({
+      colors: { primary: '#1B3A5C', accent: '#2563EB' },
+      fonts: { body: 'Inter, sans-serif' },
+    });
+    expect(result.colors?.primary).toBe('#1B3A5C');
+    expect(result.colors?.accent).toBe('#2563EB');
+    expect(result.fonts?.body).toBe('Inter, sans-serif');
+  });
+
+  it('drops CSS injection attempts in color values', () => {
+    const result = sanitiseThemeOverrides({
+      colors: { primary: '#fff; background: red', accent: '#2563EB' },
+    });
+    expect(result.colors?.primary).toBeUndefined();
+    expect(result.colors?.accent).toBe('#2563EB');
+  });
+
+  it('filters invalid entries from chart_colors', () => {
+    const result = sanitiseThemeOverrides({
+      colors: { chart_colors: ['#FF0000', 'bad;injection', '#00FF00'] },
+    });
+    expect(result.colors?.chart_colors).toEqual(['#FF0000', '#00FF00']);
+  });
+
+  it('sanitises header and footer fields', () => {
+    const result = sanitiseThemeOverrides({
+      footer: { show: true, text: 'Confidential', show_slide_number: true },
+      header: { show: true, text: 'bad; css' },
+    });
+    expect(result.footer?.show).toBe(true);
+    expect(result.footer?.text).toBe('Confidential');
+    expect(result.footer?.show_slide_number).toBe(true);
+    expect(result.header?.text).toBeUndefined();
+  });
+
+  it('drops footer/header text containing template braces (CSS-injection guard)', () => {
+    const result = sanitiseThemeOverrides({
+      footer: { text: 'Page {title}' },
+      header: { text: '{title}' },
+    });
+    expect(result.footer?.text).toBeUndefined();
+    expect(result.header?.text).toBeUndefined();
+  });
+
+  it('clamps logo_opacity and accepts valid logo paths', () => {
+    const result = sanitiseThemeOverrides({
+      logo: '/Users/me/logo.png',
+      logo_position: 'top-right',
+      logo_opacity: 1.5,
+    });
+    expect(result.logo).toBe('/Users/me/logo.png');
+    expect(result.logo_position).toBe('top-right');
+    expect(result.logo_opacity).toBe(1);
+  });
+
+  it('rejects invalid logo URLs and positions', () => {
+    const result = sanitiseThemeOverrides({
+      logo: 'javascript:alert(1)',
+      logo_position: 'center',
+    });
+    expect(result.logo).toBeUndefined();
+    expect(result.logo_position).toBeUndefined();
   });
 });
 
