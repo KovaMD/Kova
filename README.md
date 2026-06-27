@@ -89,6 +89,10 @@ Custom themes follow the same base path, under a `themes/` subfolder. Full refer
 
 **Custom themes** — place YAML theme files in the `themes/` subfolder of your config directory (see Keybindings above for platform paths). They appear in the Inspector alongside built-in themes. See the [Themes](https://wiki.kova.md/themes/) wiki page for the full YAML format.
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=KovaMD/Kova&type=Date)](https://star-history.com/#KovaMD/Kova&Date)
+
 ## License
 
 Kova is free and open source software, released under the **GNU General Public License v3.0**.
