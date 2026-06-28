@@ -194,6 +194,30 @@ function findEnclosingMarkerPair(
   return closeIdx === -1 ? null : [openIdx, closeIdx];
 }
 
+// Cursor-move command between slide starts: the body start, then the line after
+// each standalone `---` (frontmatter skipped). `pick(i, n)` maps the current
+// slide index to the target; out-of-range falls through (returns false).
+function slideNav(pick: (i: number, n: number) => number) {
+  return (view: EditorView): boolean => {
+    const doc = view.state.doc.toString();
+    const fm = doc.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
+    const start = fm ? fm[0].length : 0;
+    const starts = [start];
+    const body = doc.slice(start);
+    for (let m, sep = /^---$/gm; (m = sep.exec(body)); ) {
+      const a = start + m.index + m[0].length;
+      starts.push(a + (doc[a] === '\r' ? 2 : doc[a] === '\n' ? 1 : 0));
+    }
+    let i = 0;
+    const cur = view.state.selection.main.head;
+    while (i + 1 < starts.length && starts[i + 1] <= cur) i++;
+    const target = starts[pick(i, starts.length)];
+    if (target === undefined) return false;
+    view.dispatch({ selection: EditorSelection.cursor(target), effects: EditorView.scrollIntoView(target, { y: 'start' }) });
+    return true;
+  };
+}
+
 // ── Main wrap/toggle command factory ─────────────────────────────────────────
 
 function makeWrapCommand(before: string, after: string, placeholder: string) {
@@ -637,6 +661,12 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
           { key: 'Mod-`',       run: makeWrapCommand('`',   '`',    'code') },
           { key: 'Mod-]', run: indentLine },
           { key: 'Mod-[', run: dedentLine },
+          { key: 'Mod-ArrowUp',    run: slideNav((i) => i - 1) },
+          { key: 'PageUp',         run: slideNav((i) => i - 1) },
+          { key: 'Mod-ArrowDown',  run: slideNav((i) => i + 1) },
+          { key: 'PageDown',       run: slideNav((i) => i + 1) },
+          { key: 'Mod-Home',       run: slideNav(() => 0) },
+          { key: 'Mod-End',        run: slideNav((_i, n) => n - 1) },
           { key: 'Mod-1', run: makeHeadingCommand(1) },
           { key: 'Mod-2', run: makeHeadingCommand(2) },
           { key: 'Mod-3', run: makeHeadingCommand(3) },
