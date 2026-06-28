@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import type { AppSettings, PresentationMode, NotesFontSize, LaserColor, StartupBehavior } from '../store/settings';
-import { EDITOR_FONT_OPTIONS, LASER_COLOR_OPTIONS } from '../store/settings';
+import { EDITOR_FONT_OPTIONS, LASER_COLOR_OPTIONS, UI_SCALE_OPTIONS } from '../store/settings';
 import type { Theme } from '../engine/theme';
 import { isFontAvailable } from '../engine/fontDetect';
 import { fetchUpdate, canSelfUpdate, restartApp } from '../engine/updater';
@@ -308,6 +308,17 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
               Follows your operating system's appearance setting.
             </div>
           )}
+        </div>
+
+        <div style={{ padding: '10px 0' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>Interface scale</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {UI_SCALE_OPTIONS.map(({ value, label }) => (
+              <button key={value} type="button" onClick={() => set('uiScale', value)}
+                style={groupBtnStyle(settings.uiScale === value)}
+              >{label}</button>
+            ))}
+          </div>
         </div>
 
         <div style={{ padding: '10px 0' }}>

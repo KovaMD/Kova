@@ -93,11 +93,19 @@ html, body, #root {
   -webkit-font-smoothing: antialiased;
 }
 
+/* UI scale (Settings → Appearance). zoom keeps 100vw/100vh meaning "full window",
+   so the whole chrome rescales like browser zoom. Presentation counter-zooms below
+   so slides stay pixel-exact regardless of UI scale. WebKit/WebKitGTK support zoom. */
+html { zoom: var(--ui-scale, 1); }
+.pres-overlay, .pres-presenter { zoom: calc(1 / var(--ui-scale, 1)); }
+
 .app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  width: 100vw;
+  /* divide by scale so html's zoom multiplies back to exactly the full window
+     (WebKit zoom doesn't remap vw/vh, so plain 100vw/100vh overflows at scale≠1) */
+  height: calc(100vh / var(--ui-scale, 1));
+  width: calc(100vw / var(--ui-scale, 1));
   overflow: hidden;
 }
 

@@ -13,6 +13,15 @@ export const LASER_COLOR_OPTIONS = [
 ] as const;
 export type LaserColor = typeof LASER_COLOR_OPTIONS[number]['value'];
 export type UiTheme           = 'auto' | 'dark' | 'light';
+export type UiScale           = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+
+export const UI_SCALE_OPTIONS: { value: UiScale; label: string; scale: number }[] = [
+  { value: 'xs', label: 'XS', scale: 0.8  },
+  { value: 'sm', label: 'S',  scale: 0.9  },
+  { value: 'md', label: 'M',  scale: 1    },
+  { value: 'lg', label: 'L',  scale: 1.15 },
+  { value: 'xl', label: 'XL', scale: 1.3  },
+];
 export type EditorFont        = 'ibm-plex-mono' | 'jetbrains-mono' | 'fira-code' | 'cascadia-code' | 'source-code-pro' | 'ubuntu-mono' | 'inconsolata' | 'system';
 export type { SpellCheckLanguage } from '../engine/spellcheck/spellChecker';
 
@@ -30,6 +39,7 @@ export const EDITOR_FONT_OPTIONS: { value: EditorFont; label: string; family: st
 export interface AppSettings {
   settingsVersion: number;
   uiTheme: UiTheme;
+  uiScale: UiScale;
   editorFont: EditorFont;
   autosave: boolean;
   autosaveIntervalSeconds: number; // 15 | 30 | 60 | 300
@@ -59,6 +69,7 @@ function buildDefaults(): AppSettings {
   return {
     settingsVersion: 1,
     uiTheme: 'auto',
+    uiScale: 'md',
     editorFont: 'ibm-plex-mono',
     autosave: true,
     autosaveIntervalSeconds: 30,

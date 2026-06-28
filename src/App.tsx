@@ -21,7 +21,7 @@ import { ImportUrlModal } from './components/ImportUrlModal';
 import { InfoBanner } from './components/InfoBanner';
 import { isMarp, importMarp } from './engine/import/marp';
 import { MissingThemeBanner } from './components/MissingThemeBanner';
-import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
+import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS, UI_SCALE_OPTIONS } from './store/settings';
 import type { AppSettings } from './store/settings';
 import { loadLastSession, saveLastSession } from './store/lastSession';
 import { loadRecentFiles, addRecentFile, removeRecentFile, clearRecentFiles } from './store/recentFiles';
@@ -1221,6 +1221,12 @@ export default function App() {
       return () => mq.removeEventListener('change', apply);
     }
   }, [settings.uiTheme]);
+
+  // Apply UI scale via the --ui-scale var (drives `html { zoom }` in global.css)
+  useEffect(() => {
+    const s = UI_SCALE_OPTIONS.find(o => o.value === settings.uiScale)?.scale ?? 1;
+    document.documentElement.style.setProperty('--ui-scale', String(s));
+  }, [settings.uiScale]);
 
   // handleSave gets a new identity on every keystroke (it depends on `content`
   // via buildSaveContent). A ref lets the autosave timer below call the latest
