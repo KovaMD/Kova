@@ -95,6 +95,10 @@ export function PresentationOverlay({
           e.preventDefault(); e.stopPropagation(); goNext(); break;
         case 'ArrowLeft': case 'ArrowUp': case 'PageUp':
           e.preventDefault(); e.stopPropagation(); goPrev(); break;
+        case 'Home':
+          e.preventDefault(); e.stopPropagation(); onNavigate(0); break;
+        case 'End':
+          e.preventDefault(); e.stopPropagation(); onNavigate(total - 1); break;
         case 'n': case 'N':
           e.preventDefault(); e.stopPropagation();
           if (slide?.speakerNotes) setShowNotes((p) => !p);
@@ -109,7 +113,7 @@ export function PresentationOverlay({
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [goNext, goPrev, onExit, slide]);
+  }, [goNext, goPrev, onNavigate, total, onExit, slide]);
 
   // Clear laser position when deactivated
   useEffect(() => { if (!laserActive) setLaserPos(null); }, [laserActive]);

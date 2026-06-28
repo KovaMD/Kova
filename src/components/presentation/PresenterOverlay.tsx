@@ -160,6 +160,10 @@ export function PresenterOverlay({
           e.preventDefault(); e.stopPropagation(); goNext(); break;
         case 'ArrowLeft': case 'ArrowUp': case 'PageUp':
           e.preventDefault(); e.stopPropagation(); goPrev(); break;
+        case 'Home':
+          e.preventDefault(); e.stopPropagation(); onNavigate(0); break;
+        case 'End':
+          e.preventDefault(); e.stopPropagation(); onNavigate(total - 1); break;
         case 'n': case 'N':
           e.preventDefault(); e.stopPropagation();
           setShowNotes((p) => !p); break;
@@ -172,7 +176,7 @@ export function PresenterOverlay({
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [goNext, goPrev, onExit]);
+  }, [goNext, goPrev, onNavigate, total, onExit]);
 
   if (!slide) return null;
 
