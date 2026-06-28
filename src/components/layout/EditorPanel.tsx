@@ -10,6 +10,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { focusModeCompartment, focusModeExtension } from '../editor/focusMode';
+import { slideDivider } from '../editor/slideDivider';
 import { EditorContextMenu } from '../editor/EditorContextMenu';
 import type { MenuEntry } from '../editor/EditorContextMenu';
 import { isMac } from '../../engine/keybindings';
@@ -668,6 +669,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
           },
         ])),
         updateListener,
+        slideDivider,
         focusModeCompartment.of([]),
         spellCheckCompartment.of([]),
       ],
