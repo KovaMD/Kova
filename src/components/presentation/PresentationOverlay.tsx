@@ -88,11 +88,20 @@ export function PresentationOverlay({
     if (currentIndex > 0) onNavigate(currentIndex - 1);
   }, [currentIndex, onNavigate]);
 
+  // ── Mouse/key idle → hide HUD and cursor ──────────────────────────────────
+
+  const resetIdle = useCallback(() => {
+    setHudVisible(true);
+    clearTimeout(idleTimer.current);
+    idleTimer.current = setTimeout(() => setHudVisible(false), 3000);
+  }, []);
+
   // ── Keyboard handler ───────────────────────────────────────────────────────
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
+      resetIdle(); // keep HUD up while navigating by keyboard, not just mouse
       switch (e.key) {
         case 'ArrowRight': case 'ArrowDown': case ' ': case 'PageDown':
           e.preventDefault(); e.stopPropagation(); goNext(); break;
@@ -122,18 +131,10 @@ export function PresentationOverlay({
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [goNext, goPrev, onNavigate, total, onExit, slide]);
+  }, [goNext, goPrev, onNavigate, total, onExit, slide, resetIdle]);
 
   // Clear laser position when deactivated
   useEffect(() => { if (!laserActive) setLaserPos(null); }, [laserActive]);
-
-  // ── Mouse idle → hide HUD and cursor ──────────────────────────────────────
-
-  const resetIdle = useCallback(() => {
-    setHudVisible(true);
-    clearTimeout(idleTimer.current);
-    idleTimer.current = setTimeout(() => setHudVisible(false), 3000);
-  }, []);
 
   useEffect(() => {
     resetIdle();
