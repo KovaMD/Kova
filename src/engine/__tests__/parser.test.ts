@@ -351,6 +351,11 @@ describe('custom syntax pre-processor', () => {
     expect(poll?.type === 'poll' && poll.label).toBe('Vote here');
   });
 
+  it('parses !toc', () => {
+    const toc = parseDocument(doc('## Agenda\n\n!toc\n')).slides[0].elements.find((e) => e.type === 'toc');
+    expect(toc?.type).toBe('toc');
+  });
+
   it('parses !progress with integer value', () => {
     const { slides } = parseDocument(doc('## Slide\n\n!progress[Done](75)\n'));
     const prog = slides[0].elements.find((e) => e.type === 'progress');

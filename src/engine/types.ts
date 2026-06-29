@@ -32,6 +32,7 @@ export type SlideElement =
   | { type: 'youtube';  label: string; url: string }
   | { type: 'poll';     label: string; url: string }
   | { type: 'progress'; label: string; value: number }
+  | { type: 'toc'; entries?: { title: string; index: number }[] }
   | { type: 'column-break' };
 
 export interface Slide {

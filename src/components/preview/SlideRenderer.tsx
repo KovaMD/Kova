@@ -740,6 +740,9 @@ function ElementNode({ el }: { el: SlideElement }) {
     case 'progress':
       return <ProgressBar el={el} />;
 
+    case 'toc':
+      return <TocList el={el} />;
+
     case 'column-break':
       return null;
 
@@ -869,6 +872,19 @@ function ProgressBar({ el }: { el: Extract<SlideElement, { type: 'progress' }> }
       <div className="sl-progress__track">
         <div className="sl-progress__fill" style={{ width: `${pct}%` }} />
       </div>
+    </div>
+  );
+}
+
+function TocList({ el }: { el: Extract<SlideElement, { type: 'toc' }> }) {
+  const entries = el.entries ?? [];
+  return (
+    <div className="sl-toc">
+      <ol className="sl-toc__list">
+        {entries.map((e) => (
+          <li key={e.index} className="sl-toc__item">{e.title}</li>
+        ))}
+      </ol>
     </div>
   );
 }

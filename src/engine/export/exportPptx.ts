@@ -1099,6 +1099,12 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
         runs.push({ text: el.value, options: { fontFace: firstFont(t.fonts.code), fontSize: 15, breakLine: true } });
         break;
 
+      case 'toc':
+        for (const entry of el.entries ?? []) {
+          runs.push({ text: entry.title, options: { bullet: { type: 'number', style: 'arabicPeriod' } as const, fontSize: 18, paraSpaceAfter: 4, breakLine: true } });
+        }
+        break;
+
       // Images and tables handled separately below
       default:
         break;

@@ -422,6 +422,10 @@
 .sl-poll__label { font-family: var(--sl-font-title); font-size: clamp(10px, 2.5cqi, 22px); font-weight: 700; text-align: center; color: var(--sl-text); }
 .sl-poll__url { font-size: clamp(8px, 1.8cqi, 14px); color: var(--sl-accent); text-align: center; }
 
+.sl-toc { width: 100%; }
+.sl-toc__list { list-style: decimal inside; display: flex; flex-direction: column; gap: 1.5cqi; margin: 0; padding: 0; }
+.sl-toc__item { font-family: var(--sl-font-body); font-size: clamp(10px, 2.4cqi, 20px); color: var(--sl-text); padding-left: 1cqi; }
+
 /* ── highlight.js override — let the slide supply the background ─────────── */
 
 /* Background comes from --sl-code-bg; base text from --sl-code-text (computed

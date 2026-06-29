@@ -19,6 +19,7 @@ Kova turns plain Markdown into polished slides — with live preview, multiple l
 - **PPTX export** — export to PowerPoint (16:9 and 4:3)
 - **Academic references** — cite sources with `!ref[Author, Year. Title]`; renders as small bottom-right text on the slide and exports to PPTX
 - **YouTube & poll embeds** — `!youtube[label](url)` and `!poll[label](url)`
+- **Table of contents** — `!toc` lists the titles of all following slides
 - **File watcher** — reloads automatically when the file is edited externally
 - **Keybindings** — configurable via `~/.config/kova/keybindings.yaml`
 

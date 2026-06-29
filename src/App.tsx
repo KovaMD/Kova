@@ -318,7 +318,10 @@ export default function App() {
     const { cache } = cacheHolder;
 
     return rawSlides.map((slide) => {
-      const cached = cache.get(slide);
+      // TOC entries depend on *other* slides' titles, so a TOC slide can't use the
+      // per-slide cache (it'd go stale when a later title changes) — rebuild it each time.
+      const hasToc = slide.elements.some((e) => e.type === 'toc');
+      const cached = !hasToc && cache.get(slide);
       if (cached) return cached;
       const resolved: Slide = {
         ...slide,
@@ -326,10 +329,13 @@ export default function App() {
           if (el.type === 'image')     return { ...el, src: resolveImageSrc(el.src, docDir) };
           if (el.type === 'paragraph') return { ...el, html: resolveHtmlSrcs(el.html, docDir) };
           if (el.type === 'list')      return { ...el, items: el.items.map(resolveItem) };
+          if (el.type === 'toc')       return { ...el, entries: rawSlides
+            .filter((s) => s.index > slide.index && s.title)
+            .map((s) => ({ title: s.title, index: s.index })) };
           return el;
         }),
       };
-      cache.set(slide, resolved);
+      if (!hasToc) cache.set(slide, resolved);
       return resolved;
     });
   }, [rawSlides, filePath, importDir]);
