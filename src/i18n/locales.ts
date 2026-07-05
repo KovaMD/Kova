@@ -1,4 +1,5 @@
 import type { DeepPartial, Messages } from './types';
+import sl from './locales/sl';
 
 export interface LocaleDef {
   code: string;
@@ -10,6 +11,7 @@ export interface LocaleDef {
 // translation tree from './locales/<code>'. See TRANSLATING.md.
 export const LOCALES: LocaleDef[] = [
   { code: 'en', label: 'English', messages: null },
+  { code: 'sl', label: 'Slovenščina', messages: sl },
 ];
 
 export const UI_LOCALE_OPTIONS: { code: string; label: string }[] = [
