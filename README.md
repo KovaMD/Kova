@@ -69,6 +69,25 @@ nix profile install github:KovaMD/Kova   # install into your profile
 
 Or add `github:KovaMD/Kova` as a flake input and use `packages.<system>.default`.
 
+**Flatpak**
+
+Flathub's current policy excludes LLM-assisted apps, so Kova ships from a self-hosted Flatpak repo:
+
+```bash
+flatpak install https://flatpak.kova.md/kova.flatpakref
+flatpak run md.kova.app
+```
+
+Or build it locally from the manifest:
+
+```bash
+flatpak install flathub org.gnome.Platform//49 org.gnome.Sdk//49
+curl -fsSL -o packaging/flatpak/kova.deb \
+  https://github.com/KovaMD/Kova/releases/latest/download/Kova_Linux.deb
+flatpak-builder --user --install --force-clean build packaging/flatpak/md.kova.app.yml
+flatpak run md.kova.app
+```
+
 ## Building from source
 
 **Prerequisites:** [Node.js](https://nodejs.org/) 18+, [Rust](https://rustup.rs/) (stable), and [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your platform.

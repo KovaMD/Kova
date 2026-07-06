@@ -29,6 +29,21 @@ services:
     networks:
       - proxy
 
+  flatpak-repo:
+    image: nginx:stable-alpine
+    container_name: flatpak-repo
+    restart: unless-stopped
+    volumes:
+      - ./flatpak-repo/data:/usr/share/nginx/html:ro
+      - ./flatpak-repo/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.flatpak.rule=Host(`flatpak.kova.md`)"
+      - "traefik.http.routers.flatpak.entrypoints=websecure"
+      - "traefik.http.routers.flatpak.tls.certresolver=letsencrypt"
+    networks:
+      - proxy
+
   themes:
     image: nginx:stable-alpine
     container_name: themes

@@ -161,3 +161,110 @@ jobs:
             repo/rpm/ $USER@$HOST:/opt/kova/rpm-repo/data/
 
           rm /tmp/deploy_key
+
+  # Repacks the release .deb into a signed Flatpak ostree repo (Flathub is out —
+  # its no-LLM policy), served at flatpak.kova.md by the flatpak-repo service in
+  # infra/services. Needs the DNS record for flatpak.kova.md, like deb/rpm.
+  publish-flatpak:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install Flatpak tooling + GNOME runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder rsync
+          flatpak remote-add --user --if-not-exists flathub \
+            https://dl.flathub.org/repo/ --gpg-import <(curl -fsSL https://dl.flathub.org/repo/flathub.gpg)
+          flatpak install --user -y --noninteractive flathub org.gnome.Platform//49 org.gnome.Sdk//49
+
+      - name: Resolve release tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG=$(gh release list --repo ${{ github.repository }} --limit 1 --json tagName -q '.[0].tagName')
+          fi
+          echo "RELEASE_TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Download release .deb
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "$RELEASE_TAG" --pattern "Kova_Linux.deb" \
+            --dir packaging/flatpak --repo ${{ github.repository }}
+          mv packaging/flatpak/Kova_Linux.deb packaging/flatpak/kova.deb
+
+          # Stamp this release into the metainfo so software centers show the
+          # right version — the checked-in value is a placeholder, not per-release.
+          sed -i "s|<release version=\"[^\"]*\" date=\"[^\"]*\"/>|<release version=\"${RELEASE_TAG#v}\" date=\"$(date +%F)\"/>|" \
+            packaging/flatpak/md.kova.app.metainfo.xml
+
+      - name: Import GPG key and preset passphrase for signing
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          GPG_KEY_ID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/{print $5; exit}')
+          echo "GPG_KEY_ID=$GPG_KEY_ID" >> $GITHUB_ENV
+          # flatpak-builder/ostree invoke gpg themselves (no way to pass
+          # --passphrase per call as the deb/rpm job does), so preset it into the
+          # agent for unattended signing.
+          echo "allow-preset-passphrase" >> ~/.gnupg/gpg-agent.conf
+          gpgconf --reload gpg-agent
+          PRESET=$(find /usr/lib -name gpg-preset-passphrase 2>/dev/null | head -1)
+          # Preset every keygrip (primary + any signing subkey) — whichever gpg
+          # picks to sign is then cached, regardless of the key's shape.
+          gpg --batch --with-keygrip --list-secret-keys "$GPG_KEY_ID" \
+            | awk '/Keygrip/{print $3}' \
+            | while read -r grip; do "$PRESET" --preset --passphrase "$GPG_PASSPHRASE" "$grip"; done
+
+      - name: Deploy signed Flatpak repo to VPS
+        env:
+          SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+          HOST: ${{ secrets.HETZNER_HOST }}
+          USER: ${{ secrets.HETZNER_USER }}
+          KNOWN_HOSTS: ${{ secrets.HETZNER_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          echo "$SSH_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          SSH_OPTS="-i /tmp/deploy_key -o StrictHostKeyChecking=yes"
+          REMOTE=/opt/kova/flatpak-repo/data
+
+          # Pull the existing repo so prior versions' objects (and static deltas)
+          # survive the --delete push below. ssh-mkdir first so the first run has
+          # an (empty) source; no `|| true` — a flaky pull must abort here, else
+          # we'd rebuild from nothing and --delete would wipe every past version.
+          mkdir -p repo/flatpak
+          ssh $SSH_OPTS "$USER@$HOST" "mkdir -p $REMOTE"
+          rsync -az -e "ssh $SSH_OPTS" $USER@$HOST:$REMOTE/ repo/flatpak/
+
+          flatpak-builder --user --force-clean --disable-rofiles-fuse \
+            --gpg-sign="$GPG_KEY_ID" --gpg-homedir="$HOME/.gnupg" \
+            --repo=repo/flatpak build packaging/flatpak/md.kova.app.yml
+          flatpak build-update-repo --generate-static-deltas --prune \
+            --gpg-sign="$GPG_KEY_ID" --gpg-homedir="$HOME/.gnupg" repo/flatpak
+
+          # One-click install descriptor + public key.
+          gpg --export "$GPG_KEY_ID" > repo/flatpak/kova.gpg
+          cat > repo/flatpak/kova.flatpakref << EOF
+          [Flatpak Ref]
+          Title=Kova
+          Name=md.kova.app
+          Branch=master
+          Url=https://flatpak.kova.md
+          GPGKey=$(gpg --export "$GPG_KEY_ID" | base64 -w0)
+          IsRuntime=false
+          RuntimeRepo=https://dl.flathub.org/repo/flathub.flatpakref
+          EOF
+
+          rsync -avz --delete -e "ssh $SSH_OPTS" repo/flatpak/ $USER@$HOST:$REMOTE/
+          rm /tmp/deploy_key

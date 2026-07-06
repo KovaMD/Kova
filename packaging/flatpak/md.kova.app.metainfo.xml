@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>md.kova.app</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Kova</name>
+  <summary>Markdown presentation authoring tool</summary>
+  <description>
+    <p>
+      Kova turns plain Markdown into polished slides — with live preview,
+      multiple layouts, theming, math, Mermaid diagrams, and PPTX export.
+    </p>
+  </description>
+  <launchable type="desktop-id">md.kova.app.desktop</launchable>
+  <url type="homepage">https://github.com/KovaMD/Kova</url>
+  <url type="bugtracker">https://github.com/KovaMD/Kova/issues</url>
+  <developer id="md.kova">
+    <name>Kova</name>
+  </developer>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <!-- Placeholder — publish-repos.yml stamps the real version/date per release. -->
+    <release version="0.0.0" date="1970-01-01"/>
+  </releases>
+</component>

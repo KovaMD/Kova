@@ -1,0 +1,46 @@
+# Flatpak for Kova. Repacks the tested release .deb into the GNOME runtime
+# (which ships webkit2gtk-4.1 + libsoup3) rather than compiling from source —
+# no offline node/cargo source generators to maintain.
+#
+# The .deb is provided as a local file (kova.deb next to this manifest), so
+# there's no pinned url/sha to bump per release — the release CI drops in the
+# freshly built .deb, and for a local build you fetch it first:
+#   curl -fsSL -o packaging/flatpak/kova.deb \
+#     https://github.com/KovaMD/Kova/releases/latest/download/Kova_Linux.deb
+#   flatpak-builder --user --install --force-clean build packaging/flatpak/md.kova.app.yml
+id: md.kova.app
+runtime: org.gnome.Platform
+runtime-version: '49'
+sdk: org.gnome.Sdk
+command: kova
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri              # GPU access; with the runtime's Mesa this avoids the #3 EGL crash
+  - --share=ipc
+  - --share=network           # theme library + update checks
+  - --filesystem=home         # open/save .md files under $HOME; for decks elsewhere, flatpak override --filesystem=…
+  - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1   # workaround for the #3 EGL crash; drop when webkitgtk's dmabuf path is fixed
+
+modules:
+  - name: kova
+    buildsystem: simple
+    build-commands:
+      - ar x kova.deb
+      - tar -xf data.tar.*   # dpkg may compress as gz/xz/zst
+      - install -Dm755 usr/bin/kova /app/bin/kova
+      - desktop-file-edit --set-icon=md.kova.app usr/share/applications/Kova.desktop
+      - install -Dm644 usr/share/applications/Kova.desktop /app/share/applications/md.kova.app.desktop
+      # Rename each packaged icon (kova.png) to the app id, keeping its size dir.
+      - |
+        for png in $(find usr/share/icons/hicolor -name kova.png); do
+          size=$(basename "$(dirname "$(dirname "$png")")")
+          install -Dm644 "$png" "/app/share/icons/hicolor/$size/apps/md.kova.app.png"
+        done
+      - install -Dm644 md.kova.app.metainfo.xml /app/share/metainfo/md.kova.app.metainfo.xml
+    sources:
+      - type: file
+        path: kova.deb
+      - type: file
+        path: md.kova.app.metainfo.xml
