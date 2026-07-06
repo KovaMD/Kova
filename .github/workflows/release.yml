@@ -315,10 +315,11 @@ jobs:
   # keep the release page clean for non-technical users.
   finalize:
     needs: release
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write        # provenance signing (OIDC)
+      attestations: write    # write the attestation
     steps:
       - name: Download per-platform latest.json artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -349,9 +350,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Add stable download aliases and remove .sig files
+        id: aliases
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
           mkdir /tmp/assets
@@ -361,25 +364,37 @@ jobs:
             -p "*.deb" -p "*.rpm" -p "*_x86_64.tar.gz" -p "*_amd64.AppImage" \
             -D /tmp/assets --clobber
 
-          cp "/tmp/assets/Kova_${VERSION}_universal.dmg"        "/tmp/assets/Kova_macOS.dmg"
-          cp "/tmp/assets/Kova_${VERSION}_x64_en-US.msi"        "/tmp/assets/Kova_Windows.msi"
-          cp "/tmp/assets/Kova_${VERSION}_x64-setup.exe"        "/tmp/assets/Kova_Windows_setup.exe"
-          cp "/tmp/assets/Kova_${VERSION}_amd64.deb"            "/tmp/assets/Kova_Linux.deb"
-          cp "/tmp/assets/Kova-${VERSION}-1.x86_64.rpm"         "/tmp/assets/Kova_Linux.rpm"
-          cp "/tmp/assets/Kova_${VERSION}_x86_64.tar.gz"        "/tmp/assets/Kova_Linux.tar.gz"
-          cp "/tmp/assets/Kova_${VERSION}_amd64.AppImage"       "/tmp/assets/Kova_Linux.AppImage"
+          # One source of truth (stable alias -> version-named original). cp,
+          # upload, and the attest subject-path below all read this map, so a new
+          # alias can't ship unattested.
+          declare -A ALIAS=(
+            [Kova_macOS.dmg]="Kova_${VERSION}_universal.dmg"
+            [Kova_Windows.msi]="Kova_${VERSION}_x64_en-US.msi"
+            [Kova_Windows_setup.exe]="Kova_${VERSION}_x64-setup.exe"
+            [Kova_Linux.deb]="Kova_${VERSION}_amd64.deb"
+            [Kova_Linux.rpm]="Kova-${VERSION}-1.x86_64.rpm"
+            [Kova_Linux.tar.gz]="Kova_${VERSION}_x86_64.tar.gz"
+            [Kova_Linux.AppImage]="Kova_${VERSION}_amd64.AppImage"
+          )
+          PATHS=()
+          for a in "${!ALIAS[@]}"; do
+            cp "/tmp/assets/${ALIAS[$a]}" "/tmp/assets/$a"
+            PATHS+=("/tmp/assets/$a")
+          done
 
-          gh release upload "$TAG" -R KovaMD/Kova \
-            /tmp/assets/Kova_macOS.dmg \
-            /tmp/assets/Kova_Windows.msi \
-            /tmp/assets/Kova_Windows_setup.exe \
-            /tmp/assets/Kova_Linux.deb \
-            /tmp/assets/Kova_Linux.rpm \
-            /tmp/assets/Kova_Linux.tar.gz \
-            /tmp/assets/Kova_Linux.AppImage \
-            --clobber
+          gh release upload "$TAG" -R KovaMD/Kova "${PATHS[@]}" --clobber
+          { echo 'paths<<EOF'; printf '%s\n' "${PATHS[@]}"; echo 'EOF'; } >> "$GITHUB_OUTPUT"
 
-          # Remove .sig files — signatures are embedded in latest.json
+          # Remove .sig files — signatures are embedded in latest.json.
           gh release view "$TAG" -R KovaMD/Kova --json assets \
             --jq '.assets[] | select(.name | endswith(".sig")) | .name' \
-            | xargs -I{} gh release delete-asset "$TAG" {} -R KovaMD/Kova --yes
+            | xargs -r -I{} gh release delete-asset "$TAG" {} -R KovaMD/Kova --yes
+
+      # Cryptographic provenance tying each release binary to this commit + run.
+      # Users verify with: gh attestation verify <file> --repo KovaMD/Kova.
+      # !cancelled() so a flaky .sig cleanup above can't skip attestation.
+      - name: Attest build provenance for release binaries
+        if: ${{ !cancelled() }}
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: ${{ steps.aliases.outputs.paths }}
