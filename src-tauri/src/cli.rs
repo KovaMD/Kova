@@ -106,9 +106,9 @@ const EXPORT_USAGE: &str = "--export requires: --export <pptx|pdf> <input> <outp
 
 const USAGE: &str = "\
 Usage:
-  kova [FILE...]                            open file(s) in the editor
-  kova --present <FILE>                     present FILE directly
-  kova --check <FILE>                       validate FILE and exit
+  kova [FILE...]                            open file(s) in the editor (.md default)
+  kova --present <FILE>                     present FILE directly (.md default)
+  kova --check <FILE>                       validate FILE and exit (.md default)
   kova --import <marp|pptx|url> <IN> <OUT>  convert IN to Kova Markdown
   kova --export <pptx|pdf> <IN> <OUT>       export IN via Kova's engine
 
@@ -455,10 +455,23 @@ fn resolve(run: RunArgs) -> Startup {
         || pending.import.is_some()
         || pending.export.is_some();
     // Editor launch keeps the pre-CLI behaviour: arguments that don't exist
-    // on disk are silently ignored rather than failing the launch.
+    // on disk are silently ignored rather than failing the launch. We try
+    // to append .md as a fallback if the file doesn't exist.
     let open = run
         .open
         .into_iter()
+        .map(|p| {
+            if std::path::Path::new(&p).exists() {
+                p
+            } else {
+                let with_md = format!("{p}.md");
+                if std::path::Path::new(&with_md).exists() {
+                    with_md
+                } else {
+                    p
+                }
+            }
+        })
         .filter(|p| std::path::Path::new(p).exists())
         .collect();
     Startup { pending: if cli_active { Some(pending) } else { None }, open }
@@ -485,6 +498,12 @@ fn canonicalise_or_exit(path: &str, verb: &str) -> String {
     match std::fs::canonicalize(path) {
         Ok(p) => p.to_string_lossy().into_owned(),
         Err(_) => {
+            if !has_extension(path, &[".md", ".markdown"]) {
+                let path_with_md = format!("{path}.md");
+                if let Ok(p) = std::fs::canonicalize(&path_with_md) {
+                    return p.to_string_lossy().into_owned();
+                }
+            }
             attach_parent_console();
             eprintln!("kova: {verb} '{path}': no such file");
             std::process::exit(1);
