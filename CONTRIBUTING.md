@@ -38,7 +38,7 @@ npm run build          # tsc + vite build
 Commit messages follow `type(scope): summary` (`fix(toc): …`, `feat: …`) — see
 `git log` for examples. Keep the summary focused on *why*, not *what*.
 
-## Markdown syntax conventions
+## Markdown Syntax Conventions
 
 This is the part that matters most for contributors adding a feature, since
 it's easy to accumulate one-off ad hoc syntax over time. Kova currently uses
