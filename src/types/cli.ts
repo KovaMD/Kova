@@ -23,6 +23,12 @@ export interface PendingExport {
   input: string;
   /** Absolute path — not required to exist yet, it's the file being written. */
   output: string;
+  /** Optional PDF layout options for CLI exports (--notes, --per-page, --paper). */
+  pdfOpts?: {
+    perPage?: number;
+    notes?: boolean;
+    paper?: string;
+  };
 }
 
 export interface PendingCli {

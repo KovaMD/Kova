@@ -1539,7 +1539,7 @@ export default function App() {
           await finish(lines.join('\n'));
           return;
         }
-        const outcome = await runPdfExportCapture([...visibleSlides], coldExport.output, {});
+        const outcome = await runPdfExportCapture([...visibleSlides], coldExport.output, coldExport.pdfOpts ?? {});
         const lines = [`wrote '${coldExport.output}'`];
         if (outcome.usedFallback) {
           lines.push(`note: native PDF export failed, used raster fallback (${outcome.fallbackReason})`);
