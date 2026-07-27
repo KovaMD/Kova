@@ -230,6 +230,11 @@ pub fn parse_cli_args(args: Vec<String>) -> CliArgs {
                         "--import output must be a .md file, got '{output}'"
                     ));
                 }
+                if std::path::Path::new(&output).exists() && has_extension(&input, &[".md", ".markdown"]) {
+                    return CliArgs::Error(format!(
+                        "refusing to overwrite existing markdown file '{output}' during --import — specify output path with -o or choose a non-existing filename"
+                    ));
+                }
                 if let Err(e) = set_action(&mut action, Action::Import { format, input, output }) {
                     return e;
                 }
