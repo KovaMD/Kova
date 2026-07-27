@@ -23,6 +23,7 @@ import { ModalShell } from './components/ModalShell';
 import { InfoBanner } from './components/InfoBanner';
 import { isMarp, importMarp } from './engine/import/marp';
 import { parsePptx } from './engine/import/parsePptx';
+import { toRawUrl } from './utils/toRawUrl';
 import { pptxToMarkdown } from './engine/import/pptxToMarkdown';
 import { MissingThemeBanner } from './components/MissingThemeBanner';
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
@@ -201,9 +202,9 @@ async function runCliImport(imp: PendingImport, check: boolean): Promise<void> {
       await finish(lines.join('\n'));
       return;
     }
-    // url — fetched verbatim, no conversion (matches ImportUrlModal: if the
-    // remote content is a Marp deck, that's detected on open, not on fetch).
-    const text: string = await invoke('fetch_url_text', { url: imp.input });
+    // url — convert web blob URLs for Git hosts (matches ImportUrlModal)
+    const targetUrl = toRawUrl(imp.input);
+    const text: string = await invoke('fetch_url_text', { url: targetUrl });
     if (!(await gate(text, imp.output, dirOf(imp.output)))) return;
     await invoke('write_file', { path: imp.output, content: text });
     await finish(`wrote '${imp.output}'`);
