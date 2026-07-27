@@ -324,8 +324,12 @@ async function extractSlideBlocks(
   destDir: string,
   warnings: string[],
   slidePath: string,
+<<<<<<< HEAD
   imageCache: Map<string, string>,
   chromeSkipCounts: { kova: number; native: number },
+=======
+  savedAssetMap: Map<string, string>,
+>>>>>>> 0419cab (fix(import): deduplicate extracted PPTX image assets using ZIP path cache)
 ): Promise<PptxBlock[]> {
   const blocks: PptxBlock[] = [];
   const spTree = q(slideDoc, P, 'spTree') ?? q(slideDoc, A, 'spTree');
@@ -537,8 +541,12 @@ export async function parsePptx(filePath: string, destDir: string): Promise<Pptx
 
   // 5. Parse each slide
   const slides: PptxParsedSlide[] = [];
+<<<<<<< HEAD
   const imageCache = new Map<string, string>(); // sha256 hex -> already-saved asset filename
   const chromeSkipCounts = { kova: 0, native: 0 };
+=======
+  const savedAssetMap = new Map<string, string>();
+>>>>>>> 0419cab (fix(import): deduplicate extracted PPTX image assets using ZIP path cache)
 
   for (let i = 0; i < slideZipPaths.length; i++) {
     const slidePath = slideZipPaths[i];
@@ -558,8 +566,12 @@ export async function parsePptx(filePath: string, destDir: string): Promise<Pptx
     const slideRels = slideRelsText ? parseRels(parseXml(slideRelsText)) : new Map<string, string>();
 
     const blocks = await extractSlideBlocks(
+<<<<<<< HEAD
       slideDoc, slideRels, zip, slideW, slideH, i, destDir, warnings, slidePath,
       imageCache, chromeSkipCounts,
+=======
+      slideDoc, slideRels, zip, slideW, slideH, i, destDir, warnings, slidePath, savedAssetMap,
+>>>>>>> 0419cab (fix(import): deduplicate extracted PPTX image assets using ZIP path cache)
     );
     const speakerNotes = await extractSpeakerNotes(slideRels, slidePath, zip);
     slides.push({ blocks, speakerNotes });
