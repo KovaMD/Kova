@@ -2106,6 +2106,7 @@ export default function App() {
           laserColor={settings.laserColor}
           onNavigate={setPresentIndex}
           onExit={handlePresentExit}
+          onToggleAspectRatio={handleAspectRatioCycle}
         />
       )}
     </>

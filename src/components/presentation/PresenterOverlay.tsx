@@ -21,6 +21,7 @@ interface Props {
   laserColor?: string;
   onNavigate: (index: number) => void;
   onExit: () => void;
+  onToggleAspectRatio?: () => void;
 }
 
 const HUD_H           = 56;  // px
@@ -31,7 +32,7 @@ const STORAGE_KEY     = 'kova:presenter-right-w';
 
 export function PresenterOverlay({
   slides, currentIndex, theme, docTitle, docDate, aspectRatio,
-  showNextSlide, showTimer, notesFontSize, laserColor = '#ff2020', onNavigate, onExit,
+  showNextSlide, showTimer, notesFontSize, laserColor = '#ff2020', onNavigate, onExit, onToggleAspectRatio,
 }: Props) {
   const t = useT();
   const slide     = slides[currentIndex];
@@ -391,6 +392,17 @@ export function PresenterOverlay({
           onClick={() => setLaserActive((p) => !p)}
           title={t('presentation.toggleLaser')}
         >{t('presentation.laserButton')}</button>
+
+        {onToggleAspectRatio && (
+          <>
+            <div className="pres-presenter__hud-divider" />
+            <button
+              className="pres-presenter__btn"
+              onClick={onToggleAspectRatio}
+              title={aspectRatio.label}
+            >{aspectRatio.label}</button>
+          </>
+        )}
 
         <div className="pres-presenter__hud-divider" />
 
