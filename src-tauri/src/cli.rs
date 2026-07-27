@@ -230,6 +230,14 @@ pub fn parse_cli_args(args: Vec<String>) -> CliArgs {
                         "--import output must be a .md file, got '{output}'"
                     ));
                 }
+                if format == ImportFormat::Marp
+                    && std::path::Path::new(&input).exists()
+                    && std::path::Path::new(&output).exists()
+                {
+                    return CliArgs::Error(format!(
+                        "ambiguous arguments: both input '{input}' and output '{output}' are existing Markdown files. Refusing to overwrite to prevent data loss."
+                    ));
+                }
                 if let Err(e) = set_action(&mut action, Action::Import { format, input, output }) {
                     return e;
                 }
@@ -721,21 +729,15 @@ mod tests {
 
     #[test]
     fn import_rejects_glob_landing_on_a_second_md_file_as_output() {
-        // Simulates `--import marp *.md out.md` matching exactly two decks —
-        // the second must be caught, not silently overwritten... except a
-        // .md output IS what import always expects, so this specific pair
-        // parses (the danger case a naive extension check can't catch:
-        // both matched files already look like valid input/output). Kept as
-        // a documented residual case, not asserted as blocked.
-        let run = expect_run(&["--import", "marp", "jan.md", "feb.md"]);
-        assert_eq!(
-            run.action,
-            Some(Action::Import {
-                format: ImportFormat::Marp,
-                input: "jan.md".into(),
-                output: "feb.md".into(),
-            })
-        );
+        // Simulates `--import marp *.md` matching exactly two decks where both exist.
+        let _ = std::fs::File::create("jan.md");
+        let _ = std::fs::File::create("feb.md");
+
+        let msg = expect_error(&["--import", "marp", "jan.md", "feb.md"]);
+        assert!(msg.contains("ambiguous arguments: both input 'jan.md' and output 'feb.md' are existing Markdown files"), "{msg}");
+
+        let _ = std::fs::remove_file("jan.md");
+        let _ = std::fs::remove_file("feb.md");
     }
 
     #[test]
