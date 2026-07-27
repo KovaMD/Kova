@@ -1252,7 +1252,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
         break;
 
       case 'math':
-        runs.push({ text: el.value, options: { fontFace: firstFont(t.fonts.code), fontSize: 15, breakLine: true } });
+        runs.push({ text: el.value, options: { fontFace: firstFont(t.fonts.body), fontSize: 16, italic: true, breakLine: true } });
         if (el.caption) {
           runs.push({ text: el.caption, options: { fontSize: 11, italic: true, breakLine: true, paraSpaceAfter: 4 } });
         }
