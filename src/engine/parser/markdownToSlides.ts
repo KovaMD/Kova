@@ -726,7 +726,7 @@ export type { Frontmatter };
 // matched in full (opening prefix through closing paren) and rejected if they
 // contain quotes or CSS metacharacters (`;`, `{`, `}`). Spaces inside the
 // parentheses are permitted (e.g. `rgb(0, 0, 0)`).
-function parseColorValue(raw: string): string | undefined {
+export function parseColorValue(raw: string): string | undefined {
   const v = raw.trim();
   if (!v) return undefined;
   if (/^#[0-9a-fA-F]{3,8}$/.test(v)) return v;
