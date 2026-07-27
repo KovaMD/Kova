@@ -585,7 +585,7 @@ export type ThemeParseResult = { ok: true; theme: Theme } | { ok: false; error: 
 /** Parse a custom theme from YAML content (uses the same js-yaml already installed). */
 export function parseThemeYaml(id: string, content: string): ThemeParseResult {
   try {
-    const raw = yaml.load(content, { schema: yaml.CORE_SCHEMA }) as Record<string, unknown>;
+    const raw = yaml.load(content, { schema: yaml.CORE_SCHEMA, json: true }) as Record<string, unknown>;
     return { ok: true, theme: normaliseTheme(id, raw) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
