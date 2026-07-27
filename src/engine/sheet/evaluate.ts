@@ -113,7 +113,7 @@ function call(e: Extract<Expr, { k: 'call' }>, scope: Scope): Result {
   if (Object.prototype.hasOwnProperty.call(AGGREGATES, name)) {
     const xs = column(name, args).filter(present);
     for (const v of xs) {
-      if (typeof v !== 'number') throw new SheetError(`${name}() needs numbers, found '${v}'`);
+      if (typeof v !== 'number') throw new SheetError(`${name}() expected a number, got '${v}'`);
     }
     if (!xs.length && name !== 'sum') throw new SheetError(`${name}() of an empty column`);
     return AGGREGATES[name](xs as number[]);
