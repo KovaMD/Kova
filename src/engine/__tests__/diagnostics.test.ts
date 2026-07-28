@@ -132,6 +132,44 @@ describe('collectDiagnostics', () => {
     expect(diags).toEqual([]);
   });
 
+  it('warns when a visible remote media URL is not reachable', async () => {
+    const doc = `# Slide\n\n![alt](https://random-url.abc.png)\n`;
+    const diags = await collectDiagnostics(doc, ctx({
+      urlReachable: async () => 'fetch failed: HTTP 404 Not Found',
+    }));
+    expect(diags).toHaveLength(1);
+    expect(diags[0]).toMatchObject({
+      line: 3,
+      severity: 'warning',
+    });
+    expect(diags[0].message).toContain("remote media URL not reachable: 'https://random-url.abc.png'");
+    expect(diags[0].message).toContain('HTTP 404');
+  });
+
+  it('dedupes repeated remote URL checks across slides', async () => {
+    const doc = [
+      '# One',
+      '',
+      '![a](https://example.com/img.png)',
+      '',
+      '---',
+      '',
+      '# Two',
+      '',
+      '![b](https://example.com/img.png)',
+      '',
+    ].join('\n');
+    let probes = 0;
+    const diags = await collectDiagnostics(doc, ctx({
+      urlReachable: async () => {
+        probes += 1;
+        return null;
+      },
+    }));
+    expect(diags).toEqual([]);
+    expect(probes).toBe(1);
+  });
+
   it('dedupes a missing file referenced on multiple slides', async () => {
     const doc = `# One\n\n![a](shared.png)\n\n---\n\n# Two\n\n![b](shared.png)\n`;
     const diags = await collectDiagnostics(doc, ctx({ fileExists: async () => false }));

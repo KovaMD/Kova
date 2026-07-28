@@ -110,6 +110,7 @@ pub fn run() {
             commands::read_clipboard_text,
             commands::fetch_url_b64,
             commands::fetch_url_text,
+            commands::probe_url,
             commands::confirm_exit,
             commands::cli_exit,
             commands::cli_stdout,

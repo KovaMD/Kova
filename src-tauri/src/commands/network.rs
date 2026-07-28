@@ -97,3 +97,38 @@ pub async fn fetch_url_text(url: String) -> Result<String, String> {
     }
     Ok(text)
 }
+
+/// Probe whether a remote URL is reachable. Used by `kova --check` to warn on
+/// remote media URLs that cannot be fetched at all (invalid host, 404, etc.).
+#[tauri::command]
+pub async fn probe_url(url: String) -> Result<(), String> {
+    if !url.starts_with("https://") && !url.starts_with("http://") {
+        return Err("URL must use HTTP or HTTPS".into());
+    }
+    let parsed = reqwest::Url::parse(&url).map_err(|e| format!("invalid URL: {e}"))?;
+    if crate::net_guard::url_host_is_blocked(&parsed) {
+        return Err("refusing to connect to a non-public address".into());
+    }
+
+    async fn get_probe(client: &reqwest::Client, url: &str) -> Result<(), String> {
+        let resp = client
+            .get(url)
+            .header(reqwest::header::RANGE, "bytes=0-0")
+            .send()
+            .await
+            .map_err(|e| format!("fetch failed: {e}"))?;
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            Err(format!("fetch failed: HTTP {}", resp.status()))
+        }
+    }
+
+    let client = crate::net_guard::build_ssrf_safe_client()?;
+    match client.head(&url).send().await {
+        Ok(resp) if resp.status().is_success() => Ok(()),
+        Ok(resp) if matches!(resp.status().as_u16(), 405 | 501) => get_probe(&client, &url).await,
+        Ok(resp) => Err(format!("fetch failed: HTTP {}", resp.status())),
+        Err(_) => get_probe(&client, &url).await,
+    }
+}

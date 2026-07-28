@@ -165,6 +165,13 @@ async function runCliImport(imp: PendingImport, check: boolean): Promise<void> {
     themeIds: await knownThemeIds(),
     fileExists: (p: string) =>
       invoke<boolean>('path_exists', { path: p }).then(Boolean).catch(() => false),
+    urlReachable: (url: string) =>
+      invoke('probe_url', { url })
+        .then(() => null)
+        .catch((e) => {
+          const msg = e instanceof Error ? e.message : String(e);
+          return msg.replace(/^Error invoking command '[^']+':\s*/i, '');
+        }),
   });
   /** Run --check on markdown; returns false when the write must be skipped. */
   const gate = async (markdown: string, label: string, docDir: string): Promise<boolean> => {
@@ -1176,6 +1183,13 @@ export default function App() {
             themeIds: await knownThemeIds(),
             fileExists: (p) =>
               invoke<boolean>('path_exists', { path: p }).then(Boolean).catch(() => false),
+            urlReachable: (url: string) =>
+              invoke('probe_url', { url })
+                .then(() => null)
+                .catch((e) => {
+                  const msg = e instanceof Error ? e.message : String(e);
+                  return msg.replace(/^Error invoking command '[^']+':\s*/i, '');
+                }),
           });
           const { report, errors } = formatCheckReport(target, diags);
           await invoke('cli_stdout', { text: report }).catch(() => {});

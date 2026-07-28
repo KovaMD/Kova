@@ -25,6 +25,8 @@ export interface CheckContext {
   themeIds: string[];
   /** Existence probe for local media paths (IPC-backed in the app, mocked in tests). */
   fileExists: (path: string) => Promise<boolean>;
+  /** Optional reachability probe for remote HTTP(S) media URLs. */
+  urlReachable?: (url: string) => Promise<string | null>;
 }
 
 const KNOWN_FRONTMATTER_KEYS = new Set([
@@ -69,6 +71,11 @@ function collectHtmlSrcs(html: string, out: string[]): void {
 function collectItemSrcs(item: ListItem, out: string[]): void {
   collectHtmlSrcs(item.html, out);
   item.children.forEach((c) => collectItemSrcs(c, out));
+}
+
+function remoteHttpMediaUrl(src: string): string | null {
+  const trimmed = src.trim();
+  return /^https?:\/\//i.test(trimmed) ? trimmed : null;
 }
 
 /** All raw media srcs referenced by a slide, in source order. */
@@ -168,22 +175,48 @@ export async function collectDiagnostics(content: string, ctx: CheckContext): Pr
     diags.push({ line: 0, severity: 'error', message: 'document contains no visible slides' });
   }
 
-  // Local media existence — hidden slides are skipped (they don't render);
-  // remote/data URLs are skipped (existence is not checkable here). Dedupe by
-  // resolved path so one missing file used on five slides reports once.
-  const seen = new Set<string>();
+  // Local media existence and optional remote URL reachability checks.
+  // Hidden slides are skipped (they don't render). Dedupe by resolved path /
+  // URL so one missing reference used on five slides reports once.
+  const seenLocal = new Set<string>();
+  const seenRemote = new Set<string>();
+  const remoteUrls: string[] = [];
   for (const slide of visible) {
     for (const src of collectSlideSrcs(slide)) {
       const local = localPathFromMediaSrc(src, ctx.docDir);
-      if (!local || seen.has(local)) continue;
-      seen.add(local);
-      if (!(await ctx.fileExists(local))) {
-        diags.push({
-          line: lineOf(content, src),
-          severity: 'error',
-          message: `media file not found: '${src}'`,
-        });
+      if (local) {
+        if (seenLocal.has(local)) continue;
+        seenLocal.add(local);
+        if (!(await ctx.fileExists(local))) {
+          diags.push({
+            line: lineOf(content, src),
+            severity: 'error',
+            message: `media file not found: '${src}'`,
+          });
+        }
+        continue;
       }
+      const remote = remoteHttpMediaUrl(src);
+      if (!remote || seenRemote.has(remote)) continue;
+      seenRemote.add(remote);
+      remoteUrls.push(remote);
+    }
+  }
+
+  if (ctx.urlReachable) {
+    for (const url of remoteUrls) {
+      let reason: string | null;
+      try {
+        reason = await ctx.urlReachable(url);
+      } catch (e) {
+        reason = e instanceof Error ? e.message : String(e);
+      }
+      if (!reason) continue;
+      diags.push({
+        line: lineOf(content, url),
+        severity: 'warning',
+        message: `remote media URL not reachable: '${url}' (${reason})`,
+      });
     }
   }
 
