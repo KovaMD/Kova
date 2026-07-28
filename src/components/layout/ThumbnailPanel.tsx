@@ -18,6 +18,7 @@ interface Props {
   onDelete?: (index: number) => void;
   theme?: Theme;
   docTitle?: string;
+  docAuthor?: string;
   docDate?: string;
   aspectRatio?: AspectRatio;
 }
@@ -25,7 +26,7 @@ interface Props {
 const SLIDE_W = 960;
 const THUMB_W = 140;
 
-export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onDuplicate, onNewSlide, onToggleHidden, onSetBackground, onClearBackground, onDelete, theme = DEFAULT_THEME, docTitle, docDate, aspectRatio = { w: 16, h: 9 } }: Props) {
+export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onDuplicate, onNewSlide, onToggleHidden, onSetBackground, onClearBackground, onDelete, theme = DEFAULT_THEME, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 } }: Props) {
   const t = useT();
   const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
 
@@ -228,6 +229,7 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onDu
                   onContextMenu={handleThumbContextMenu}
                   theme={theme}
                   docTitle={docTitle}
+                  docAuthor={docAuthor}
                   docDate={docDate}
                   scale={scale}
                   slideH={slideH}
@@ -348,6 +350,7 @@ interface ThumbnailProps {
   onContextMenu: (index: number, e: React.MouseEvent) => void;
   theme: Theme;
   docTitle?: string;
+  docAuthor?: string;
   docDate?: string;
   slideH: number;
   scale: number;
@@ -361,7 +364,7 @@ interface ThumbnailProps {
 // keystroke. `onSelect`/`onDragStart` are forwarded as stable function
 // references (bound internally below) rather than passed as pre-bound
 // closures, specifically so they don't defeat this memoization.
-const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive, isDragSource, isDragging, canDrag, isHidden, onSelect, onToggleHidden, onDragStart, onContextMenu, theme, docTitle, docDate, slideH, scale, thumbH }: ThumbnailProps) {
+const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive, isDragSource, isDragging, canDrag, isHidden, onSelect, onToggleHidden, onDragStart, onContextMenu, theme, docTitle, docAuthor, docDate, slideH, scale, thumbH }: ThumbnailProps) {
   const t = useT();
   const thumbRef = useRef<HTMLDivElement>(null);
 
@@ -431,6 +434,7 @@ const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive,
             slide={slide}
             theme={theme}
             docTitle={docTitle}
+            docAuthor={docAuthor}
             docDate={docDate}
             slideNumber={index + 1}
             totalSlides={totalSlides}

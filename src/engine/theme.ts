@@ -29,12 +29,12 @@ export interface RemoteFont {
 
 export interface ThemeHeader {
   show: boolean;
-  text: string;
+  text: string;              // supports {title}, {author}, {date}, {slide_number}, {total}
 }
 
 export interface ThemeFooter {
   show: boolean;
-  text: string;              // supports {title}, {date}
+  text: string;              // supports {title}, {author}, {date}, {slide_number}, {total}
   show_slide_number: boolean;
 }
 
@@ -489,10 +489,11 @@ export function themeToVars(
 /** Resolves template variables in header/footer text. */
 export function resolveTemplate(
   template: string,
-  vars: { title?: string; date?: string; slideNumber?: number; totalSlides?: number },
+  vars: { title?: string; author?: string; date?: string; slideNumber?: number; totalSlides?: number },
 ): string {
   return template
     .replace(/{title}/g, vars.title ?? '')
+    .replace(/{author}/g, vars.author ?? '')
     .replace(/{date}/g, vars.date ?? '')
     .replace(/{slide_number}/g, String(vars.slideNumber ?? ''))
     .replace(/{total}/g, String(vars.totalSlides ?? ''));

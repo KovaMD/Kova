@@ -107,7 +107,7 @@ following anything else) is a compile error, same as a misplaced `!sheet`.
 
 ### 5. Template variables
 
-`{title}`, `{date}`, `{slide_number}`, `{total}` — text substitution inside
+`{title}`, `{author}`, `{date}`, `{slide_number}`, `{total}` — text substitution inside
 header/footer strings only (`theme_overrides.header.text`,
 `.footer.text`, or a theme's YAML). Resolved in
 [`src/engine/theme.ts`](src/engine/theme.ts) (`resolveTemplate`). Not valid

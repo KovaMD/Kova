@@ -516,6 +516,7 @@ export default function App() {
   // decks only ever get a title via a heading, never via frontmatter, and a
   // silently blank footer segment (issue #55) is worse than this guess.
   const docTitle = frontmatter.title ?? rawSlides.find((s) => !s.hidden && s.titleLevel === 1)?.title ?? '';
+  const docAuthor = (frontmatter.author as string | undefined) ?? '';
   const docDate = (frontmatter.date as string | undefined) ?? formatFallbackDate(settings.locale);
 
   const aspectRatio = useMemo(
@@ -808,6 +809,7 @@ export default function App() {
           index: startIndex,
           aspectRatio,
           docTitle,
+          docAuthor,
           docDate,
         };
 
@@ -2153,6 +2155,7 @@ export default function App() {
           currentIndex={safePresentIndex}
           theme={activeTheme}
           docTitle={docTitle}
+          docAuthor={docAuthor}
           docDate={docDate}
           aspectRatio={aspectRatio}
           laserColor={settings.laserColor}
@@ -2167,6 +2170,7 @@ export default function App() {
           currentIndex={safePresentIndex}
           theme={activeTheme}
           docTitle={docTitle}
+          docAuthor={docAuthor}
           docDate={docDate}
           aspectRatio={aspectRatio}
           showNextSlide={settings.presenterShowNextSlide}
@@ -2499,6 +2503,7 @@ export default function App() {
               onDelete={handleDeleteSlide}
               theme={activeTheme}
               docTitle={docTitle}
+              docAuthor={docAuthor}
               docDate={docDate}
               aspectRatio={aspectRatio}
             />
@@ -2974,6 +2979,7 @@ export default function App() {
                   slideNumber={i + 1}
                   totalSlides={printContext.slides.length}
                   docTitle={docTitle}
+                  docAuthor={docAuthor}
                   docDate={docDate}
                   onAllDiagramsReady={onPrintSlideReady.current}
                 />
@@ -3015,6 +3021,7 @@ export default function App() {
                   slideNumber={i + 1}
                   totalSlides={pdfExportContext.slides.length}
                   docTitle={docTitle}
+                  docAuthor={docAuthor}
                   docDate={docDate}
                   onAllDiagramsReady={onPdfSlideReady.current}
                 />

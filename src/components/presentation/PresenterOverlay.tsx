@@ -13,6 +13,7 @@ interface Props {
   currentIndex: number;
   theme: Theme;
   docTitle?: string;
+  docAuthor?: string;
   docDate?: string;
   aspectRatio: AspectRatio;
   showNextSlide: boolean;
@@ -30,7 +31,7 @@ const RIGHT_W_MAX     = 600; // px
 const STORAGE_KEY     = 'kova:presenter-right-w';
 
 export function PresenterOverlay({
-  slides, currentIndex, theme, docTitle, docDate, aspectRatio,
+  slides, currentIndex, theme, docTitle, docAuthor, docDate, aspectRatio,
   showNextSlide, showTimer, notesFontSize, laserColor = '#ff2020', onNavigate, onExit,
 }: Props) {
   const t = useT();
@@ -195,6 +196,7 @@ export function PresenterOverlay({
                 slideNumber={currentIndex + 1}
                 totalSlides={total}
                 docTitle={docTitle}
+                docAuthor={docAuthor}
                 docDate={docDate}
                 hideOverflowBadge
                 onNavigateTo={handleNavigateTo}
@@ -239,6 +241,7 @@ export function PresenterOverlay({
                       slideNumber={currentIndex + 2}
                       totalSlides={total}
                       docTitle={docTitle}
+                      docAuthor={docAuthor}
                       docDate={docDate}
                       hideOverflowBadge
                     />

@@ -11,6 +11,7 @@ interface Props {
   currentIndex: number;
   theme: Theme;
   docTitle?: string;
+  docAuthor?: string;
   docDate?: string;
   aspectRatio?: AspectRatio;
   laserColor?: string;
@@ -23,7 +24,7 @@ const HUD_H   = 40;   // px — HUD bar height
 const NOTE_H  = 160;  // px — speaker notes panel height
 
 export function PresentationOverlay({
-  slides, currentIndex, theme, docTitle, docDate, aspectRatio = { w: 16, h: 9 }, laserColor = '#ff2020', showTimer = false, onNavigate, onExit,
+  slides, currentIndex, theme, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 }, laserColor = '#ff2020', showTimer = false, onNavigate, onExit,
 }: Props) {
   const t = useT();
   const slide = slides[currentIndex];
@@ -155,6 +156,7 @@ export function PresentationOverlay({
               slideNumber={currentIndex + 1}
               totalSlides={total}
               docTitle={docTitle}
+              docAuthor={docAuthor}
               docDate={docDate}
               hideOverflowBadge
               onNavigateTo={handleNavigateTo}

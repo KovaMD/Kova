@@ -263,6 +263,10 @@ describe('resolveTemplate', () => {
     expect(resolveTemplate('{title}', { title: 'My Talk' })).toBe('My Talk');
   });
 
+  it('replaces {author}', () => {
+    expect(resolveTemplate('{author}', { author: 'Jane Doe' })).toBe('Jane Doe');
+  });
+
   it('replaces {date}', () => {
     expect(resolveTemplate('{date}', { date: '2026' })).toBe('2026');
   });

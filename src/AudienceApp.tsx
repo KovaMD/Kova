@@ -17,6 +17,7 @@ export interface PresentInitPayload {
   index: number;
   aspectRatio: AspectRatio;
   docTitle?: string;
+  docAuthor?: string;
   docDate?: string;
 }
 
@@ -156,7 +157,7 @@ function AudienceAppInner() {
   }
 
   const slide  = slidesRef.current[currentIndex];
-  const { theme, aspectRatio, docTitle, docDate } = initData;
+  const { theme, aspectRatio, docTitle, docAuthor, docDate } = initData;
   const total  = slidesRef.current.length;
   const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
 
@@ -186,6 +187,7 @@ function AudienceAppInner() {
                   slideNumber={currentIndex + 1}
                   totalSlides={total}
                   docTitle={docTitle}
+                  docAuthor={docAuthor}
                   docDate={docDate}
                   hideOverflowBadge
                   onNavigateTo={handleNavigateTo}

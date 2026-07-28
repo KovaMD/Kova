@@ -33,6 +33,7 @@ interface Props {
   slideNumber?: number;
   totalSlides?: number;
   docTitle?: string;
+  docAuthor?: string;
   docDate?: string;
   scale?: number;
   isThumbnail?: boolean;
@@ -41,7 +42,7 @@ interface Props {
   onNavigateTo?: (slideIndex: number) => void;
 }
 
-export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, docTitle = '', docDate = '', scale = 1, isThumbnail: isThumbnailProp, hideOverflowBadge = false, onAllDiagramsReady, onNavigateTo }: Props) {
+export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, docTitle = '', docAuthor = '', docDate = '', scale = 1, isThumbnail: isThumbnailProp, hideOverflowBadge = false, onAllDiagramsReady, onNavigateTo }: Props) {
   // Per-slide text colour: explicit `<!-- color -->` wins; otherwise a Marp
   // `<!-- _class: invert -->` swaps to the theme's light "text on dark" colour
   // (title_text). `slideTextOverride` stays undefined when neither applies, so
@@ -67,7 +68,7 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
     if (onAllDiagramsReady && mermaidCount === 0) onAllDiagramsReady();
   }, [onAllDiagramsReady, mermaidCount]);
 
-  const templateVars = { title: docTitle, date: docDate, slideNumber, totalSlides };
+  const templateVars = { title: docTitle, author: docAuthor, date: docDate, slideNumber, totalSlides };
   const headerSegs = theme.header.show
     ? theme.header.text.split('|').map((s) => resolveTemplate(s.trim(), templateVars))
     : null;

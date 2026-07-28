@@ -93,7 +93,7 @@ const M = 0.5;     // standard margin
 const HEAD_H = 0.4;
 const FOOT_H = 0.35;
 
-interface Meta { docTitle: string; docDate: string; slideNum: number; totalSlides: number }
+interface Meta { docTitle: string; docAuthor: string; docDate: string; slideNum: number; totalSlides: number }
 interface Area { x: number; y: number; w: number; h: number }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -232,6 +232,7 @@ export async function exportToPptx(
   // explicit `title:` — mirrors the same fallback used for the live preview
   // (see docTitle in App.tsx), so exported footers/headers match what's shown.
   const docTitle = frontmatter.title ?? slides.find((s) => s.titleLevel === 1)?.title ?? '';
+  const docAuthor = frontmatter.author ?? '';
   const docDate  = frontmatter.date != null ? String(frontmatter.date) : formatFallbackDate(locale);
   const warnings: string[] = [];
 
@@ -253,7 +254,7 @@ export async function exportToPptx(
 
   for (let i = 0; i < resolvedSlides.length; i++) {
     const pSlide = pres.addSlide();
-    const meta: Meta = { docTitle, docDate, slideNum: i + 1, totalSlides: slides.length };
+    const meta: Meta = { docTitle, docAuthor, docDate, slideNum: i + 1, totalSlides: slides.length };
     addSlide(pSlide as PS, resolvedSlides[i], theme, meta, H, warnings, logoDataUrl, logoAr);
   }
 
@@ -817,7 +818,7 @@ function addHeaderBar(s: PS, t: Theme, meta: Meta) {
     fill: { color: hex(t.colors.primary) },
     line: { type: 'none' },
   });
-  const vars = { title: meta.docTitle, date: meta.docDate, slideNumber: meta.slideNum, totalSlides: meta.totalSlides };
+  const vars = { title: meta.docTitle, author: meta.docAuthor, date: meta.docDate, slideNumber: meta.slideNum, totalSlides: meta.totalSlides };
   const segs = t.header.text.split('|').map((p) => resolveTemplate(p.trim(), vars));
   if (segs.some(Boolean)) {
     addBarText(s, segs, M, 0, W - M * 2, HEAD_H, 10, hex(t.colors.title_text), firstFont(t.fonts.body), 'kova:header-text');
@@ -834,7 +835,7 @@ function addFooterBar(s: PS, t: Theme, meta: Meta, H: number) {
     line: { type: 'none' },
   });
   const showNum = t.footer.show_slide_number;
-  const vars = { title: meta.docTitle, date: meta.docDate, slideNumber: meta.slideNum, totalSlides: meta.totalSlides };
+  const vars = { title: meta.docTitle, author: meta.docAuthor, date: meta.docDate, slideNumber: meta.slideNum, totalSlides: meta.totalSlides };
   const segs = t.footer.text.split('|').map((p) => resolveTemplate(p.trim(), vars));
   const textW = W - M * 2 - (showNum ? 1.1 : 0);
   if (segs.some(Boolean)) {
