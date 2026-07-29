@@ -13,6 +13,8 @@ export interface PendingImport {
   input: string;
   /** Absolute path — not required to exist yet, it's the file being written. */
   output: string;
+  /** `--force`: allow overwriting an existing output file. */
+  force: boolean;
 }
 
 export type CliExportFormat = 'pptx' | 'pdf';
