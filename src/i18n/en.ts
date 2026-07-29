@@ -174,6 +174,8 @@ const en = {
     menuInlineCode: 'Inline Code',
     menuIndent: 'Indent',
     menuDedent: 'Dedent',
+    menuAddStepMarker: 'Reveal on click',
+    menuRemoveStepMarker: 'Remove reveal on click',
     menuInsert: 'Insert',
     menuCodeBlock: 'Code Block',
     menuBlockquote: 'Blockquote',

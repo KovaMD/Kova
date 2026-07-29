@@ -15,6 +15,7 @@ import { extractBgImage } from './bgImage';
 import { collectConstants } from '../sheet/constants';
 import { evaluateSheet, isFooterRow, parseSheetDirective, type SheetOpts } from '../sheet/sheet';
 import type { Value } from '../sheet/evaluate';
+import { matchStepMarker, createStepAssigner, type StepAssigner } from './stepMarkers';
 
 const processor = unified().use(remarkParse).use(remarkGfm).use(remarkMath);
 
@@ -317,6 +318,10 @@ function convertRoot(
   let titleLevel = 0;
   const elements: SlideElement[] = [];
   let pendingSheet: SheetOpts | undefined;
+  // Single per-slide sequence: auto-increment continues across top-level
+  // elements, list items (incl. nested), and own-line markers alike, so
+  // `<!-- step -->` numbering always reflects true document order.
+  const assignStep = createStepAssigner();
 
   for (const node of tree.children) {
     // A !sheet annotates the table on the very next line and nothing else.
@@ -332,10 +337,14 @@ function convertRoot(
           title = toString(h);
           titleLevel = h.depth;
         } else {
+          // A secondary heading is body content, not the slide title — it can
+          // carry a trailing step marker exactly like a plain paragraph.
+          const { children: hChildren, step } = extractTrailingStep(h.children as Node[], assignStep);
           elements.push({
             type: 'paragraph',
-            text: toString(h),
-            html: `<h${h.depth}>${inlineToHtml(h.children)}</h${h.depth}>`,
+            text: toString({ ...h, children: hChildren }),
+            html: `<h${h.depth}>${inlineToHtml(hChildren)}</h${h.depth}>`,
+            step,
           });
         }
         break;
@@ -343,7 +352,7 @@ function convertRoot(
 
       case 'paragraph': {
         const p = node as Paragraph;
-        for (const el of convertParagraph(p)) elements.push(el);
+        for (const el of convertParagraph(p, assignStep)) elements.push(el);
         break;
       }
 
@@ -352,7 +361,7 @@ function convertRoot(
         elements.push({
           type: 'list',
           ordered: l.ordered ?? false,
-          items: l.children.map(convertListItem),
+          items: l.children.map((item) => convertListItem(item, assignStep)),
         });
         break;
       }
@@ -450,6 +459,9 @@ function convertRoot(
             }
           } else if (v === '<hr>' || v === '<hr/>' || v === '<hr />') {
             elements.push({ type: 'paragraph', text: '', html: '<hr>' });
+          } else {
+            const stepVal = matchStepMarker(v);
+            if (stepVal !== undefined) mergeStepMarker(elements, stepVal, assignStep);
           }
         }
         break;
@@ -477,18 +489,21 @@ function convertRoot(
   return { title, titleLevel, elements };
 }
 
-function convertParagraph(p: Paragraph): SlideElement[] {
+function convertParagraph(p: Paragraph, assignStep: StepAssigner): SlideElement[] {
+  const { children, step } = extractTrailingStep(p.children as Node[], assignStep);
+  const pp: Paragraph = { ...p, children: children as Paragraph['children'] };
+
   // Single standalone image (most common case)
-  if (p.children.length === 1 && p.children[0].type === 'image') {
-    const img = p.children[0];
-    return [{ type: 'image', src: img.url, alt: img.alt ?? '', title: img.title ?? undefined }];
+  if (pp.children.length === 1 && pp.children[0].type === 'image') {
+    const img = pp.children[0];
+    return [{ type: 'image', src: img.url, alt: img.alt ?? '', title: img.title ?? undefined, step }];
   }
 
   // Mixed paragraph: text + image(s) with no blank line between them.
   // Split on image boundaries so the layout engine can detect images correctly.
-  if (p.children.some((c) => c.type === 'image')) {
+  if (pp.children.some((c) => c.type === 'image')) {
     const results: SlideElement[] = [];
-    let buf: typeof p.children = [];
+    let buf: typeof pp.children = [];
 
     const flushBuf = () => {
       if (!buf.length) return;
@@ -497,7 +512,7 @@ function convertParagraph(p: Paragraph): SlideElement[] {
       buf = [];
     };
 
-    for (const child of p.children) {
+    for (const child of pp.children) {
       if (child.type === 'image') {
         flushBuf();
         results.push({ type: 'image', src: child.url, alt: child.alt ?? '', title: child.title ?? undefined });
@@ -506,25 +521,105 @@ function convertParagraph(p: Paragraph): SlideElement[] {
       }
     }
     flushBuf();
+    // A mixed paragraph's trailing marker applies to the line as a whole —
+    // attach it to whichever element ends up last (image or trailing text).
+    if (step !== undefined && results.length > 0) {
+      results[results.length - 1] = { ...results[results.length - 1], step } as SlideElement;
+    }
     return results;
   }
 
   // Plain paragraph — discard whitespace-only nodes (trailing blank lines etc.)
-  const text = toString(p);
+  const text = toString(pp);
   if (!text.trim()) return [];
-  return [{ type: 'paragraph', text, html: inlineToHtml(p.children as Node[]) }];
+  return [{ type: 'paragraph', text, html: inlineToHtml(pp.children as Node[]), step }];
 }
 
-function convertListItem(item: MdastListItem): ListItem {
+function convertListItem(item: MdastListItem, assignStep: StepAssigner): ListItem {
   const subList = item.children.find((c): c is List => c.type === 'list');
   const paragraphs = item.children.filter((c) => c.type === 'paragraph') as Paragraph[];
-  const text = paragraphs.map((p) => toString(p)).join(' ');
-  const html = paragraphs.map((p) => inlineToHtml(p.children)).join(' ');
+  let step: number | undefined;
+  const processed = paragraphs.map((p, i) => {
+    if (i !== paragraphs.length - 1) return p;
+    const extracted = extractTrailingStep(p.children as Node[], assignStep);
+    step = extracted.step;
+    return { ...p, children: extracted.children as Paragraph['children'] };
+  });
+  const text = processed.map((p) => toString(p)).join(' ');
+  const html = processed.map((p) => inlineToHtml(p.children)).join(' ');
   return {
     text,
     html,
-    children: subList ? subList.children.map(convertListItem) : [],
+    step,
+    children: subList ? subList.children.map((c) => convertListItem(c, assignStep)) : [],
   };
+}
+
+// ── Step-marker attachment ───────────────────────────────────────────────────
+
+// Types that a `<!-- step -->` marker can never attach to: a plain paragraph
+// already has the simpler trailing-inline form (below), and a column-break is
+// a layout marker with no visible content of its own. A type predicate (not a
+// plain boolean) so the caller's `prev` narrows away 'column-break' — the one
+// variant with no `step` field — before accessing `.step` below.
+function isStepEligible(el: SlideElement): el is Exclude<SlideElement, { type: 'paragraph' } | { type: 'column-break' }> {
+  return el.type !== 'paragraph' && el.type !== 'column-break';
+}
+
+// A trailing `<!-- step -->` / `<!-- step: N -->` on the same source line as a
+// paragraph or list item arrives from remark as an ordinary inline `html` node
+// — the last child of the paragraph's own children, the same mechanism
+// inlineToHtml's `case 'html'` already special-cases for bare <u>/</u>. Strips
+// it (and any whitespace it leaves trailing on the preceding text node) before
+// the caller computes `text`/`html`, so it never leaks into either.
+function extractTrailingStep(children: Node[], assignStep: StepAssigner): { children: Node[]; step?: number } {
+  const last = children[children.length - 1] as { type?: string; value?: string } | undefined;
+  if (!last || last.type !== 'html' || typeof last.value !== 'string') return { children };
+  const explicit = matchStepMarker(last.value);
+  if (explicit === undefined) return { children };
+
+  const rest = children.slice(0, -1);
+  const newLast = rest[rest.length - 1] as { type?: string; value?: string } | undefined;
+  if (newLast && newLast.type === 'text' && typeof newLast.value === 'string') {
+    rest[rest.length - 1] = { ...newLast, value: newLast.value.replace(/\s+$/, '') } as Node;
+  }
+  return { children: rest, step: assignStep(explicit) };
+}
+
+// A `<!-- step -->` on its own line, immediately after a block element with
+// no trailing-inline-text option (image, code, table, math, mermaid,
+// blockquote, a whole list, or a bang-directive embed) — mirrors `!caption`'s
+// "must directly follow" convention exactly, including the #ERR fallback for
+// a misplaced marker.
+function mergeStepMarker(elements: SlideElement[], explicit: number | null, assignStep: StepAssigner): void {
+  const prev = elements[elements.length - 1];
+  if (!prev || !isStepEligible(prev)) {
+    elements.push({
+      type: 'paragraph', text: '',
+      html: '#ERR <!-- step --> must directly follow a list, image, diagram, formula, table, blockquote, code block, video, poll, progress bar, or table of contents',
+    });
+    return;
+  }
+  if (prev.step !== undefined) {
+    elements.push({ type: 'paragraph', text: '', html: '#ERR duplicate <!-- step --> marker' });
+    return;
+  }
+  const step = assignStep(explicit);
+  elements[elements.length - 1] = prev.type === 'list'
+    ? { ...prev, step, items: clearListItemSteps(prev.items) }
+    : { ...prev, step };
+}
+
+// A whole-list step marker gates every item together on one click — any
+// per-item markers written inside that same list would be redundant/
+// conflicting with the whole-list gate, so clear them rather than leaving two
+// competing sources of truth for the same items.
+function clearListItemSteps(items: ListItem[]): ListItem[] {
+  return items.map((item) => ({
+    ...item,
+    step: undefined,
+    children: item.children.length ? clearListItemSteps(item.children) : item.children,
+  }));
 }
 
 // Obsidian/GitHub-style callout marker: the first line of a blockquote reading

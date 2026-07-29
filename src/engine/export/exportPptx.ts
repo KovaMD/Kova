@@ -306,15 +306,19 @@ export async function exportToPptx(
   }
 
   const resolvedSlides = await resolveSlideImages(slides, theme, warnings);
+  const perSlideStepTargets: StepTarget[][] = [];
 
   for (let i = 0; i < resolvedSlides.length; i++) {
     const pSlide = pres.addSlide();
     const meta: Meta = { docTitle, docAuthor, docDate, slideNum: i + 1, totalSlides: slides.length };
-    addSlide(pSlide as PS, resolvedSlides[i], theme, meta, H, warnings, logoDataUrl, logoAr);
+    const stepTargets: StepTarget[] = [];
+    addSlide(pSlide as PS, resolvedSlides[i], theme, meta, H, warnings, logoDataUrl, logoAr, stepTargets);
+    perSlideStepTargets.push(stepTargets);
   }
 
   const rawBase64 = (await pres.write({ outputType: 'base64' })) as string;
-  const base64 = await applyFadeTransitions(rawBase64, resolvedSlides.length);
+  const fadedBase64 = await applyFadeTransitions(rawBase64, resolvedSlides.length);
+  const base64 = await applyStepAnimations(fadedBase64, perSlideStepTargets);
   return { base64, warnings };
 }
 
@@ -340,6 +344,198 @@ async function applyFadeTransitions(base64: string, slideCount: number): Promise
   return zip.generateAsync({ type: 'base64' });
 }
 
+// ── Native click-triggered build animations (progressive reveal, issue #92) ──
+//
+// PptxGenJS has no animation API at all (unlike the fade transition above,
+// there's no existing single-purpose helper to lean on) — this builds the
+// OOXML animation timing tree by hand and patches it into each slide's XML via
+// the same JSZip post-processing technique as applyFadeTransitions.
+//
+// IMPORTANT: the exact <p:timing> shape below is written from documented
+// knowledge of the OOXML DrawingML animation schema (ECMA-376), not verified
+// against a real "PowerPoint (or LibreOffice) round-trip" — this sandbox's
+// headless LibreOffice can't construct animation objects (they hang; a
+// sandbox/environment limitation, not a code bug), so there was no way to
+// generate a known-good reference file to diff against here. Before this
+// ships, open an exported .pptx containing a stepped slide in real PowerPoint
+// and/or LibreOffice Impress and confirm it opens cleanly (no repair dialog)
+// and the builds actually click through in the expected order. The riskiest
+// specific detail is the `presetID="1"` on the click effect — that's cosmetic
+// (it only affects how PowerPoint's own Animation Pane *labels* the effect,
+// e.g. "Appear" vs "Custom"), the actual reveal behaviour comes entirely from
+// the <p:set>/style.visibility toggle, so a labelling mismatch would not be a
+// "needs repair" failure — but it's the piece most worth double-checking.
+//
+// Scope: only body content that flows through addElements() gets a native
+// animation — title-content, split, two-column, three-column, bsp, and grid
+// layouts, which is where progressive-reveal bullets/paragraphs/images
+// actually live. A handful of single-purpose layouts render their content
+// through their own bespoke path instead of addElements() (addQuoteSlide's
+// hero quote, addMediaSlide's video/poll embeds, addCodeSlide's/addMathLayout's
+// dedicated blocks) — a `<!-- step -->` on one of those still parses and
+// still gates the live preview/presentation/interactive-HTML export, it just
+// exports to PPTX unanimated (visible immediately, same as before this
+// feature existed), rather than erroring. A real but explicitly bounded v1
+// scope gap, not a silent bug.
+
+interface StepTarget {
+  step: number;
+  objectName: string;
+  /** 0-based paragraph indices within that (merged text box) shape, in the
+   *  order they were written — omitted for a whole-shape target (a lone
+   *  image/code-block/callout that already gets its own dedicated shape). */
+  paragraphs?: number[];
+}
+
+// A shape only needs an objectName when it actually has a stepped target —
+// area coordinates are already unique per addElements() call within one
+// slide (different panes/columns never share an x/y), so reusing them here
+// avoids threading a separate counter through the whole layout call graph.
+function stepShapeName(area: Area, kind: string): string {
+  return `kova:step-${kind}-${Math.round(area.x * 1000)}-${Math.round(area.y * 1000)}`;
+}
+
+// Run-length-encode a set of paragraph indices into minimal contiguous
+// [start, end] ranges — an explicit `<!-- step: N -->` can group non-adjacent
+// paragraphs (e.g. bullet 1 and bullet 4) onto the same click, and OOXML
+// allows a click to target multiple disjoint paragraph ranges in one shape.
+function toContiguousRanges(indices: number[]): Array<[number, number]> {
+  const sorted = [...indices].sort((a, b) => a - b);
+  const ranges: Array<[number, number]> = [];
+  for (const n of sorted) {
+    const last = ranges[ranges.length - 1];
+    if (last && n === last[1] + 1) last[1] = n;
+    else ranges.push([n, n]);
+  }
+  return ranges;
+}
+
+// OOXML timing node ids only need to be unique within one slide's <p:timing>
+// tree — reset per slide in applyStepAnimations.
+function makeAnimIdCounter(): () => number {
+  let n = 0;
+  return () => ++n;
+}
+
+// One click's target: a specific paragraph range within a shared text box
+// (bullets sharing one shape) when `range` is set, otherwise an entire shape
+// (an image that already has its own shape).
+interface ClickTarget { spid: number; range?: [number, number] }
+
+// One "become visible on this click" behaviour. `nextId` is called for this
+// node's own id only — callers allocate ids for everything *around* it first,
+// so the whole tree's ids come out in strictly increasing, top-down document
+// order (matching real PowerPoint output; ids only need to be unique to be
+// valid, but keeping them in traversal order is the safer, closer-to-spec choice
+// given this schema is hand-authored rather than tool-verified — see the scope
+// note above applyStepAnimations).
+function buildSetBehaviour(nextId: () => number, target: ClickTarget): string {
+  const tgt = target.range
+    ? `<p:spTgt spid="${target.spid}"><p:txEl><p:pRg st="${target.range[0]}" end="${target.range[1]}"/></p:txEl></p:spTgt>`
+    : `<p:spTgt spid="${target.spid}"/>`;
+  return (
+    `<p:set>` +
+      `<p:cBhvr>` +
+        `<p:cTn id="${nextId()}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn>` +
+        `<p:tgtEl>${tgt}</p:tgtEl>` +
+        `<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>` +
+      `</p:cBhvr>` +
+      `<p:to><p:strVal val="visible"/></p:to>` +
+    `</p:set>`
+  );
+}
+
+// One click's worth of targets — usually a single one, more than one when
+// several elements share an explicit `<!-- step: N -->` group and so should
+// all reveal together on the same click.
+function buildClickPar(nextId: () => number, targets: ClickTarget[]): string {
+  const clickId  = nextId();
+  const subId    = nextId();
+  const effectId = nextId();
+  const behaviours = targets.map((target) => buildSetBehaviour(nextId, target));
+  return (
+    `<p:par><p:cTn id="${clickId}" fill="hold"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>` +
+      `<p:childTnLst>` +
+        `<p:par><p:cTn id="${subId}" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst>` +
+          `<p:childTnLst>` +
+            `<p:par><p:cTn id="${effectId}" presetID="1" presetClass="entr" presetSubtype="0" fill="hold" grpId="0" nodeType="clickEffect">` +
+              `<p:stCondLst><p:cond delay="0"/></p:stCondLst>` +
+              `<p:childTnLst>${behaviours.join('')}</p:childTnLst>` +
+            `</p:cTn></p:par>` +
+          `</p:childTnLst>` +
+        `</p:cTn></p:par>` +
+      `</p:childTnLst>` +
+    `</p:cTn></p:par>`
+  );
+}
+
+// The full per-slide <p:timing> tree: a root -> mainSeq sequence whose
+// children are one click-triggered <p:par> per distinct step value, in
+// ascending order. `buildSpids` (text shapes with a per-paragraph build only —
+// see the call site) get a matching <p:bldLst> entry, mirroring how
+// PowerPoint itself declares a placeholder's paragraphs as an animation build.
+function buildTimingXml(nextId: () => number, clicksByStep: Array<[number, ClickTarget[]]>, buildSpids: number[]): string {
+  const rootId = nextId();
+  const seqId  = nextId();
+  const clicks = clicksByStep.map(([, targets]) => buildClickPar(nextId, targets));
+  const bldLst = buildSpids.map((id) => `<p:bldP spid="${id}" grpId="0"/>`).join('');
+  return (
+    `<p:timing><p:tnLst><p:par><p:cTn id="${rootId}" dur="indefinite" restart="never" nodeType="tmRoot">` +
+      `<p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="${seqId}" dur="indefinite" nodeType="mainSeq">` +
+        `<p:childTnLst>${clicks.join('')}</p:childTnLst>` +
+      `</p:cTn></p:seq></p:childTnLst>` +
+    `</p:cTn>` +
+    `<p:condLst><p:cond evt="onBegin" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:condLst>` +
+    `</p:par></p:tnLst>` +
+    (bldLst ? `<p:bldLst>${bldLst}</p:bldLst>` : '') +
+    `</p:timing>`
+  );
+}
+
+async function applyStepAnimations(base64: string, perSlideTargets: StepTarget[][]): Promise<string> {
+  if (perSlideTargets.every((targets) => targets.length === 0)) return base64;
+  const zip = await JSZip.loadAsync(base64, { base64: true });
+  for (let i = 0; i < perSlideTargets.length; i++) {
+    const targets = perSlideTargets[i];
+    if (targets.length === 0) continue;
+    const path = `ppt/slides/slide${i + 1}.xml`;
+    const file = zip.file(path);
+    if (!file) continue;
+    let xml = await file.async('string');
+
+    // Resolve each kova:step-* objectName to its real shape id, then strip
+    // the placeholder name back to empty — PowerPoint doesn't need a name on
+    // these shapes, and leaking an internal "kova:" marker into the shape
+    // list / alt-text would be a rough edge for anyone editing the file.
+    const spidByName = new Map<string, number>();
+    xml = xml.replace(/<p:cNvPr id="(\d+)" name="(kova:step-[^"]*)"/g, (_m, id: string, name: string) => {
+      spidByName.set(name, Number(id));
+      return `<p:cNvPr id="${id}" name=""`;
+    });
+
+    const byStep = new Map<number, ClickTarget[]>();
+    const buildSpids = new Set<number>(); // text shapes with a per-paragraph build only
+    for (const target of targets) {
+      const spid = spidByName.get(target.objectName);
+      // Shouldn't happen (every pushed target came from a shape we just gave
+      // this exact name), but skip rather than emit a dangling shape reference.
+      if (spid === undefined) continue;
+      const clickTargets: ClickTarget[] = target.paragraphs
+        ? toContiguousRanges(target.paragraphs).map((range) => ({ spid, range }))
+        : [{ spid }];
+      if (target.paragraphs) buildSpids.add(spid);
+      byStep.set(target.step, [...(byStep.get(target.step) ?? []), ...clickTargets]);
+    }
+    if (byStep.size === 0) continue;
+
+    const clicksByStep = [...byStep.entries()].sort(([a], [b]) => a - b);
+    const timing = buildTimingXml(makeAnimIdCounter(), clicksByStep, [...buildSpids]);
+    xml = xml.replace('</p:sld>', `${timing}</p:sld>`);
+    zip.file(path, xml);
+  }
+  return zip.generateAsync({ type: 'base64' });
+}
+
 // ── Per-slide dispatcher ──────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -347,7 +543,7 @@ type PS = any;
 
 function addSlide(
   s: PS, slide: Slide, t: Theme, meta: Meta, H: number, warnings: string[],
-  logoDataUrl: string | null, logoAr: number | null,
+  logoDataUrl: string | null, logoAr: number | null, stepTargets: StepTarget[] = [],
 ) {
   const hasHead = t.header.show;
   const hasFoot = t.footer.show;
@@ -393,20 +589,20 @@ function addSlide(
   switch (slide.layout) {
     case 'title':         addTitleSlide(s, slide, t, cy, ch); break;
     case 'section':       addSectionSlide(s, slide, t, cy, ch); break;
-    case 'title-content': addTitleContentSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, slideBoldColor); break;
+    case 'title-content': addTitleContentSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, slideBoldColor, stepTargets); break;
     case 'title-image':   addTitleImageSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor); break;
-    case 'split':         addSplitSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor); break;
+    case 'split':         addSplitSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, stepTargets); break;
     case 'full-bleed':    addFullBleedSlide(s, slide, t, H, warnings); break;
     case 'quote':         addQuoteSlide(s, slide, t, cy, ch, slideTextColor); break;
-    case 'two-column':    addMultiColumnSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, 2); break;
-    case 'three-column':  addMultiColumnSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, 3); break;
-    case 'bsp':           addBspSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor); break;
-    case 'grid':          addGridSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor); break;
+    case 'two-column':    addMultiColumnSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, 2, stepTargets); break;
+    case 'three-column':  addMultiColumnSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, 3, stepTargets); break;
+    case 'bsp':           addBspSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, stepTargets); break;
+    case 'grid':          addGridSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, stepTargets); break;
     case 'media':         addMediaSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor); break;
     case 'code':          addCodeSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor); break;
-    case 'math':          addTitleContentSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, slideBoldColor); break;
+    case 'math':          addTitleContentSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, slideBoldColor, stepTargets); break;
     case 'blank':         addBlankSlide(s, t); break;
-    default:              addTitleContentSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, slideBoldColor);
+    default:              addTitleContentSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, slideBoldColor, stepTargets);
   }
 
   if (hasHead) addHeaderBar(s, t, meta);
@@ -474,7 +670,7 @@ function addSectionSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) 
   }
 }
 
-function addTitleContentSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), codeBg?: string, hc: string = tc, boldColor: string = tc) {
+function addTitleContentSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), codeBg?: string, hc: string = tc, boldColor: string = tc, stepTargets: StepTarget[] = []) {
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.85 : 0;
   if (slide.title) {
@@ -486,7 +682,7 @@ function addTitleContentSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: num
       align: t.layout.heading_align, valign: 'middle', wrap: true, shrinkText: true,
     });
   }
-  addElements(s, slide.elements, t, { x: M, y: cy + hh + 0.1, w: W - M * 2, h: ch - hh - 0.1 }, warnings, tc, codeBg, boldColor);
+  addElements(s, slide.elements, t, { x: M, y: cy + hh + 0.1, w: W - M * 2, h: ch - hh - 0.1 }, warnings, tc, codeBg, boldColor, stepTargets);
 }
 
 function addTitleImageSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc) {
@@ -512,7 +708,7 @@ function addTitleImageSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: numbe
   }
 }
 
-function addSplitSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, boldColor: string = tc) {
+function addSplitSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, boldColor: string = tc, stepTargets: StepTarget[] = []) {
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.65 : 0;
   if (slide.title) {
@@ -537,7 +733,7 @@ function addSplitSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, wa
   const capH = img && img.type === 'image' && img.caption ? CAPTION_H : 0;
 
   if (imgOnRight) {
-    addElements(s, rest, t, { x: M, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor);
+    addElements(s, rest, t, { x: M, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
     if (img && img.type === 'image') {
       const imgX = M + colW + 0.3;
       tryAddImage(s, img.src, { x: imgX, y: bodyY, w: colW, h: bodyH - capH }, warnings, ar);
@@ -548,7 +744,7 @@ function addSplitSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, wa
       tryAddImage(s, img.src, { x: M, y: bodyY, w: colW, h: bodyH - capH }, warnings, ar);
       addCaption(s, img.caption, t, M, bodyY + bodyH - capH, colW);
     }
-    addElements(s, rest, t, { x: M + colW + 0.3, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor);
+    addElements(s, rest, t, { x: M + colW + 0.3, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
   }
 }
 
@@ -599,7 +795,7 @@ function addQuoteSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, tc
   }
 }
 
-function addMultiColumnSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, boldColor: string = tc, columns: 2 | 3 = 2) {
+function addMultiColumnSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, boldColor: string = tc, columns: 2 | 3 = 2, stepTargets: StepTarget[] = []) {
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.65 : 0;
   if (slide.title) {
@@ -621,11 +817,11 @@ function addMultiColumnSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: numb
     : [...autoSplitElements(slide.elements), ...Array(columns - 2).fill([])];
 
   groups.forEach((group, i) => {
-    addElements(s, group, t, { x: M + i * (colW + GAP), y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor);
+    addElements(s, group, t, { x: M + i * (colW + GAP), y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
   });
 }
 
-function addBspSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, boldColor: string = tc) {
+function addBspSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, boldColor: string = tc, stepTargets: StepTarget[] = []) {
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.65 : 0;
   if (slide.title) {
@@ -645,7 +841,7 @@ function addBspSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warn
   // Mirror preview: group consecutive progress bars, then apply same placement logic
   const groups = groupProgressRuns(slide.elements);
   if (groups.length < 2) {
-    addElements(s, slide.elements, t, { x: M, y: bodyY, w: W - M * 2, h: bodyH }, warnings, tc, undefined, boldColor);
+    addElements(s, slide.elements, t, { x: M, y: bodyY, w: W - M * 2, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
     return;
   }
 
@@ -668,20 +864,20 @@ function addBspSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warn
     rightGroups = groups.slice(1);
   }
 
-  addElements(s, leftGroup, t, { x: M, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor);
+  addElements(s, leftGroup, t, { x: M, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
 
   if (rightGroups.length === 1) {
-    addElements(s, rightGroups[0], t, { x: M + colW + GAP, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor);
+    addElements(s, rightGroups[0], t, { x: M + colW + GAP, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
   } else {
     const subH = (bodyH - 0.2) / 2;
-    addElements(s, rightGroups[0], t, { x: M + colW + GAP, y: bodyY,              w: colW, h: subH }, warnings, tc, undefined, boldColor);
+    addElements(s, rightGroups[0], t, { x: M + colW + GAP, y: bodyY,              w: colW, h: subH }, warnings, tc, undefined, boldColor, stepTargets);
     if (rightGroups[1]) {
-      addElements(s, rightGroups[1], t, { x: M + colW + GAP, y: bodyY + subH + 0.2, w: colW, h: subH }, warnings, tc, undefined, boldColor);
+      addElements(s, rightGroups[1], t, { x: M + colW + GAP, y: bodyY + subH + 0.2, w: colW, h: subH }, warnings, tc, undefined, boldColor, stepTargets);
     }
   }
 }
 
-function addGridSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, boldColor: string = tc) {
+function addGridSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, boldColor: string = tc, stepTargets: StepTarget[] = []) {
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.65 : 0;
   if (slide.title) {
@@ -710,7 +906,7 @@ function addGridSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, war
       x: M + col * (cellW + GAP),
       y: bodyY + row * (cellH + GAP),
       w: cellW, h: cellH,
-    }, warnings, tc, undefined, boldColor);
+    }, warnings, tc, undefined, boldColor, stepTargets);
   });
 }
 
@@ -1303,7 +1499,7 @@ function addCodeBlock(s: PS, value: string, lang: string | undefined, t: Theme, 
 
 // ── Element renderer ──────────────────────────────────────────────────────────
 
-function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warnings: string[] = [], tc: string = hex(t.colors.text), codeBg?: string, boldColor: string = tc) {
+function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warnings: string[] = [], tc: string = hex(t.colors.text), codeBg?: string, boldColor: string = tc, stepTargets: StepTarget[] = []) {
   if (elements.length === 0) return;
 
   // Single image fills the area
@@ -1311,12 +1507,21 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
     const el = elements[0];
     const ar = el.title ? parseFloat(el.title) : NaN;
     const capH = el.caption ? CAPTION_H : 0;
-    tryAddImage(s, el.src, { ...area, h: area.h - capH }, warnings, isFinite(ar) ? ar : undefined);
+    const objectName = el.step !== undefined ? stepShapeName(area, 'img') : undefined;
+    tryAddImage(s, el.src, { ...area, h: area.h - capH }, warnings, isFinite(ar) ? ar : undefined, objectName);
+    if (objectName) stepTargets.push({ step: el.step!, objectName });
     addCaption(s, el.caption, t, area.x, area.y + area.h - capH, area.w);
     return;
   }
 
-  // Single code element — render with full dark-background styling
+  // Single code element — render with full dark-background styling.
+  // Not animated even when stepped: this renders as 3-4 separate pptxgenjs
+  // shapes (background rect, inner rect, optional language badge, code text)
+  // rather than one — targeting just one of them for a whole-shape "appear"
+  // would show the rest immediately, looking like a broken partial build
+  // rather than no animation at all. Same reasoning applies to the callout
+  // case just below. Renders fully visible, exactly like before this feature
+  // existed (see the scope note above applyStepAnimations).
   if (elements.length === 1 && elements[0].type === 'code') {
     const el = elements[0];
     addCodeBlock(s, el.value, el.lang, t, area, codeBg);
@@ -1329,13 +1534,32 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
     return;
   }
 
-  // Build a text run array for all text-based elements
+  // Build a text run array for all text-based elements. `paraIdx` tracks
+  // which 0-based OOXML paragraph (<a:p>) each pushed run lands in, purely
+  // from this loop's own knowledge of where paragraphs begin — a list item
+  // has no explicit `breakLine` (pptxgenjs starts a new paragraph on its own
+  // whenever a run carries a `bullet` option, confirmed by inspecting actual
+  // export output), so paragraph boundaries here are asserted at each point
+  // this code already knows semantically starts a new paragraph, not
+  // inferred generically from run options. `paraSteps` collects, per build
+  // step, every paragraph index that step should reveal — consumed by
+  // applyStepAnimations() once this shape's real OOXML shape id is known.
   const runs: Array<{ text: string; options?: Record<string, unknown> }> = [];
+  let paraIdx = -1; // -1 so the first startParagraph() call lands on 0
+  const paraSteps = new Map<number, number[]>();
+  const startParagraph = (step: number | undefined) => {
+    paraIdx += 1;
+    if (step === undefined) return;
+    const list = paraSteps.get(step) ?? [];
+    list.push(paraIdx);
+    paraSteps.set(step, list);
+  };
 
   for (const el of elements) {
     switch (el.type) {
       case 'paragraph':
         if (el.text.trim()) {
+          startParagraph(el.step);
           const paraRuns = htmlToInlineRuns(el.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), boldColor);
           paraRuns.forEach((run, ri) => {
             runs.push({ text: run.text, options: { fontSize: 18, ...run.options, breakLine: ri === paraRuns.length - 1 } });
@@ -1345,6 +1569,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
 
       case 'list':
         for (const item of el.items) {
+          startParagraph(el.step ?? item.step);
           const bulletBase = {
             bullet: el.ordered ? { type: 'number', style: 'arabicPeriod' } as const : true as const,
             fontSize: 18,
@@ -1356,6 +1581,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
             runs.push({ text: itemRuns[ri].text, options: { fontSize: 18, ...itemRuns[ri].options } });
           }
           for (const child of item.children) {
+            startParagraph(el.step ?? child.step);
             const childBase = { bullet: true as const, indentLevel: 1, fontSize: 16, paraSpaceAfter: 3 };
             const childRuns = htmlToInlineRuns(child.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), boldColor);
             runs.push({ text: childRuns[0].text, options: { ...childRuns[0].options, ...childBase } });
@@ -1368,20 +1594,24 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
 
       case 'blockquote':
         if (el.calloutType) {
+          startParagraph(el.step);
           const color = CALLOUT_COLORS[el.calloutType] ?? CALLOUT_COLORS.note;
           runs.push({
             text: el.title ?? '',
             options: { bold: true, fontSize: 16, color: hex(color), breakLine: true, paraSpaceAfter: 2 },
           });
           if (el.text.trim()) {
+            startParagraph(el.step);
             runs.push({ text: el.text, options: { fontSize: 16, breakLine: true, paraSpaceAfter: 4 } });
           }
         } else {
+          startParagraph(el.step);
           runs.push({
             text: `“${el.text}”`,
             options: { italic: true, fontSize: 18, breakLine: true },
           });
           if (el.attribution) {
+            startParagraph(el.step);
             runs.push({
               text: `— ${el.attribution}`,
               options: { fontSize: 14, color: hex(t.colors.accent), breakLine: true },
@@ -1393,6 +1623,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
       case 'toc': {
         const numberStart = el.numberStart ?? 0;
         el.entries.forEach((entry, i) => {
+          startParagraph(el.step);
           runs.push({
             text: entry.title,
             options: {
@@ -1409,12 +1640,15 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
       case 'code':
         // Code mixed with other elements: fall back to plain monospaced text.
         // (Single-element code is caught above and rendered with full styling.)
+        startParagraph(el.step);
         runs.push({ text: el.value, options: { fontFace: firstFont(t.fonts.code), fontSize: 13, breakLine: true } });
         break;
 
       case 'math':
+        startParagraph(el.step);
         runs.push({ text: el.value, options: { fontFace: firstFont(t.fonts.code), fontSize: 15, breakLine: true } });
         if (el.caption) {
+          startParagraph(el.step);
           runs.push({ text: el.caption, options: { fontSize: 11, italic: true, breakLine: true, paraSpaceAfter: 4 } });
         }
         break;
@@ -1431,6 +1665,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
   }
 
   if (runs.length > 0) {
+    const objectName = paraSteps.size > 0 ? stepShapeName(area, 'text') : undefined;
     s.addText(runs, {
       x: area.x, y: area.y, w: area.w, h: area.h,
       fontSize: 18, color: tc,
@@ -1444,7 +1679,13 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
       // It's a partial mitigation — the box opens at full size and self-corrects
       // on first edit — rather than nothing, which is what dense slides had before.
       shrinkText: true,
+      ...(objectName ? { objectName } : {}),
     });
+    if (objectName) {
+      for (const [step, paragraphs] of paraSteps) {
+        stepTargets.push({ step, objectName, paragraphs });
+      }
+    }
   }
 
   // Progress bars: stacked, centred in the area
@@ -1603,12 +1844,12 @@ function containArea(area: Area, aspectRatio: number): Area {
   }
 }
 
-function tryAddImage(s: PS, src: string, area: Area, warnings: string[], aspectRatio?: number) {
+function tryAddImage(s: PS, src: string, area: Area, warnings: string[], aspectRatio?: number, objectName?: string) {
   if (!src) return;
   const placed = aspectRatio ? containArea(area, aspectRatio) : area;
   if (src.startsWith('data:')) {
     try {
-      s.addImage({ data: src, x: placed.x, y: placed.y, w: placed.w, h: placed.h });
+      s.addImage({ data: src, x: placed.x, y: placed.y, w: placed.w, h: placed.h, ...(objectName ? { objectName } : {}) });
     } catch {
       warnings.push(`Embedded image could not be added to PPTX: ${src.slice(0, 60)}…`);
     }

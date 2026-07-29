@@ -24,10 +24,37 @@ function parseSizeHint(title?: string): React.CSSProperties | null {
 
 // ── Element renderer ──────────────────────────────────────────────────────────
 
+function getElementStep(el: SlideElement): number | undefined {
+  return el.type === 'column-break' ? undefined : el.step;
+}
+
+// Gates one element's visibility during a build/reveal presentation. Only
+// wraps elements that actually carry a `.step` — everything else (the vast
+// majority of a typical slide) renders completely unwrapped, so a deck with
+// no step markers anywhere pays zero extra DOM/CSS cost.
+//
+// Hidden-but-reserves-space (opacity/visibility, not display:none): the
+// wrapper stays in flow while pending because OverflowPane (layouts.tsx)
+// measures the full, fully-built content height once — if a pending element
+// were removed from flow instead, the computed shrink-to-fit scale would
+// shift on every reveal click, visibly resizing already-revealed text.
+function StepGate({ step, children }: { step?: number; children: React.ReactNode }) {
+  const { revealThreshold, enteringStep } = useContext(SlideCtx);
+  if (step === undefined) return <>{children}</>;
+  const pending = revealThreshold !== undefined && step > revealThreshold;
+  const entering = step === enteringStep;
+  const className = `sl-step-item${pending ? ' sl-step-item--pending' : ''}${entering ? ' sl-step-item--entering' : ''}`;
+  return <div className={className} data-step={step}>{children}</div>;
+}
+
 export function Elements({ elements }: { elements: SlideElement[] }) {
   return (
     <>
-      {elements.map((el, i) => <ElementNode key={i} el={el} />)}
+      {elements.map((el, i) => (
+        <StepGate key={i} step={getElementStep(el)}>
+          <ElementNode el={el} />
+        </StepGate>
+      ))}
     </>
   );
 }
@@ -171,8 +198,18 @@ function ElementNode({ el }: { el: SlideElement }) {
 }
 
 export function ListItemNode({ item }: { item: ListItem }) {
+  // A list item is already its own `<li>` box, so the gating classes/attribute
+  // apply directly to it instead of introducing an extra wrapper (unlike
+  // StepGate above, which has to wrap because ElementNode's output varies).
+  const { revealThreshold, enteringStep } = useContext(SlideCtx);
+  const gated = item.step !== undefined;
+  const pending = gated && revealThreshold !== undefined && item.step! > revealThreshold;
+  const entering = gated && item.step === enteringStep;
+  const className = gated
+    ? `sl-step-item${pending ? ' sl-step-item--pending' : ''}${entering ? ' sl-step-item--entering' : ''}`
+    : undefined;
   return (
-    <li>
+    <li className={className} data-step={gated ? item.step : undefined}>
       <span dangerouslySetInnerHTML={{ __html: item.html }} />
       {item.children.length > 0 && (
         <ul className="sl-list sl-list--nested">

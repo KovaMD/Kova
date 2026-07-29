@@ -88,6 +88,19 @@ This is the pattern from [issue #79](https://github.com/KovaMD/Kova/issues/79):
 per-slide transition, a slide ID for intra-deck links) rather than inventing
 new bare tokens or frontmatter-like blocks mid-document.
 
+**Element-level extension:** `<!-- step -->` / `<!-- step: N -->` (build-reveal
+order, [issue #92](https://github.com/KovaMD/Kova/issues/92)) uses this same
+comment syntax but attaches to a single *element* rather than the whole slide —
+trailing on the same line for a paragraph or list item, or on its own line
+immediately after a block element (image, code fence, table, math, mermaid,
+blockquote, or a whole list), mirroring how `!caption` already attaches to
+"whichever element it directly follows." This is a deliberate, narrow
+extension of the category-3 pattern to element scope, not a new category:
+still a plain HTML comment, still stripped before rendering, still degrades
+gracefully in a plain Markdown viewer. Reach for this same attach-to-the-
+preceding-element mechanism before inventing a different one if you're adding
+another element-scoped (rather than slide-scoped) flag.
+
 ### 4. Content directives (bang syntax)
 
 `!name[label](target)`, each alone on its own line, for things that *render

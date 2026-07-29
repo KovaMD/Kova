@@ -4,6 +4,7 @@ import type { Slide, AspectRatio } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import type { NotesFontSize } from '../../store/settings';
 import { SlideRenderer } from '../preview/SlideRenderer';
+import { getSlideStepCount } from '../../engine/layout/steps';
 import { SLIDE_W, formatTime, ScaledSlideBox, LaserDot, usePresentationNav } from './presentationShared';
 import { useT } from '../../i18n';
 import './PresenterOverlay.css';
@@ -11,6 +12,8 @@ import './PresenterOverlay.css';
 interface Props {
   slides: Slide[];
   currentIndex: number;
+  /** Build-reveal step index for the *current* slide — see usePresentationNav. */
+  currentStep: number;
   theme: Theme;
   docTitle?: string;
   docAuthor?: string;
@@ -20,7 +23,7 @@ interface Props {
   showTimer: boolean;
   notesFontSize: NotesFontSize;
   laserColor?: string;
-  onNavigate: (index: number) => void;
+  onNavigate: (index: number, step: number) => void;
   onExit: () => void;
 }
 
@@ -31,7 +34,7 @@ const RIGHT_W_MAX     = 600; // px
 const STORAGE_KEY     = 'kova:presenter-right-w';
 
 export function PresenterOverlay({
-  slides, currentIndex, theme, docTitle, docAuthor, docDate, aspectRatio,
+  slides, currentIndex, currentStep, theme, docTitle, docAuthor, docDate, aspectRatio,
   showNextSlide, showTimer, notesFontSize, laserColor = '#ff2020', onNavigate, onExit,
 }: Props) {
   const t = useT();
@@ -41,8 +44,9 @@ export function PresenterOverlay({
 
   const handleNavigateTo = useCallback((slideIndex: number) => {
     const visibleIdx = slides.findIndex((s) => s.index === slideIndex);
-    if (visibleIdx >= 0) onNavigate(visibleIdx);
+    if (visibleIdx >= 0) onNavigate(visibleIdx, 0);
   }, [slides, onNavigate]);
+  const getStepCount = useCallback((i: number) => getSlideStepCount(slides[i]), [slides]);
 
   const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
 
@@ -110,8 +114,8 @@ export function PresenterOverlay({
       didMountRef.current = true;
       return;
     }
-    emitTo('audience', 'present:navigate', { index: currentIndex }).catch(() => {});
-  }, [currentIndex]);
+    emitTo('audience', 'present:navigate', { index: currentIndex, step: currentStep }).catch(() => {});
+  }, [currentIndex, currentStep]);
 
   // Sync blank state to audience window.
   useEffect(() => {
@@ -157,7 +161,7 @@ export function PresenterOverlay({
   // (this view shows a "no notes for this slide" placeholder either way).
 
   const { goNext, goPrev, jumpInput, setJumpInput } = usePresentationNav({
-    total, currentIndex, onNavigate, onExit,
+    total, currentIndex, currentStep, getStepCount, onNavigate, onExit,
     onToggleNotes: () => setShowNotes((p) => !p),
     onToggleBlankBlack: () => setBlankMode((m) => m === 'black' ? null : 'black'),
     onToggleBlankWhite: () => setBlankMode((m) => m === 'white' ? null : 'white'),
@@ -200,6 +204,7 @@ export function PresenterOverlay({
                 docDate={docDate}
                 hideOverflowBadge
                 onNavigateTo={handleNavigateTo}
+                revealStepIndex={currentStep}
               />
             </ScaledSlideBox>
             {laserActive && laserPos && (
@@ -244,6 +249,11 @@ export function PresenterOverlay({
                       docAuthor={docAuthor}
                       docDate={docDate}
                       hideOverflowBadge
+                      // Shows what the audience will see the moment the
+                      // presenter advances past the current slide's remaining
+                      // builds — the next slide's initial (unrevealed) state,
+                      // not its fully-built state.
+                      revealStepIndex={0}
                     />
                   </ScaledSlideBox>
                 </div>
@@ -295,7 +305,7 @@ export function PresenterOverlay({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   const n = parseInt(jumpInput, 10);
-                  if (!isNaN(n)) onNavigate(Math.min(Math.max(n - 1, 0), total - 1));
+                  if (!isNaN(n)) onNavigate(Math.min(Math.max(n - 1, 0), total - 1), 0);
                   setJumpInput(null);
                 } else if (e.key === 'Escape') {
                   setJumpInput(null);

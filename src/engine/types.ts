@@ -19,23 +19,28 @@ export interface ListItem {
   text: string;
   html: string;
   children: ListItem[];
+  /** Build-reveal order set via a trailing `<!-- step -->` marker; undefined
+   *  means the item is always visible from the start of the slide. See
+   *  `!-- step --` handling in markdownToSlides.ts and getSlideStepValues in
+   *  engine/layout/steps.ts. */
+  step?: number;
 }
 
 export type SlideElement =
-  | { type: 'paragraph'; text: string; html: string }
-  | { type: 'list'; ordered: boolean; items: ListItem[] }
-  | { type: 'image'; src: string; alt: string; title?: string; caption?: string }
-  | { type: 'code'; lang: string; value: string }
-  | { type: 'mermaid'; value: string; caption?: string }
-  | { type: 'math'; value: string; display: boolean; caption?: string }
-  | { type: 'blockquote'; text: string; attribution?: string; html?: string; calloutType?: string; title?: string }
-  | { type: 'table'; headers: string[]; rows: string[][]; align?: ('left' | 'right' | 'center' | null)[]; caption?: string }
-  | { type: 'youtube';  label: string; url: string }
-  | { type: 'video';    label: string; src: string }
-  | { type: 'poll';     label: string; url: string }
-  | { type: 'progress'; label: string; value: number }
+  | { type: 'paragraph'; text: string; html: string; step?: number }
+  | { type: 'list'; ordered: boolean; items: ListItem[]; step?: number }
+  | { type: 'image'; src: string; alt: string; title?: string; caption?: string; step?: number }
+  | { type: 'code'; lang: string; value: string; step?: number }
+  | { type: 'mermaid'; value: string; caption?: string; step?: number }
+  | { type: 'math'; value: string; display: boolean; caption?: string; step?: number }
+  | { type: 'blockquote'; text: string; attribution?: string; html?: string; calloutType?: string; title?: string; step?: number }
+  | { type: 'table'; headers: string[]; rows: string[][]; align?: ('left' | 'right' | 'center' | null)[]; caption?: string; step?: number }
+  | { type: 'youtube';  label: string; url: string; step?: number }
+  | { type: 'video';    label: string; src: string; step?: number }
+  | { type: 'poll';     label: string; url: string; step?: number }
+  | { type: 'progress'; label: string; value: number; step?: number }
   | { type: 'column-break' }
-  | { type: 'toc'; entries: Array<{ title: string; index: number }>; numberStart?: number };
+  | { type: 'toc'; entries: Array<{ title: string; index: number }>; numberStart?: number; step?: number };
 
 export interface Slide {
   index: number;

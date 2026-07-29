@@ -68,6 +68,32 @@ export function insertTable(view: EditorView, rows: number, cols: number): void 
   doInsert(view, `|${headerCells}|\n|${sepCells}|\n${dataRows}`, 2);
 }
 
+// Trailing `<!-- step -->` / `<!-- step: N -->` marker at the end of a line
+// (see engine/parser/stepMarkers.ts) — matches the same STEP_MARKER_RE shape,
+// anchored to end-of-line with optional leading whitespace so it can be
+// stripped cleanly.
+const TRAILING_STEP_RE = /\s*<!--\s*step(?:\s*:\s*\d+)?\s*-->\s*$/;
+
+export function hasLineStepMarker(view: EditorView, pos: number): boolean {
+  return TRAILING_STEP_RE.test(view.state.doc.lineAt(pos).text);
+}
+
+/** Toggles a `<!-- step -->` marker on the line containing `pos` — appends it
+ *  at line-end if absent, strips it if already present. Only covers the
+ *  trailing-inline form (a paragraph/list-item line); the own-line-after form
+ *  used for images/tables/etc. still needs the marker typed by hand on its
+ *  own line. */
+export function doToggleLineStepMarker(view: EditorView, pos: number): void {
+  const line = view.state.doc.lineAt(pos);
+  const m = line.text.match(TRAILING_STEP_RE);
+  if (m) {
+    view.dispatch({ changes: { from: line.from + m.index!, to: line.to, insert: '' } });
+  } else {
+    view.dispatch({ changes: { from: line.to, insert: ' <!-- step -->' } });
+  }
+  view.focus();
+}
+
 export function doWrap(view: EditorView, before: string, after: string, placeholder: string): void {
   const { from, to } = view.state.selection.main;
   if (from === to) {

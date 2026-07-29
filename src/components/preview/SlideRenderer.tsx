@@ -4,6 +4,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import type { Slide } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import { themeToVars, resolveTemplate, DEFAULT_THEME, isLightHex } from '../../engine/theme';
+import { getSlideStepValues } from '../../engine/layout/steps';
 import './SlideRenderer.css';
 import { buildExportMermaidInit } from '../../engine/export/mermaidExportTheme';
 import { SlideCtx, type SlideCtxValue } from './slideContext';
@@ -40,9 +41,19 @@ interface Props {
   hideOverflowBadge?: boolean;
   onAllDiagramsReady?: () => void;
   onNavigateTo?: (slideIndex: number) => void;
+  /**
+   * How many of this slide's distinct build-reveal steps have been "clicked
+   * through" so far — an index into `getSlideStepValues(slide)`, not a raw
+   * step value (values can be sparse via `<!-- step: N -->` grouping, so an
+   * index is the only representation that survives navigation bookkeeping).
+   * `undefined` (the default) means "no gating" — every element renders fully
+   * revealed, exactly like before this prop existed. Only the presentation/
+   * presenter/audience overlays ever pass a real value.
+   */
+  revealStepIndex?: number;
 }
 
-export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, docTitle = '', docAuthor = '', docDate = '', scale = 1, isThumbnail: isThumbnailProp, hideOverflowBadge = false, onAllDiagramsReady, onNavigateTo }: Props) {
+export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, docTitle = '', docAuthor = '', docDate = '', scale = 1, isThumbnail: isThumbnailProp, hideOverflowBadge = false, onAllDiagramsReady, onNavigateTo, revealStepIndex }: Props) {
   // Per-slide text colour: explicit `<!-- color -->` wins; otherwise a Marp
   // `<!-- _class: invert -->` swaps to the theme's light "text on dark" colour
   // (title_text). `slideTextOverride` stays undefined when neither applies, so
@@ -84,9 +95,39 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
 
   const isThumbnail = isThumbnailProp ?? scale !== 1;
 
+  // Build-reveal: resolve `revealStepIndex` (an index into this slide's
+  // distinct step values) to the actual visibility cutoff. `undefined` stays
+  // "no gating" — thumbnails/exports/print never pass this prop at all.
+  const stepValues = useMemo(() => getSlideStepValues(slide), [slide]);
+  const revealThreshold = revealStepIndex === undefined
+    ? undefined
+    : revealStepIndex > 0 ? stepValues[revealStepIndex - 1] : -Infinity;
+
+  // Only a genuine forward, same-slide, single-step increment gets the reveal
+  // transition — a slide change, a backward step, a multi-step jump (ToC
+  // click, dual-window resync), or landing directly on a slide's Nth step all
+  // render statically. Refs (not state) so this never triggers an extra
+  // render of its own; they still hold the *previous* commit's values while
+  // this render's body runs, which is exactly the comparison needed.
+  const prevSlideIndexRef = useRef<number | undefined>(undefined);
+  const prevRevealStepIndexRef = useRef<number | undefined>(undefined);
+  let enteringStep: number | undefined;
+  if (
+    revealStepIndex !== undefined
+    && prevSlideIndexRef.current === slide.index
+    && prevRevealStepIndexRef.current !== undefined
+    && revealStepIndex === prevRevealStepIndexRef.current + 1
+  ) {
+    enteringStep = stepValues[revealStepIndex - 1];
+  }
+  useEffect(() => {
+    prevSlideIndexRef.current = slide.index;
+    prevRevealStepIndexRef.current = revealStepIndex;
+  });
+
   const ctxValue = useMemo<SlideCtxValue>(
-    () => ({ isThumbnail, hideOverflowBadge, textColor: slideTextColor, mermaidInit: buildExportMermaidInit(theme), tocNumbered: theme.toc.numbered, onDiagramReady: onAllDiagramsReady ? onDiagramReady : undefined, onNavigateTo }),
-    [isThumbnail, hideOverflowBadge, slideTextColor, theme, onAllDiagramsReady, onDiagramReady, onNavigateTo],
+    () => ({ isThumbnail, hideOverflowBadge, textColor: slideTextColor, mermaidInit: buildExportMermaidInit(theme), tocNumbered: theme.toc.numbered, onDiagramReady: onAllDiagramsReady ? onDiagramReady : undefined, onNavigateTo, revealThreshold, enteringStep }),
+    [isThumbnail, hideOverflowBadge, slideTextColor, theme, onAllDiagramsReady, onDiagramReady, onNavigateTo, revealThreshold, enteringStep],
   );
 
   // Markdown-authored <a> tags (rendered via dangerouslySetInnerHTML in child

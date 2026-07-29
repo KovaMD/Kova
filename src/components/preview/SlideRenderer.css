@@ -179,6 +179,29 @@
 .sl-para { margin: 0 0 0.5em; }
 .sl-para:last-child { margin-bottom: 0; }
 
+/* ── Build-reveal (progressive-disclosure `<!-- step -->` elements) ────────
+   Only elements carrying a step marker ever get this wrapper (StepGate /
+   ListItemNode in elements.tsx) — plain content is completely unaffected.
+   Pending elements stay in flow (opacity/visibility, not display:none) so
+   OverflowPane's shrink-to-fit measurement — taken once against the fully-
+   built slide — never shifts as more content reveals. The wrapper being a
+   plain block box (not display:contents, which has inconsistent flex/grid
+   item promotion across engines, notably WebKitGTK) means a wrapped
+   paragraph is no longer literally `:last-child` — restore that specific
+   margin reset explicitly rather than via the unwrapped selector below. */
+/* No explicit `display` here — the wrapper div (StepGate) is block by
+   default, and this class is also applied directly to list-item <li>s
+   (ListItemNode), which must keep their native `display: list-item` for
+   their bullet marker to render at all. */
+.sl-step-item:last-child > .sl-para { margin-bottom: 0; }
+.sl-step-item--pending { opacity: 0; visibility: hidden; pointer-events: none; }
+
+@keyframes sl-step-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sl-step-item--entering { animation: sl-step-in 0.35s ease both; }
+
 .sl-list { padding-left: 1.4em; margin: 0 0 0.5em; }
 .sl-list li { margin-bottom: 0.25em; }
 .sl-list--nested { margin-top: 0.15em; margin-bottom: 0; }

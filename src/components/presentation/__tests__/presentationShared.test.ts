@@ -50,6 +50,8 @@ function baseOpts(overrides: Partial<UsePresentationNavOpts> = {}): UsePresentat
   return {
     total: 5,
     currentIndex: 2,
+    currentStep: 0,
+    getStepCount: () => 0, // no build-reveal steps by default — matches pre-step behaviour exactly
     onNavigate: vi.fn(),
     onExit: vi.fn(),
     onToggleNotes: vi.fn(),
@@ -79,14 +81,14 @@ describe('usePresentationNav', () => {
     latest!.goPrev(); // already at 0 — no-op
     expect(onNavigate).not.toHaveBeenCalled();
     latest!.goNext();
-    expect(onNavigate).toHaveBeenCalledWith(1);
+    expect(onNavigate).toHaveBeenCalledWith(1, 0);
 
     onNavigate.mockClear();
     render(baseOpts({ currentIndex: 2, total: 3, onNavigate }));
     latest!.goNext(); // already at last index — no-op
     expect(onNavigate).not.toHaveBeenCalled();
     latest!.goPrev();
-    expect(onNavigate).toHaveBeenCalledWith(1);
+    expect(onNavigate).toHaveBeenCalledWith(1, 0);
   });
 
   it('arrow/space/page keys navigate; Home/End jump to the ends', () => {
@@ -99,7 +101,34 @@ describe('usePresentationNav', () => {
     key('PageUp');
     key('Home');
     key('End');
-    expect(onNavigate.mock.calls.map((c) => c[0])).toEqual([3, 1, 3, 3, 1, 0, 4]);
+    expect(onNavigate.mock.calls).toEqual([[3, 0], [1, 0], [3, 0], [3, 0], [1, 0], [0, 0], [4, 0]]);
+  });
+
+  it('goNext advances the current slide\'s next pending step before advancing the slide', () => {
+    const onNavigate = vi.fn();
+    render(baseOpts({ currentIndex: 1, currentStep: 0, getStepCount: () => 2, onNavigate }));
+    latest!.goNext();
+    expect(onNavigate).toHaveBeenCalledWith(1, 1); // same slide, next step
+
+    onNavigate.mockClear();
+    render(baseOpts({ currentIndex: 1, currentStep: 2, getStepCount: () => 2, onNavigate }));
+    latest!.goNext();
+    expect(onNavigate).toHaveBeenCalledWith(2, 0); // steps exhausted -> next slide, step 0
+  });
+
+  it('goPrev reverses through steps before crossing back to the previous slide', () => {
+    const onNavigate = vi.fn();
+    render(baseOpts({ currentIndex: 1, currentStep: 2, getStepCount: () => 2, onNavigate }));
+    latest!.goPrev();
+    expect(onNavigate).toHaveBeenCalledWith(1, 1); // same slide, previous step
+  });
+
+  it('goPrev crossing a slide boundary lands on the previous slide\'s last (fully revealed) step', () => {
+    const onNavigate = vi.fn();
+    const getStepCount = (i: number) => (i === 0 ? 3 : 0);
+    render(baseOpts({ currentIndex: 1, currentStep: 0, getStepCount, onNavigate }));
+    latest!.goPrev();
+    expect(onNavigate).toHaveBeenCalledWith(0, 3);
   });
 
   it('Escape calls onExit', () => {
@@ -140,7 +169,7 @@ describe('usePresentationNav', () => {
     key('4');
     expect(latest!.jumpInput).toBe('4');
     key('Enter');
-    expect(onNavigate).toHaveBeenCalledWith(3); // slide "4" -> index 3
+    expect(onNavigate).toHaveBeenCalledWith(3, 0); // slide "4" -> index 3
     expect(latest!.jumpInput).toBeNull();
   });
 
@@ -149,7 +178,7 @@ describe('usePresentationNav', () => {
     render(baseOpts({ total: 5, currentIndex: 0, onNavigate }));
     key('9');
     key('Enter');
-    expect(onNavigate).toHaveBeenCalledWith(4);
+    expect(onNavigate).toHaveBeenCalledWith(4, 0);
   });
 
   it('Enter with no pending jump input does not call onNavigate', () => {
@@ -165,7 +194,7 @@ describe('usePresentationNav', () => {
     wheel(10); // down -> next
     wheel(-10); // immediately after — debounced, ignored
     expect(onNavigate).toHaveBeenCalledTimes(1);
-    expect(onNavigate).toHaveBeenCalledWith(3);
+    expect(onNavigate).toHaveBeenCalledWith(3, 0);
   });
 
   it('calls resetIdle on key and wheel navigation when supplied, and tolerates it being omitted', () => {

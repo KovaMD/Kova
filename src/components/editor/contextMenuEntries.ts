@@ -1,7 +1,7 @@
 import type { EditorView } from '@codemirror/view';
 import { EditorSelection } from '@codemirror/state';
 import type { MenuEntry } from './EditorContextMenu';
-import { getWordAtPos, doCopy, doCut, doPaste, doInsert, doWrap } from './contextMenuActions';
+import { getWordAtPos, doCopy, doCut, doPaste, doInsert, doWrap, doToggleLineStepMarker, hasLineStepMarker } from './contextMenuActions';
 import { indentLine, dedentLine } from './formatCommands';
 import {
   isSpellCheckerReady,
@@ -83,6 +83,11 @@ export function buildContextMenuEntries({
     { type: 'item', label: t('editor.menuInlineCode'),    shortcut: `${mod}+\``,      action: () => view && doWrap(view, '`',   '`',    'code') },
     { type: 'item', label: t('editor.menuIndent'),        shortcut: `${mod}+]`,       action: () => { if (view) indentLine(view); } },
     { type: 'item', label: t('editor.menuDedent'),        shortcut: `${mod}+[`,       action: () => { if (view) dedentLine(view); } },
+    {
+      type: 'item',
+      label: view && clickPos != null && hasLineStepMarker(view, clickPos) ? t('editor.menuRemoveStepMarker') : t('editor.menuAddStepMarker'),
+      action: () => { if (view && clickPos != null) doToggleLineStepMarker(view, clickPos); },
+    },
     { type: 'divider' },
     {
       type: 'submenu', label: t('editor.menuInsert'), entries: [
