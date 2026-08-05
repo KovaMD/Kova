@@ -10,7 +10,7 @@ import { buildExportMermaidInit, parseChannels } from './mermaidExportTheme';
 import { autoSplitElements, groupProgressRuns, splitByColumnBreaks } from '../layout/elementGrouping';
 import mermaid from 'mermaid';
 import katex from 'katex';
-import { toPng } from 'html-to-image';
+import { toCanvas } from 'html-to-image';
 import 'katex/dist/katex.min.css';
 import hljs from 'highlight.js';
 import type { Slide, SlideElement, Frontmatter } from '../types';
@@ -74,19 +74,65 @@ async function mathToDataUrl(
   document.body.appendChild(wrap);
   try {
     await new Promise<void>((r) => requestAnimationFrame(() => r()));
-    const dataUrl = await toPng(wrap, {
+    if (document.fonts?.ready) await document.fonts.ready.catch(() => {});
+    // toCanvas (not toPng) so the capture can be inspected before committing
+    // to it — see isCanvasBlank below for why that matters.
+    const canvas = await toCanvas(wrap, {
       backgroundColor: bgColor,
       pixelRatio: 2,
       cacheBust: true,
     });
-    const w = Math.max(wrap.offsetWidth, 1);
-    const h = Math.max(wrap.offsetHeight, 1);
-    return { dataUrl, aspectRatio: w / h };
+    // html-to-image works by serialising the node into an SVG <foreignObject>,
+    // loading *that* via `Image.src = data:...`, then `ctx.drawImage`-ing it
+    // onto the canvas. WebKit has a known issue where arbitrary HTML rendered
+    // this way — inside a foreignObject, loaded through an <img>, drawn to
+    // canvas — paints as nothing, with no exception anywhere in the chain: a
+    // validly-sized PNG that's simply blank. svgToPngDataUrl already hit this
+    // exact class of bug for Mermaid and worked around it there by replacing
+    // each foreignObject's HTML with native SVG <text>/<tspan> (mermaid's
+    // foreignObject content is just plain text labels). KaTeX's output —
+    // fractions, roots, precise nested CSS positioning — can't be rewritten
+    // as native SVG the same way, so detect the blank result instead and
+    // treat it exactly like a hard render failure: callers already fall back
+    // to the LaTeX source as plain text, which beats an empty shape that
+    // still animates as if something were there.
+    if (isCanvasBlank(canvas, bgColor)) return null;
+    return { dataUrl: canvas.toDataURL(), aspectRatio: canvas.width / canvas.height };
   } catch {
     return null;
   } finally {
     wrap.remove();
   }
+}
+
+// Renders `bgColor` into a throwaway 1x1 canvas and compares every pixel of
+// `canvas` against those exact bytes (not a parsed CSS colour) — samples the
+// canvas the same way a browser's own 2D context would resolve `bgColor`,
+// so this can't disagree with what "background, nothing drawn" actually
+// looks like in this environment's colour handling.
+function isCanvasBlank(canvas: HTMLCanvasElement, bgColor: string): boolean {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return true;
+  const probe = document.createElement('canvas');
+  probe.width = 1;
+  probe.height = 1;
+  const pctx = probe.getContext('2d');
+  if (!pctx) return true;
+  pctx.fillStyle = bgColor;
+  pctx.fillRect(0, 0, 1, 1);
+  const [bgR, bgG, bgB] = pctx.getImageData(0, 0, 1, 1).data;
+
+  const TOLERANCE = 6;
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] === 0) continue; // fully transparent pixel
+    if (
+      Math.abs(data[i] - bgR) > TOLERANCE
+      || Math.abs(data[i + 1] - bgG) > TOLERANCE
+      || Math.abs(data[i + 2] - bgB) > TOLERANCE
+    ) return false;
+  }
+  return true;
 }
 
 const W = 10; // slide width is always 10" regardless of ratio
@@ -226,7 +272,9 @@ async function resolveSlideImages(slides: Slide[], theme: Theme, warnings: strin
       } else if (el.type === 'mermaid') {
         const result = await mermaidToDataUrl(el.value, theme);
         if (result) {
-          elements.push({ type: 'image' as const, src: result.dataUrl, alt: 'Diagram', title: String(result.aspectRatio), caption: el.caption });
+          // step must carry over — this is a rendering substitution, not a
+          // new element; dropping it would silently un-gate a stepped diagram.
+          elements.push({ type: 'image' as const, src: result.dataUrl, alt: 'Diagram', title: String(result.aspectRatio), caption: el.caption, step: el.step });
         } else {
           warnings.push(`Mermaid diagram could not be rendered and was skipped (slide: "${slide.title ?? 'untitled'}")`);
           elements.push(el);
@@ -240,6 +288,7 @@ async function resolveSlideImages(slides: Slide[], theme: Theme, warnings: strin
             alt: 'Formula',
             title: String(result.aspectRatio),
             caption: el.caption,
+            step: el.step, // see the mermaid case above
           });
         } else {
           warnings.push(`Display math could not be rendered and was skipped (slide: "${slide.title ?? 'untitled'}")`);
@@ -377,6 +426,18 @@ async function applyFadeTransitions(base64: string, slideCount: number): Promise
 // exports to PPTX unanimated (visible immediately, same as before this
 // feature existed), rather than erroring. A real but explicitly bounded v1
 // scope gap, not a silent bug.
+//
+// CONFIRMED (real-world testing, not just the disclosure above): a single
+// <p:set> targeting a *wide* paragraph range — <p:pRg st="X" end="Y"> with
+// Y>X, which this code used to emit for adjacent bullets/paragraphs sharing
+// one step — only reliably revealed paragraph X; Y stayed visible from the
+// start. Two independent repros: a step shared by two adjacent list items
+// (the second stayed visible), and a callout's title+body (both part of one
+// stepped element, sharing one shape — the body stayed visible while the
+// title animated). Fix: never emit a range wider than one paragraph: every
+// index gets its own <p:set>, batched onto the same click as sibling
+// behaviours under one clickEffect instead of merged into one target's
+// <p:pRg>. See the `range: [idx, idx]` comment in applyStepAnimations.
 
 interface StepTarget {
   step: number;
@@ -393,21 +454,6 @@ interface StepTarget {
 // avoids threading a separate counter through the whole layout call graph.
 function stepShapeName(area: Area, kind: string): string {
   return `kova:step-${kind}-${Math.round(area.x * 1000)}-${Math.round(area.y * 1000)}`;
-}
-
-// Run-length-encode a set of paragraph indices into minimal contiguous
-// [start, end] ranges — an explicit `<!-- step: N -->` can group non-adjacent
-// paragraphs (e.g. bullet 1 and bullet 4) onto the same click, and OOXML
-// allows a click to target multiple disjoint paragraph ranges in one shape.
-function toContiguousRanges(indices: number[]): Array<[number, number]> {
-  const sorted = [...indices].sort((a, b) => a - b);
-  const ranges: Array<[number, number]> = [];
-  for (const n of sorted) {
-    const last = ranges[ranges.length - 1];
-    if (last && n === last[1] + 1) last[1] = n;
-    else ranges.push([n, n]);
-  }
-  return ranges;
 }
 
 // OOXML timing node ids only need to be unique within one slide's <p:timing>
@@ -520,8 +566,16 @@ async function applyStepAnimations(base64: string, perSlideTargets: StepTarget[]
       // Shouldn't happen (every pushed target came from a shape we just gave
       // this exact name), but skip rather than emit a dangling shape reference.
       if (spid === undefined) continue;
+      // One <p:set> per individual paragraph index, even when several are
+      // contiguous or share the same step — deliberately never collapsed
+      // into one multi-paragraph <p:pRg st=X end=Y> (X<Y). Real PowerPoint's
+      // own per-paragraph builds only reliably reveal the *first* paragraph
+      // of a wide range like that; the rest stay visible from the start (see
+      // the scope note above applyStepAnimations). Multiple single-paragraph
+      // targets inside the same clickEffect below still all fire together on
+      // one click, without that ambiguity.
       const clickTargets: ClickTarget[] = target.paragraphs
-        ? toContiguousRanges(target.paragraphs).map((range) => ({ spid, range }))
+        ? target.paragraphs.map((idx): ClickTarget => ({ spid, range: [idx, idx] }))
         : [{ spid }];
       if (target.paragraphs) buildSpids.add(spid);
       byStep.set(target.step, [...(byStep.get(target.step) ?? []), ...clickTargets]);
@@ -1379,32 +1433,54 @@ const CALLOUT_COLORS: Record<string, string> = {
   danger: '#FF5252',
 };
 
-function addCalloutBlock(s: PS, el: Extract<SlideElement, { type: 'blockquote' }>, t: Theme, area: Area, tc: string = hex(t.colors.text)) {
+function addCalloutBlock(
+  s: PS, el: Extract<SlideElement, { type: 'blockquote' }>, t: Theme, area: Area, tc: string = hex(t.colors.text),
+  step?: number, stepTargets: StepTarget[] = [],
+) {
   const color = CALLOUT_COLORS[el.calloutType ?? 'note'] ?? CALLOUT_COLORS.note;
   const BAR_W = 0.06;
   const PAD   = 0.15;
 
+  // Same "several separate shapes, one step" batching as addCodeBlock above —
+  // background, accent bar, title, and body all reveal together on one click.
+  let shapeCount = 0;
+  const stepName = (): string | undefined => step === undefined ? undefined : stepShapeName(area, `callout-${shapeCount++}`);
+  const registerStep = (objectName: string | undefined) => {
+    if (objectName) stepTargets.push({ step: step!, objectName });
+  };
+
+  const bgName = stepName();
   s.addShape('rect', {
     x: area.x, y: area.y, w: area.w, h: area.h,
     fill: { color: hex(t.colors.background) },
     line: { color: hex(color), width: 0.75, transparency: 60 },
+    ...(bgName ? { objectName: bgName } : {}),
   });
+  registerStep(bgName);
+
+  const barName = stepName();
   s.addShape('rect', {
     x: area.x, y: area.y, w: BAR_W, h: area.h,
     fill: { color: hex(color) },
     line: { type: 'none' },
+    ...(barName ? { objectName: barName } : {}),
   });
+  registerStep(barName);
 
   const titleH = 0.35;
+  const titleName = stepName();
   s.addText(el.title ?? '', {
     x: area.x + BAR_W + PAD, y: area.y + PAD * 0.5, w: area.w - BAR_W - PAD * 1.5, h: titleH,
     fontSize: 15, bold: true,
     color: hex(color),
     fontFace: firstFont(t.fonts.body),
     valign: 'top',
+    ...(titleName ? { objectName: titleName } : {}),
   });
+  registerStep(titleName);
 
   if (el.text.trim()) {
+    const bodyName = stepName();
     s.addText(el.text, {
       x: area.x + BAR_W + PAD, y: area.y + PAD * 0.5 + titleH, w: area.w - BAR_W - PAD * 1.5, h: area.h - titleH - PAD,
       fontSize: 14,
@@ -1412,13 +1488,30 @@ function addCalloutBlock(s: PS, el: Extract<SlideElement, { type: 'blockquote' }
       fontFace: firstFont(t.fonts.body),
       valign: 'top', wrap: true,
       shrinkText: true,
+      ...(bodyName ? { objectName: bodyName } : {}),
     });
+    registerStep(bodyName);
   }
 }
 
 // ── Styled code block (reused by addCodeSlide and addElements) ────────────────
 
-function addCodeBlock(s: PS, value: string, lang: string | undefined, t: Theme, area: Area, codeBgOverride?: string) {
+function addCodeBlock(
+  s: PS, value: string, lang: string | undefined, t: Theme, area: Area, codeBgOverride?: string,
+  step?: number, stepTargets: StepTarget[] = [],
+) {
+  // A code block is 3-4 separate pptxgenjs shapes (outer rect, optional lang
+  // badge, inner rect, code text) rather than one — registering each of them
+  // as its own whole-shape target under the *same* step, all inside the same
+  // clickEffect (see the ClickTarget[] batching in applyStepAnimations),
+  // reveals the whole block together on one click instead of animating just
+  // one piece of it while the rest stay visible.
+  let shapeCount = 0;
+  const stepName = (): string | undefined => step === undefined ? undefined : stepShapeName(area, `code-${shapeCount++}`);
+  const registerStep = (objectName: string | undefined) => {
+    if (objectName) stepTargets.push({ step: step!, objectName });
+  };
+
   const OUTER_PAD = 0.15;
   const LANG_H    = 0.25;
   const INNER_PAD = 0.15;
@@ -1443,14 +1536,18 @@ function addCodeBlock(s: PS, value: string, lang: string | undefined, t: Theme, 
 
   // Outer area — code_bg background, no border (mirrors .sl-code)
   const codeBg = codeBgOverride ?? t.colors.code_bg;
+  const outerName = stepName();
   s.addShape('rect', {
     x: area.x, y: blockY, w: area.w, h: blockH,
     fill: { color: hex(codeBg) },
     line: { type: 'none' },
+    ...(outerName ? { objectName: outerName } : {}),
   });
+  registerStep(outerName);
 
   // Language badge — uppercase, accent, letter-spaced (mirrors .sl-code__lang)
   if (lang) {
+    const langName = stepName();
     s.addText(lang.toUpperCase(), {
       x: area.x + OUTER_PAD, y: blockY + OUTER_PAD,
       w: 3, h: LANG_H,
@@ -1458,7 +1555,9 @@ function addCodeBlock(s: PS, value: string, lang: string | undefined, t: Theme, 
       fontFace: firstFont(t.fonts.code),
       align: 'left', valign: 'bottom',
       charSpacing: 1,
+      ...(langName ? { objectName: langName } : {}),
     });
+    registerStep(langName);
   }
 
   // Inner dark rect — use the github-dark background (#0d1117) for proper contrast.
@@ -1468,11 +1567,14 @@ function addCodeBlock(s: PS, value: string, lang: string | undefined, t: Theme, 
   const innerY = blockY + OUTER_PAD + langExtra;
   const innerW = area.w - OUTER_PAD * 2;
 
+  const innerName = stepName();
   s.addShape('rect', {
     x: innerX, y: innerY, w: innerW, h: innerH,
     fill: { color: '0D1117' },
     line: { type: 'none' },
+    ...(innerName ? { objectName: innerName } : {}),
   });
+  registerStep(innerName);
 
   // Syntax-highlight and convert to coloured PptxGenJS runs (github-dark palette).
   const highlighted = lang && hljs.getLanguage(lang)
@@ -1480,6 +1582,7 @@ function addCodeBlock(s: PS, value: string, lang: string | undefined, t: Theme, 
     : hljs.highlightAuto(value);
   const codeRuns = hljsHtmlToRuns(highlighted.value);
 
+  const textName = stepName();
   s.addText(codeRuns.length > 0 ? codeRuns : [{ text: value || ' ', options: { color: HLJS_DEFAULT } }], {
     x: innerX + INNER_PAD, y: innerY + INNER_PAD,
     w: innerW - INNER_PAD * 2,
@@ -1494,7 +1597,9 @@ function addCodeBlock(s: PS, value: string, lang: string | undefined, t: Theme, 
     // nothing for excess *line length* since wrap is intentionally off here
     // to preserve code indentation/alignment.
     shrinkText: true,
+    ...(textName ? { objectName: textName } : {}),
   });
+  registerStep(textName);
 }
 
 // ── Element renderer ──────────────────────────────────────────────────────────
@@ -1514,23 +1619,22 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
     return;
   }
 
-  // Single code element — render with full dark-background styling.
-  // Not animated even when stepped: this renders as 3-4 separate pptxgenjs
-  // shapes (background rect, inner rect, optional language badge, code text)
-  // rather than one — targeting just one of them for a whole-shape "appear"
-  // would show the rest immediately, looking like a broken partial build
-  // rather than no animation at all. Same reasoning applies to the callout
-  // case just below. Renders fully visible, exactly like before this feature
-  // existed (see the scope note above applyStepAnimations).
+  // Single code element — render with full dark-background styling. Renders
+  // as 3-4 separate pptxgenjs shapes (background rect, inner rect, optional
+  // language badge, code text) rather than one — addCodeBlock registers each
+  // of them under the same step so they all reveal together on one click
+  // (see the ClickTarget[] batching in applyStepAnimations), rather than
+  // animating just one piece while the rest stay visible. Same reasoning
+  // applies to the callout case just below.
   if (elements.length === 1 && elements[0].type === 'code') {
     const el = elements[0];
-    addCodeBlock(s, el.value, el.lang, t, area, codeBg);
+    addCodeBlock(s, el.value, el.lang, t, area, codeBg, el.step, stepTargets);
     return;
   }
 
   // Single callout — render as a bordered/accent-barred box, not a plain quote
   if (elements.length === 1 && elements[0].type === 'blockquote' && elements[0].calloutType) {
-    addCalloutBlock(s, elements[0], t, area, tc);
+    addCalloutBlock(s, elements[0], t, area, tc, elements[0].step, stepTargets);
     return;
   }
 
@@ -1653,6 +1757,20 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
         }
         break;
 
+      case 'mermaid':
+        // Reached only when resolveSlideImages' mermaidToDataUrl failed to
+        // rasterise the diagram (already pushed a warning there) — this had
+        // no case at all before, so a diagram mixed with other content
+        // silently vanished with nothing in its place, unlike code/math's
+        // plain-text fallback just above.
+        startParagraph(el.step);
+        runs.push({ text: el.value, options: { fontFace: firstFont(t.fonts.code), fontSize: 13, breakLine: true } });
+        if (el.caption) {
+          startParagraph(el.step);
+          runs.push({ text: el.caption, options: { fontSize: 11, italic: true, breakLine: true, paraSpaceAfter: 4 } });
+        }
+        break;
+
       case 'video':
       case 'youtube':
         // Placed as real media objects below (with text/image/table), not as runs.
@@ -1741,7 +1859,14 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
     if (tableEl?.type === 'table') {
       const tableH = belowH * tableFrac;
       const capH = tableEl.caption ? CAPTION_H : 0;
-      addTable(s, tableEl, t, { x: area.x, y: belowY, w: area.w, h: tableH - capH }, tc);
+      const tableArea: Area = { x: area.x, y: belowY, w: area.w, h: tableH - capH };
+      // A table is its own dedicated shape (like the lone-image fast path
+      // above), so a step on it can target the whole shape directly — unlike
+      // addTable itself, this was previously never wired to stepTargets at
+      // all, so a stepped table rendered fully visible regardless of step.
+      const objectName = tableEl.step !== undefined ? stepShapeName(tableArea, 'table') : undefined;
+      addTable(s, tableEl, t, tableArea, tc, objectName);
+      if (objectName) stepTargets.push({ step: tableEl.step!, objectName });
       addCaption(s, tableEl.caption, t, area.x, belowY + tableH - capH, area.w);
     }
 
@@ -1755,7 +1880,10 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
       const capH = img.caption ? CAPTION_H : 0;
       const y = mediaY + stackI * perH;
       stackI += 1;
-      tryAddImage(s, img.src, { x: area.x, y, w: area.w, h: perH - capH }, warnings, imgAr(img));
+      const imgArea: Area = { x: area.x, y, w: area.w, h: perH - capH };
+      const objectName = img.step !== undefined ? stepShapeName(imgArea, 'img') : undefined;
+      tryAddImage(s, img.src, imgArea, warnings, imgAr(img), objectName);
+      if (objectName) stepTargets.push({ step: img.step!, objectName });
       addCaption(s, img.caption, t, area.x, y + perH - capH, area.w);
     });
 
@@ -1782,6 +1910,7 @@ function addTable(
   t: Theme,
   area: Area,
   tc: string = hex(t.colors.text),
+  objectName?: string,
 ) {
   const colAlign = (i: number): 'left' | 'center' | 'right' =>
     (el.align?.[i] as 'left' | 'center' | 'right' | null | undefined) ?? 'left';
@@ -1804,6 +1933,7 @@ function addTable(
     fontSize: 14,
     fontFace: firstFont(t.fonts.body),
     border: { color: hex(t.colors.accent), pt: 0.5 },
+    ...(objectName ? { objectName } : {}),
   });
 }
 
