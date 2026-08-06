@@ -46,8 +46,8 @@ beforeAll(() => {
 });
 afterAll(() => { HTMLCanvasElement.prototype.getContext = originalGetContext; });
 
-vi.mock('html-to-image', () => ({
-  toCanvas: vi.fn(async () => {
+vi.mock('html2canvas', () => ({
+  default: vi.fn(async () => {
     const canvas = document.createElement('canvas');
     canvas.width = 10;
     canvas.height = 10;
@@ -86,9 +86,9 @@ describe('exportPptx display math (issue #196)', () => {
   });
 
   it('falls back to the LaTeX source as plain text when the capture is blank (e.g. the WebKit foreignObject issue)', async () => {
-    const { toCanvas } = await import('html-to-image');
+    const html2canvas = (await import('html2canvas')).default;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (toCanvas as any).mockImplementationOnce(async () => {
+    (html2canvas as any).mockImplementationOnce(async () => {
       const canvas = document.createElement('canvas');
       canvas.width = 10;
       canvas.height = 10;

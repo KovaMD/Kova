@@ -10,7 +10,7 @@ import { buildExportMermaidInit, parseChannels } from './mermaidExportTheme';
 import { autoSplitElements, groupProgressRuns, splitByColumnBreaks } from '../layout/elementGrouping';
 import mermaid from 'mermaid';
 import katex from 'katex';
-import { toCanvas } from 'html-to-image';
+import html2canvas from 'html2canvas';
 import 'katex/dist/katex.min.css';
 import hljs from 'highlight.js';
 import type { Slide, SlideElement, Frontmatter } from '../types';
@@ -75,27 +75,26 @@ async function mathToDataUrl(
   try {
     await new Promise<void>((r) => requestAnimationFrame(() => r()));
     if (document.fonts?.ready) await document.fonts.ready.catch(() => {});
-    // toCanvas (not toPng) so the capture can be inspected before committing
-    // to it — see isCanvasBlank below for why that matters.
-    const canvas = await toCanvas(wrap, {
-      backgroundColor: bgColor,
-      pixelRatio: 2,
-      cacheBust: true,
-    });
-    // html-to-image works by serialising the node into an SVG <foreignObject>,
-    // loading *that* via `Image.src = data:...`, then `ctx.drawImage`-ing it
-    // onto the canvas. WebKit has a known issue where arbitrary HTML rendered
-    // this way — inside a foreignObject, loaded through an <img>, drawn to
-    // canvas — paints as nothing, with no exception anywhere in the chain: a
-    // validly-sized PNG that's simply blank. svgToPngDataUrl already hit this
-    // exact class of bug for Mermaid and worked around it there by replacing
-    // each foreignObject's HTML with native SVG <text>/<tspan> (mermaid's
-    // foreignObject content is just plain text labels). KaTeX's output —
-    // fractions, roots, precise nested CSS positioning — can't be rewritten
-    // as native SVG the same way, so detect the blank result instead and
-    // treat it exactly like a hard render failure: callers already fall back
-    // to the LaTeX source as plain text, which beats an empty shape that
-    // still animates as if something were there.
+    // html2canvas, not html-to-image — the latter serialises the node into an
+    // SVG <foreignObject>, loads *that* via `Image.src = data:...`, then
+    // `ctx.drawImage`-s it onto a canvas, and WebKitGTK has more than one
+    // documented problem with that specific path: exportPdf.ts's captureSlide
+    // already works around it not painting plain <img> elements at all, and
+    // this formula rendering hit a blank capture too (no exception anywhere
+    // in the chain — a validly-sized PNG that's simply empty) despite KaTeX's
+    // output containing no <img> tags, so it isn't the same known case,
+    // just the same underlying technique. svgToPngDataUrl sidesteps its own
+    // version of this for Mermaid by replacing foreignObject text with native
+    // SVG <text>/<tspan> — not viable for KaTeX's fractions/roots/nested
+    // positioning. html2canvas instead walks the DOM and redraws each element
+    // with plain Canvas 2D primitives (foreignObjectRendering stays off — the
+    // default — since enabling it opts back into the same foreignObject
+    // path), avoiding the whole class of issue rather than chasing each
+    // symptom. isCanvasBlank stays as a safety net regardless — if rendering
+    // fails for some other reason, callers already fall back to the LaTeX
+    // source as plain text, which beats an empty shape that still animates
+    // as if something were there.
+    const canvas = await html2canvas(wrap, { backgroundColor: bgColor, scale: 2 });
     if (isCanvasBlank(canvas, bgColor)) return null;
     return { dataUrl: canvas.toDataURL(), aspectRatio: canvas.width / canvas.height };
   } catch {
