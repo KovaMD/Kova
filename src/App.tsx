@@ -50,6 +50,7 @@ import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml, sanitiseThemeOverrides,
 import { registerBundledFonts, registerCachedFont } from './engine/bundledFonts';
 import type { Slide, Frontmatter } from './engine/types';
 import { parseAspectRatio } from './engine/types';
+import { getSlideStepCount } from './engine/layout/steps';
 import { imageMime } from './engine/export/imageMime';
 import type { Theme } from './engine/theme';
 import { useResolvedSlides } from './hooks/useResolvedSlides';
@@ -273,6 +274,16 @@ export default function App() {
   // Index into visibleSlides (hidden slides skipped) while presenting — kept
   // separate from currentSlideIndex (which indexes the full editor deck).
   const [presentIndex, setPresentIndex]   = useState(0);
+  // Build-reveal step index for the *current* presented slide (see
+  // usePresentationNav / engine/layout/steps.ts) — always reset to 0 whenever
+  // presentIndex changes to a different slide.
+  const [presentStep, setPresentStep]     = useState(0);
+  // Single handler for both overlays' onNavigate — usePresentationNav always
+  // supplies both index and step explicitly, never one without the other.
+  const handlePresentNavigate = useCallback((index: number, step: number) => {
+    setPresentIndex(index);
+    setPresentStep(step);
+  }, []);
   // Session was started via `kova --present FILE` (docs/plans/kova-cli.md,
   // Phase B): the editor chrome is never shown, presentation starts as soon as
   // the deck resolves, and exiting quits the process instead of revealing the
@@ -516,6 +527,12 @@ export default function App() {
   const visibleSlides = useMemo(() => slides.filter((s) => !s.hidden), [slides]);
   const safePresentIndex = visibleSlides.length > 0
     ? Math.min(presentIndex, visibleSlides.length - 1)
+    : 0;
+  // Defensive clamp mirrors safePresentIndex — a slide's step count can only
+  // shrink out from under presentStep via a hot-reloaded/edited-while-cold-
+  // presenting deck, but the overlays should never receive an out-of-range value.
+  const safePresentStep = visibleSlides[safePresentIndex]
+    ? Math.min(presentStep, getSlideStepCount(visibleSlides[safePresentIndex]))
     : 0;
 
   // {title} in header/footer templates falls back to the deck's cover slide
@@ -779,6 +796,7 @@ export default function App() {
     const fromCurrent = typeof eOrFromCurrent === 'boolean' ? eOrFromCurrent : eOrFromCurrent?.altKey ?? false;
     const startIndex = fromCurrent ? Math.max(0, visibleSlides.indexOf(slides[safeSlideIndex])) : 0;
     setPresentIndex(startIndex);
+    setPresentStep(0);
 
     // Resolve 'auto': detect monitors first, then pick mode.
     // Use currentMonitor() (not primaryMonitor()) to find the monitor Kova is
@@ -814,6 +832,7 @@ export default function App() {
           slides: visibleSlides,
           theme: activeTheme,
           index: startIndex,
+          step: 0,
           aspectRatio,
           docTitle,
           docAuthor,
@@ -1032,8 +1051,9 @@ export default function App() {
     });
     // Table-of-contents clicks on the audience-facing screen — the audience
     // window has already resolved the ToC entry to a visible-slide index.
-    const unlistenNavigate = listen<{ index: number }>('audience:navigate', (e) => {
+    const unlistenNavigate = listen<{ index: number; step: number }>('audience:navigate', (e) => {
       setPresentIndex(e.payload.index);
+      setPresentStep(e.payload.step);
     });
     return () => {
       unlisten.then((fn) => fn());
@@ -1047,8 +1067,8 @@ export default function App() {
   // PresentationOverlay drives navigation but never emits present:navigate.
   useEffect(() => {
     if (!presentMode) return;
-    emitTo('audience', 'present:navigate', { index: safePresentIndex }).catch(() => {});
-  }, [presentMode, safePresentIndex]);
+    emitTo('audience', 'present:navigate', { index: safePresentIndex, step: safePresentStep }).catch(() => {});
+  }, [presentMode, safePresentIndex, safePresentStep]);
 
   const handleThemeSelect = useCallback((id: string) => {
     setActiveThemeId(id);
@@ -1699,7 +1719,7 @@ export default function App() {
             (_, i) => pdfSlideRefs.current.get(i),
           ).filter((el): el is HTMLElement => Boolean(el));
 
-          const html = await buildInteractiveDocument(elements, aspectRatio);
+          const html = await buildInteractiveDocument(elements, aspectRatio, visSlides);
           await invoke('write_file', { path: savePath, content: html });
         } catch (err) {
           console.error('HTML export failed:', err);
@@ -2167,6 +2187,7 @@ export default function App() {
         <PresentationOverlay
           slides={visibleSlides}
           currentIndex={safePresentIndex}
+          currentStep={safePresentStep}
           theme={activeTheme}
           docTitle={docTitle}
           docAuthor={docAuthor}
@@ -2174,7 +2195,7 @@ export default function App() {
           aspectRatio={aspectRatio}
           laserColor={settings.laserColor}
           showTimer={settings.presenterShowTimer}
-          onNavigate={setPresentIndex}
+          onNavigate={handlePresentNavigate}
           onExit={handlePresentExit}
         />
       )}
@@ -2182,6 +2203,7 @@ export default function App() {
         <PresenterOverlay
           slides={visibleSlides}
           currentIndex={safePresentIndex}
+          currentStep={safePresentStep}
           theme={activeTheme}
           docTitle={docTitle}
           docAuthor={docAuthor}
@@ -2191,7 +2213,7 @@ export default function App() {
           showTimer={settings.presenterShowTimer}
           notesFontSize={settings.presenterNotesFontSize}
           laserColor={settings.laserColor}
-          onNavigate={setPresentIndex}
+          onNavigate={handlePresentNavigate}
           onExit={handlePresentExit}
         />
       )}

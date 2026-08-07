@@ -15,6 +15,9 @@ export interface PresentInitPayload {
   slides: Slide[];
   theme: Theme;
   index: number;
+  /** Build-reveal step index for the starting slide — always 0 today (no
+   *  "resume mid-build" concept for a freshly opened audience window). */
+  step?: number;
   aspectRatio: AspectRatio;
   docTitle?: string;
   docAuthor?: string;
@@ -34,6 +37,7 @@ function AudienceAppInner() {
   const t = useT();
   const [initData, setInitData]         = useState<PresentInitPayload | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentStep, setCurrentStep]   = useState(0);
   const [scale, setScale]               = useState(1);
   const [laser, setLaser]               = useState<{ x: number; y: number; color: string } | null>(null);
   const [blankMode, setBlankMode]       = useState<'black' | 'white' | null>(null);
@@ -52,10 +56,12 @@ function AudienceAppInner() {
         slidesRef.current = e.payload.slides;
         setInitData(e.payload);
         setCurrentIndex(e.payload.index);
+        setCurrentStep(e.payload.step ?? 0);
       });
 
-      unlistenNav = await listen<{ index: number }>('present:navigate', (e) => {
+      unlistenNav = await listen<{ index: number; step: number }>('present:navigate', (e) => {
         setCurrentIndex(e.payload.index);
+        setCurrentStep(e.payload.step);
       });
 
       unlistenExit = await listen('present:exit', () => {
@@ -110,7 +116,7 @@ function AudienceAppInner() {
   // handleNavigateTo) and forward it to the main window, which owns navigation.
   const handleNavigateTo = useCallback((slideIndex: number) => {
     const visibleIdx = slidesRef.current.findIndex((s) => s.index === slideIndex);
-    if (visibleIdx >= 0) emitTo('main', 'audience:navigate', { index: visibleIdx }).catch(() => {});
+    if (visibleIdx >= 0) emitTo('main', 'audience:navigate', { index: visibleIdx, step: 0 }).catch(() => {});
   }, []);
 
   // Forward keyboard events to the main presenter window so navigation works
@@ -191,6 +197,7 @@ function AudienceAppInner() {
                   docDate={docDate}
                   hideOverflowBadge
                   onNavigateTo={handleNavigateTo}
+                  revealStepIndex={currentStep}
                 />
               </ScaledSlideBox>
               <div

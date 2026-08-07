@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { AspectRatio } from '../types';
+import type { AspectRatio, Slide } from '../types';
+import { getSlideStepValues } from '../layout/steps';
 import { mermaidSvgCache } from './mermaidSvgCache';
 import { imageMime } from './imageMime';
 import { videoMime } from './videoMime';
@@ -205,6 +206,7 @@ ${pages}
 export async function buildInteractiveDocument(
   slideElements: HTMLElement[],
   aspectRatio: AspectRatio,
+  slides: Slide[],
 ): Promise<string> {
   const plan = planPage(aspectRatio, { fullBleed: true });
 
@@ -225,6 +227,7 @@ export async function buildInteractiveDocument(
     slideW: SLIDE_PX_W,
     slideH: plan.slideNativeHpx,
     background: slideBg || '#111',
+    slideSteps: slides.map(getSlideStepValues),
   });
 }
 
@@ -235,8 +238,20 @@ export function assembleInteractiveDocument(opts: {
   slideW: number;
   slideH: number;
   background?: string;
+  /**
+   * One entry per slide (parallel to `slideHtml`): that slide's distinct
+   * `<!-- step -->` values, ascending (see getSlideStepValues). An empty
+   * array means the slide has no build-reveal markers at all. The cloned
+   * slide HTML is always captured fully revealed — the exported deck's own
+   * script re-derives per-step visibility from each element's `data-step`
+   * attribute (stamped by StepGate/ListItemNode regardless of render mode),
+   * reusing the exact same `sl-step-item--pending` class the live app already
+   * defines (inherited for free via the caller's `css`).
+   */
+  slideSteps?: number[][];
 }): string {
   const { css, slideHtml, slideW, slideH } = opts;
+  const slideSteps = opts.slideSteps ?? slideHtml.map(() => []);
   const background = opts.background || '#111';
   const slides = slideHtml.map((html, i) =>
     `<div class="kova-deck-slide${i === 0 ? ' is-active' : ''}" data-index="${i}" aria-hidden="${i === 0 ? 'false' : 'true'}">` +
@@ -347,7 +362,9 @@ ${slides}
   var deck = document.getElementById('kova-deck');
   var slideW = ${slideW};
   var slideH = ${slideH};
+  var slideSteps = ${JSON.stringify(slideSteps)};
   var i = 0;
+  var step = 0;
   function fit() {
     if (!frame) return;
     var pad = 24;
@@ -359,18 +376,42 @@ ${slides}
       frames[f].style.transform = 'scale(' + s + ')';
     }
   }
-  function show(n) {
+  // Mirrors usePresentationNav's step-before-slide logic exactly. Slide HTML
+  // is always cloned fully revealed (see slideSteps' doc comment above) — this
+  // just toggles the same sl-step-item--pending class the live app uses,
+  // driven by each element's own data-step attribute.
+  function applyStep() {
+    var values = slideSteps[i] || [];
+    var threshold = step > 0 ? values[step - 1] : -Infinity;
+    var current = slides[i];
+    if (!current) return;
+    var stepped = current.querySelectorAll('[data-step]');
+    for (var k = 0; k < stepped.length; k++) {
+      var v = Number(stepped[k].getAttribute('data-step'));
+      stepped[k].classList.toggle('sl-step-item--pending', v > threshold);
+    }
+  }
+  function show(n, s) {
     if (!slides.length) return;
     i = Math.max(0, Math.min(slides.length - 1, n));
+    step = s || 0;
     for (var j = 0; j < slides.length; j++) {
       var on = j === i;
       slides[j].classList.toggle('is-active', on);
       slides[j].setAttribute('aria-hidden', on ? 'false' : 'true');
     }
     if (counter) counter.textContent = (i + 1) + ' / ' + slides.length;
+    applyStep();
   }
-  function next() { show(i + 1); }
-  function prev() { show(i - 1); }
+  function next() {
+    var count = (slideSteps[i] || []).length;
+    if (step < count) { step++; applyStep(); return; }
+    show(i + 1, 0);
+  }
+  function prev() {
+    if (step > 0) { step--; applyStep(); return; }
+    show(i - 1, (slideSteps[i - 1] || []).length);
+  }
   document.addEventListener('keydown', function (e) {
     var t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
@@ -379,9 +420,9 @@ ${slides}
     } else if (e.key === 'ArrowLeft' || e.key === 'PageUp' || e.key === 'Backspace') {
       e.preventDefault(); prev();
     } else if (e.key === 'Home') {
-      e.preventDefault(); show(0);
+      e.preventDefault(); show(0, 0);
     } else if (e.key === 'End') {
-      e.preventDefault(); show(slides.length - 1);
+      e.preventDefault(); show(slides.length - 1, 0);
     } else if (e.key === 'f' || e.key === 'F') {
       e.preventDefault();
       if (!document.fullscreenElement) {

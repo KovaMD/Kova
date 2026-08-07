@@ -39,7 +39,22 @@ export function LaserDot({ x, y, color }: { x: number; y: number; color: string 
 export interface UsePresentationNavOpts {
   total: number;
   currentIndex: number;
-  onNavigate: (index: number) => void;
+  /**
+   * How many of the *current* slide's build-reveal steps have been clicked
+   * through so far (an index into getSlideStepValues(slides[currentIndex]) —
+   * see engine/layout/steps.ts). 0 means none yet; always 0 for a slide with
+   * no `<!-- step -->` markers at all.
+   */
+  currentStep: number;
+  /** Distinct step count for the slide at `slideIndex` (getSlideStepCount). */
+  getStepCount: (slideIndex: number) => number;
+  /**
+   * `step` is always explicit, never defaulted — every caller (including the
+   * two dual-window IPC hops) must decide it, so there's no ambiguity about
+   * which of "stay on this slide's next fragment" vs "jump to a slide's
+   * start" a given navigation means.
+   */
+  onNavigate: (index: number, step: number) => void;
   onExit: () => void;
   onToggleNotes: () => void;
   onToggleBlankBlack: () => void;
@@ -67,7 +82,7 @@ export interface UsePresentationNavOpts {
  * shows a "no notes for this slide" placeholder either way).
  */
 export function usePresentationNav({
-  total, currentIndex, onNavigate, onExit,
+  total, currentIndex, currentStep, getStepCount, onNavigate, onExit,
   onToggleNotes, onToggleBlankBlack, onToggleBlankWhite, onToggleLaser,
   resetIdle,
 }: UsePresentationNavOpts) {
@@ -76,13 +91,20 @@ export function usePresentationNav({
   jumpInputRef.current = jumpInput;
   const lastWheelTime = useRef(0);
 
+  // A build click advances through the current slide's remaining steps
+  // before it advances the slide — same idea as reveal.js fragments/
+  // PowerPoint builds. Stepping backward across a slide boundary lands on
+  // the previous slide's *last* step (fully revealed), not its start — the
+  // least surprising direction to arrive from when going backward.
   const goNext = useCallback(() => {
-    if (currentIndex < total - 1) onNavigate(currentIndex + 1);
-  }, [currentIndex, total, onNavigate]);
+    if (currentStep < getStepCount(currentIndex)) { onNavigate(currentIndex, currentStep + 1); return; }
+    if (currentIndex < total - 1) onNavigate(currentIndex + 1, 0);
+  }, [currentIndex, currentStep, total, onNavigate, getStepCount]);
 
   const goPrev = useCallback(() => {
-    if (currentIndex > 0) onNavigate(currentIndex - 1);
-  }, [currentIndex, onNavigate]);
+    if (currentStep > 0) { onNavigate(currentIndex, currentStep - 1); return; }
+    if (currentIndex > 0) onNavigate(currentIndex - 1, getStepCount(currentIndex - 1));
+  }, [currentIndex, currentStep, onNavigate, getStepCount]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -94,9 +116,9 @@ export function usePresentationNav({
         case 'ArrowLeft': case 'ArrowUp': case 'PageUp':
           e.preventDefault(); e.stopPropagation(); goPrev(); break;
         case 'Home':
-          e.preventDefault(); e.stopPropagation(); onNavigate(0); break;
+          e.preventDefault(); e.stopPropagation(); onNavigate(0, 0); break;
         case 'End':
-          e.preventDefault(); e.stopPropagation(); onNavigate(total - 1); break;
+          e.preventDefault(); e.stopPropagation(); onNavigate(total - 1, 0); break;
         case 'n': case 'N':
           e.preventDefault(); e.stopPropagation(); onToggleNotes(); break;
         case 'b': case 'B':
@@ -115,7 +137,7 @@ export function usePresentationNav({
           if (jumpInputRef.current !== null) {
             e.preventDefault(); e.stopPropagation();
             const n = parseInt(jumpInputRef.current, 10);
-            if (!isNaN(n)) onNavigate(Math.min(Math.max(n - 1, 0), total - 1));
+            if (!isNaN(n)) onNavigate(Math.min(Math.max(n - 1, 0), total - 1), 0);
             setJumpInput(null);
           }
           break;

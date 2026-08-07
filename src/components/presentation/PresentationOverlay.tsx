@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import type { Slide, AspectRatio } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import { SlideRenderer } from '../preview/SlideRenderer';
+import { getSlideStepCount } from '../../engine/layout/steps';
 import { SLIDE_W, formatTime, ScaledSlideBox, LaserDot, usePresentationNav } from './presentationShared';
 import { useT } from '../../i18n';
 import './PresentationOverlay.css';
@@ -9,6 +10,8 @@ import './PresentationOverlay.css';
 interface Props {
   slides: Slide[];
   currentIndex: number;
+  /** Build-reveal step index for the *current* slide — see usePresentationNav. */
+  currentStep: number;
   theme: Theme;
   docTitle?: string;
   docAuthor?: string;
@@ -16,7 +19,7 @@ interface Props {
   aspectRatio?: AspectRatio;
   laserColor?: string;
   showTimer?: boolean;
-  onNavigate: (index: number) => void;
+  onNavigate: (index: number, step: number) => void;
   onExit: () => void;
 }
 
@@ -24,16 +27,17 @@ const HUD_H   = 40;   // px — HUD bar height
 const NOTE_H  = 160;  // px — speaker notes panel height
 
 export function PresentationOverlay({
-  slides, currentIndex, theme, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 }, laserColor = '#ff2020', showTimer = false, onNavigate, onExit,
+  slides, currentIndex, currentStep, theme, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 }, laserColor = '#ff2020', showTimer = false, onNavigate, onExit,
 }: Props) {
   const t = useT();
   const slide = slides[currentIndex];
 
   const handleNavigateTo = useCallback((slideIndex: number) => {
     const visibleIdx = slides.findIndex((s) => s.index === slideIndex);
-    if (visibleIdx >= 0) onNavigate(visibleIdx);
+    if (visibleIdx >= 0) onNavigate(visibleIdx, 0);
   }, [slides, onNavigate]);
   const total = slides.length;
+  const getStepCount = useCallback((i: number) => getSlideStepCount(slides[i]), [slides]);
 
   const [showNotes, setShowNotes] = useState(false);
   const [hudVisible, setHudVisible] = useState(true);
@@ -88,7 +92,7 @@ export function PresentationOverlay({
   // ── Navigation (keyboard + wheel), shared with PresenterOverlay ────────────
 
   const { goNext, goPrev, jumpInput, setJumpInput } = usePresentationNav({
-    total, currentIndex, onNavigate, onExit,
+    total, currentIndex, currentStep, getStepCount, onNavigate, onExit,
     // Only toggle when the slide actually has notes — there's nothing for
     // this audience-facing overlay to show otherwise (contrast
     // PresenterOverlay, which always toggles and shows a placeholder).
@@ -160,6 +164,7 @@ export function PresentationOverlay({
               docDate={docDate}
               hideOverflowBadge
               onNavigateTo={handleNavigateTo}
+              revealStepIndex={currentStep}
             />
           </ScaledSlideBox>
           <div
@@ -217,7 +222,7 @@ export function PresentationOverlay({
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 const n = parseInt(jumpInput, 10);
-                if (!isNaN(n)) onNavigate(Math.min(Math.max(n - 1, 0), total - 1));
+                if (!isNaN(n)) onNavigate(Math.min(Math.max(n - 1, 0), total - 1), 0);
                 setJumpInput(null);
               } else if (e.key === 'Escape') {
                 setJumpInput(null);

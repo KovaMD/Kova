@@ -166,7 +166,6 @@ const de: DeepPartial<Messages> = {
     couldNotPasteMedia: 'Medien konnten nicht eingefügt werden.', // Could not paste media.
     saveDocumentFirstTitle: 'Zuerst Dokument speichern', // Save document first
     saveDocumentFirstMessage: 'Dein Dokument muss vor dem Einfügen von Medien gespeichert werden, damit Kova weiß, wo sie abgelegt werden sollen.', // Your document needs to be saved before inserting media, so Kova knows where to place it.
-    menuClipboard: 'Zwischenablage', // Clipboard
     menuCopy: 'Kopieren', // Copy
     menuCut: 'Ausschneiden', // Cut
     menuPaste: 'Einfügen', // Paste

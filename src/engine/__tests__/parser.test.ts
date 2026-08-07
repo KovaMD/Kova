@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseDocument } from '../parser/markdownToSlides';
+import { parseDocument, computeNextStep } from '../parser/markdownToSlides';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -611,6 +611,159 @@ describe('!caption', () => {
     const { slides } = parseDocument(doc('## Slide\n\n![Arch](arch.png)\n!caption[Figure 1: architecture]\n'));
     expect(slides[0].layout).not.toBe('split');
     expect(slides[0].layout).not.toBe('two-column');
+  });
+});
+
+// ── Build reveal (<!-- step -->) ─────────────────────────────────────────────
+
+describe('<!-- step --> build reveal', () => {
+  it('attaches a trailing marker to a top-level bullet, auto-incrementing', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n- First\n- Second <!-- step -->\n- Third <!-- step -->\n'));
+    const list = slides[0].elements.find((e) => e.type === 'list');
+    if (list?.type !== 'list') throw new Error('expected a list');
+    expect(list.items.map((i) => i.step)).toEqual([undefined, 1, 2]);
+  });
+
+  it('attaches a trailing marker to a nested sub-bullet, sharing the parent sequence', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n- Parent <!-- step -->\n  - Child <!-- step -->\n'));
+    const list = slides[0].elements.find((e) => e.type === 'list');
+    if (list?.type !== 'list') throw new Error('expected a list');
+    expect(list.items[0].step).toBe(1);
+    expect(list.items[0].children[0].step).toBe(2);
+  });
+
+  it('attaches a trailing marker to a plain paragraph', () => {
+    const { slides } = parseDocument(doc('## Slide\n\nIntro paragraph. <!-- step -->\n'));
+    const para = slides[0].elements.find((e) => e.type === 'paragraph');
+    expect(para?.type === 'paragraph' && para.step).toBe(1);
+  });
+
+  it('does not leak the raw marker into text or html', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n- Second bullet <!-- step -->\n'));
+    const list = slides[0].elements.find((e) => e.type === 'list');
+    if (list?.type !== 'list') throw new Error('expected a list');
+    expect(list.items[0].text).toBe('Second bullet');
+    expect(list.items[0].html).not.toContain('step');
+    expect(list.items[0].html).not.toContain('<!--');
+  });
+
+  it('groups elements onto the same click via an explicit number, and mixes with auto-increment', () => {
+    // Trace from the design doc: step, step, step:2, step -> 1, 2, 2, 3
+    // (nextAuto stays 3 after the explicit 2, since max(3, 3) = 3).
+    const input = doc('## Slide\n\n- A <!-- step -->\n- B <!-- step -->\n- C <!-- step: 2 -->\n- D <!-- step -->\n');
+    const { slides } = parseDocument(input);
+    const list = slides[0].elements.find((e) => e.type === 'list');
+    if (list?.type !== 'list') throw new Error('expected a list');
+    expect(list.items.map((i) => i.step)).toEqual([1, 2, 2, 3]);
+  });
+
+  it('attaches an own-line marker to the image it directly follows', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n![Arch](arch.png)\n<!-- step -->\n'));
+    expect(slides[0].elements).toHaveLength(1);
+    const img = slides[0].elements.find((e) => e.type === 'image');
+    expect(img?.type === 'image' && img.step).toBe(1);
+  });
+
+  it('attaches an own-line marker to a fenced code block', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n```js\nconst x = 1;\n```\n<!-- step -->\n'));
+    const code = slides[0].elements.find((e) => e.type === 'code');
+    expect(code?.type === 'code' && code.step).toBe(1);
+  });
+
+  it('attaches an own-line marker to a table', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n| A | B |\n|---|---|\n| 1 | 2 |\n<!-- step -->\n'));
+    const table = slides[0].elements.find((e) => e.type === 'table');
+    expect(table?.type === 'table' && table.step).toBe(1);
+  });
+
+  it('attaches an own-line marker to a math block', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n$$\nE = mc^2\n$$\n<!-- step -->\n'));
+    const math = slides[0].elements.find((e) => e.type === 'math');
+    expect(math?.type === 'math' && math.step).toBe(1);
+  });
+
+  it('attaches an own-line marker to a Mermaid diagram', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n```mermaid\ngraph TD; A-->B;\n```\n<!-- step -->\n'));
+    const mer = slides[0].elements.find((e) => e.type === 'mermaid');
+    expect(mer?.type === 'mermaid' && mer.step).toBe(1);
+  });
+
+  it('attaches an own-line marker to a blockquote', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n> A quote\n<!-- step -->\n'));
+    const bq = slides[0].elements.find((e) => e.type === 'blockquote');
+    expect(bq?.type === 'blockquote' && bq.step).toBe(1);
+  });
+
+  it('gates a whole list as one unit via an own-line marker, clearing any per-item markers', () => {
+    const input = doc('## Slide\n\n- First <!-- step -->\n- Second <!-- step -->\n<!-- step: 5 -->\n');
+    const { slides } = parseDocument(input);
+    const list = slides[0].elements.find((e) => e.type === 'list');
+    if (list?.type !== 'list') throw new Error('expected a list');
+    expect(list.step).toBe(5);
+    expect(list.items.map((i) => i.step)).toEqual([undefined, undefined]);
+  });
+
+  it('tolerates a blank line between the block and its own-line marker', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n![Arch](arch.png)\n\n<!-- step -->\n'));
+    const img = slides[0].elements.find((e) => e.type === 'image');
+    expect(img?.type === 'image' && img.step).toBe(1);
+  });
+
+  it('errors when an own-line marker has no preceding element', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n<!-- step -->\n'));
+    const para = slides[0].elements.find((e) => e.type === 'paragraph' && e.html.includes('#ERR'));
+    expect(para?.type === 'paragraph' && para.html).toContain('<!-- step --> must directly follow');
+  });
+
+  it('errors when an own-line marker follows a plain paragraph (must use the trailing form)', () => {
+    const { slides } = parseDocument(doc('## Slide\n\nJust text.\n<!-- step -->\n'));
+    const para = slides[0].elements.find((e) => e.type === 'paragraph' && e.html.includes('#ERR'));
+    expect(para).toBeDefined();
+  });
+
+  it('errors on a duplicate own-line marker directly following an already-stepped element', () => {
+    const input = doc('## Slide\n\n![Arch](arch.png)\n<!-- step -->\n<!-- step -->\n');
+    const { slides } = parseDocument(input);
+    const img = slides[0].elements.find((e) => e.type === 'image');
+    expect(img?.type === 'image' && img.step).toBe(1);
+    const err = slides[0].elements.find((e) => e.type === 'paragraph' && e.html.includes('#ERR'));
+    expect(err?.type === 'paragraph' && err.html).toContain('duplicate');
+  });
+
+  it('resets numbering on every slide — steps never carry across a slide separator', () => {
+    const input = doc('## First\n\n- A <!-- step -->\n\n---\n\n## Second\n\n- B <!-- step -->\n');
+    const { slides } = parseDocument(input);
+    const list0 = slides[0].elements.find((e) => e.type === 'list');
+    const list1 = slides[1].elements.find((e) => e.type === 'list');
+    expect(list0?.type === 'list' && list0.items[0].step).toBe(1);
+    expect(list1?.type === 'list' && list1.items[0].step).toBe(1);
+  });
+});
+
+describe('computeNextStep', () => {
+  it('returns 1 for a slide with no existing markers', () => {
+    const content = doc('## Slide\n\n- A\n- B');
+    expect(computeNextStep(content, 8)).toBe(1);
+  });
+
+  it('continues auto-increment past existing bare markers', () => {
+    const content = doc('## Slide\n\n- A <!-- step -->\n- B <!-- step -->');
+    expect(computeNextStep(content, 8)).toBe(3);
+  });
+
+  it('continues past an explicit marker, matching the assigner\'s max(nextAuto, explicit + 1) rule', () => {
+    const content = doc('## Slide\n\n- A <!-- step: 5 -->\n- B');
+    expect(computeNextStep(content, 8)).toBe(6);
+  });
+
+  it('ignores markers inside a fenced code block', () => {
+    const content = doc('## Slide\n\n```md\n<!-- step -->\n```\n\n- A');
+    expect(computeNextStep(content, 11)).toBe(1);
+  });
+
+  it('scopes to the containing slide, ignoring markers on other slides', () => {
+    const content = doc('## First\n\n- A <!-- step -->\n\n---\n\n## Second\n\n- B');
+    expect(computeNextStep(content, 13)).toBe(1);
   });
 });
 
