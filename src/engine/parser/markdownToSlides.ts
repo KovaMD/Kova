@@ -15,7 +15,7 @@ import { extractBgImage } from './bgImage';
 import { collectConstants } from '../sheet/constants';
 import { evaluateSheet, isFooterRow, parseSheetDirective, type SheetOpts } from '../sheet/sheet';
 import type { Value } from '../sheet/evaluate';
-import { matchStepMarker, createStepAssigner, type StepAssigner } from './stepMarkers';
+import { matchStepMarker, createStepAssigner, STEP_MARKER_PATTERN, type StepAssigner } from './stepMarkers';
 
 const processor = unified().use(remarkParse).use(remarkGfm).use(remarkMath);
 
@@ -57,6 +57,55 @@ export function splitIntoRawSlides(body: string): string[] {
   }
   slides.push(current.join('\n'));
   return slides;
+}
+
+// A step-marker occurrence found anywhere on a line — unanchored, so it
+// matches both the trailing-inline form and the own-line-after form alike;
+// this only needs to *find* markers in document order, not validate their
+// placement (that's mergeStepMarker's job during real parsing).
+const STEP_MARKER_ANYWHERE_RE = new RegExp(STEP_MARKER_PATTERN, 'g');
+
+/**
+ * The step value a *new*, bare `<!-- step -->` marker would receive if
+ * appended after every existing marker in the slide containing `lineNumber`
+ * (1-based, counting from the very first line of `content`, frontmatter
+ * included) — used by the editor's multi-line "reveal on click" toggle
+ * (contextMenuActions.ts) to pick one shared explicit number when grouping
+ * several lines onto a single click. Reuses this file's own frontmatter
+ * extraction and slide-splitting, and replays the exact same StepAssigner
+ * parseSlide() uses, so the number offered here can never drift from what
+ * parseDocument would actually assign a same-positioned bare marker.
+ */
+export function computeNextStep(content: string, lineNumber: number): number {
+  const normalised = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const { body } = extractFrontmatter(normalised);
+  // extractFrontmatter returns body as a suffix of normalised, so the
+  // length difference is the frontmatter block's own line count.
+  const frontmatterLineCount = normalised.slice(0, normalised.length - body.length).split('\n').length - 1;
+  const rawSlides = splitIntoRawSlides(body);
+
+  let lineCursor = frontmatterLineCount;
+  let targetSlide = rawSlides[rawSlides.length - 1] ?? '';
+  for (const raw of rawSlides) {
+    const slideLineCount = raw.split('\n').length;
+    if (lineNumber <= lineCursor + slideLineCount) {
+      targetSlide = raw;
+      break;
+    }
+    lineCursor += slideLineCount + 1; // +1 for the '---' separator line itself
+  }
+
+  const assignStep = createStepAssigner();
+  let inFencedCode = false;
+  for (const line of targetSlide.split('\n')) {
+    const t = line.trim();
+    if (/^(`{3,}|~{3,})/.test(t)) { inFencedCode = !inFencedCode; continue; }
+    if (inFencedCode) continue;
+    for (const m of line.matchAll(STEP_MARKER_ANYWHERE_RE)) {
+      assignStep(m[1] !== undefined ? parseInt(m[1], 10) : null);
+    }
+  }
+  return assignStep(null);
 }
 
 export function parseDocument(rawContent: string): ParsedDocument {

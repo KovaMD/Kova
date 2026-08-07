@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseDocument } from '../parser/markdownToSlides';
+import { parseDocument, computeNextStep } from '../parser/markdownToSlides';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -737,6 +737,33 @@ describe('<!-- step --> build reveal', () => {
     const list1 = slides[1].elements.find((e) => e.type === 'list');
     expect(list0?.type === 'list' && list0.items[0].step).toBe(1);
     expect(list1?.type === 'list' && list1.items[0].step).toBe(1);
+  });
+});
+
+describe('computeNextStep', () => {
+  it('returns 1 for a slide with no existing markers', () => {
+    const content = doc('## Slide\n\n- A\n- B');
+    expect(computeNextStep(content, 8)).toBe(1);
+  });
+
+  it('continues auto-increment past existing bare markers', () => {
+    const content = doc('## Slide\n\n- A <!-- step -->\n- B <!-- step -->');
+    expect(computeNextStep(content, 8)).toBe(3);
+  });
+
+  it('continues past an explicit marker, matching the assigner\'s max(nextAuto, explicit + 1) rule', () => {
+    const content = doc('## Slide\n\n- A <!-- step: 5 -->\n- B');
+    expect(computeNextStep(content, 8)).toBe(6);
+  });
+
+  it('ignores markers inside a fenced code block', () => {
+    const content = doc('## Slide\n\n```md\n<!-- step -->\n```\n\n- A');
+    expect(computeNextStep(content, 11)).toBe(1);
+  });
+
+  it('scopes to the containing slide, ignoring markers on other slides', () => {
+    const content = doc('## First\n\n- A <!-- step -->\n\n---\n\n## Second\n\n- B');
+    expect(computeNextStep(content, 13)).toBe(1);
   });
 });
 
