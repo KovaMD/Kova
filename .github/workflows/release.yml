@@ -35,7 +35,7 @@ jobs:
           - **Fixed** `kova --import` silently overwriting an existing file when the target path collides, unless `--force` is passed (closes #214).
 
           ### Known issues
-          - **Windows Defender may flag Kova as `Trojan:Win32/Wacatac.C!ml`** during install or update — this is a false positive from Microsoft's heuristic/ML detection, not an actual threat (reported in #224). It's tied to Windows builds still being **test-signed** rather than production-signed; we're in the process of moving to full production signing via [SignPath](https://signpath.io). If you hit this, restoring the file from quarantine and allowing it in Defender should be safe; we'll drop this note once production signing is live.
+          - **Windows Defender may flag Kova as `Trojan:Win32/Wacatac.C!ml`** during install or update — this is a false positive from Microsoft's heuristic/ML detection, not an actual threat (reported in #224). It's tied to Windows builds still being **test-signed** rather than production-signed; we're in the process of moving to full production signing via [SignPath](https://signpath.io). We'll drop this note once production signing is live.
 
           ---
 
