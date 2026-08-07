@@ -596,7 +596,7 @@ function mergeStepMarker(elements: SlideElement[], explicit: number | null, assi
   if (!prev || !isStepEligible(prev)) {
     elements.push({
       type: 'paragraph', text: '',
-      html: '#ERR <!-- step --> must directly follow a list, image, diagram, formula, table, blockquote, code block, video, poll, progress bar, or table of contents',
+      html: '#ERR <!-- step --> must directly follow a list, image, diagram, formula, table, blockquote, code block, YouTube embed, video, poll, progress bar, or table of contents',
     });
     return;
   }

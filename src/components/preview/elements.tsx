@@ -28,6 +28,27 @@ function getElementStep(el: SlideElement): number | undefined {
   return el.type === 'column-break' ? undefined : el.step;
 }
 
+// Shared by StepGate and ListItemNode below so their pending/entering class
+// names can't drift apart. Returns undefined for an unstepped element —
+// callers use that to skip wrapping/gating entirely.
+export function stepGateClassName(
+  step: number | undefined,
+  revealThreshold: number | undefined,
+  enteringStep: number | undefined,
+): string | undefined {
+  if (step === undefined) return undefined;
+  const pending = revealThreshold !== undefined && step > revealThreshold;
+  const entering = step === enteringStep;
+  return `sl-step-item${pending ? ' sl-step-item--pending' : ''}${entering ? ' sl-step-item--entering' : ''}`;
+}
+
+// Appends an optional gate class (from stepGateClassName) onto an existing
+// className, for elements that self-gate directly rather than through a
+// StepGate wrapper — see MathBlock/YoutubeEmbed/VideoEmbed/PollEmbed below.
+function withClass(base: string, gateClass: string | undefined): string {
+  return gateClass ? `${base} ${gateClass}` : base;
+}
+
 // Gates one element's visibility during a build/reveal presentation. Only
 // wraps elements that actually carry a `.step` — everything else (the vast
 // majority of a typical slide) renders completely unwrapped, so a deck with
@@ -38,12 +59,10 @@ function getElementStep(el: SlideElement): number | undefined {
 // measures the full, fully-built content height once — if a pending element
 // were removed from flow instead, the computed shrink-to-fit scale would
 // shift on every reveal click, visibly resizing already-revealed text.
-function StepGate({ step, children }: { step?: number; children: React.ReactNode }) {
+export function StepGate({ step, children }: { step?: number; children: React.ReactNode }) {
   const { revealThreshold, enteringStep } = useContext(SlideCtx);
-  if (step === undefined) return <>{children}</>;
-  const pending = revealThreshold !== undefined && step > revealThreshold;
-  const entering = step === enteringStep;
-  const className = `sl-step-item${pending ? ' sl-step-item--pending' : ''}${entering ? ' sl-step-item--entering' : ''}`;
+  const className = stepGateClassName(step, revealThreshold, enteringStep);
+  if (!className) return <>{children}</>;
   return <div className={className} data-step={step}>{children}</div>;
 }
 
@@ -202,14 +221,9 @@ export function ListItemNode({ item }: { item: ListItem }) {
   // apply directly to it instead of introducing an extra wrapper (unlike
   // StepGate above, which has to wrap because ElementNode's output varies).
   const { revealThreshold, enteringStep } = useContext(SlideCtx);
-  const gated = item.step !== undefined;
-  const pending = gated && revealThreshold !== undefined && item.step! > revealThreshold;
-  const entering = gated && item.step === enteringStep;
-  const className = gated
-    ? `sl-step-item${pending ? ' sl-step-item--pending' : ''}${entering ? ' sl-step-item--entering' : ''}`
-    : undefined;
+  const className = stepGateClassName(item.step, revealThreshold, enteringStep);
   return (
-    <li className={className} data-step={gated ? item.step : undefined}>
+    <li className={className} data-step={item.step}>
       <span dangerouslySetInnerHTML={{ __html: item.html }} />
       {item.children.length > 0 && (
         <ul className="sl-list sl-list--nested">
@@ -252,8 +266,15 @@ function TocElement({ el }: { el: Extract<SlideElement, { type: 'toc' }> }) {
 
 export function YoutubeEmbed({ embed }: { embed: Extract<SlideElement, { type: 'youtube' }> }) {
   const t = useT();
-  const { isThumbnail } = useContext(SlideCtx);
+  const { isThumbnail, revealThreshold, enteringStep } = useContext(SlideCtx);
   const thumb = youtubeThumb(embed.url);
+  // MediaLayout (layouts.tsx) renders this directly, bypassing the StepGate
+  // wrapper Elements() would otherwise provide — self-gate here instead of
+  // introducing a wrapper div, since .sl-media__body sizes this element via
+  // height:100%/flex against its *immediate* parent, which a wrapper with no
+  // definite size of its own would break. (Redundant but harmless when this
+  // *is* reached via Elements(), since embed.step is the same either way.)
+  const gateClass = stepGateClassName(embed.step, revealThreshold, enteringStep);
 
   const handleClick = (e: React.MouseEvent) => {
     if (isThumbnail) return;
@@ -263,7 +284,8 @@ export function YoutubeEmbed({ embed }: { embed: Extract<SlideElement, { type: '
 
   return (
     <div
-      className={`sl-youtube${!isThumbnail ? ' sl-youtube--clickable' : ''}`}
+      className={`sl-youtube${!isThumbnail ? ' sl-youtube--clickable' : ''}${gateClass ? ` ${gateClass}` : ''}`}
+      data-step={embed.step}
       onClick={handleClick}
       title={!isThumbnail ? t('preview.openInBrowserTitle', { url: embed.url }) : undefined}
     >
@@ -278,10 +300,13 @@ export function YoutubeEmbed({ embed }: { embed: Extract<SlideElement, { type: '
 }
 
 export function VideoEmbed({ embed }: { embed: Extract<SlideElement, { type: 'video' }> }) {
-  const { isThumbnail } = useContext(SlideCtx);
+  const { isThumbnail, revealThreshold, enteringStep } = useContext(SlideCtx);
+  // See the matching comment in YoutubeEmbed above — same self-gating
+  // rationale, same MediaLayout bypass.
+  const gateClass = stepGateClassName(embed.step, revealThreshold, enteringStep);
   return (
     // stopPropagation so the player's controls don't trigger slide navigation.
-    <div className="sl-video" onClick={(e) => e.stopPropagation()}>
+    <div className={`sl-video${gateClass ? ` ${gateClass}` : ''}`} data-step={embed.step} onClick={(e) => e.stopPropagation()}>
       <video className="sl-video__player" src={embed.src} controls={!isThumbnail} preload="metadata" playsInline />
       {embed.label && <div className="sl-video__label">{embed.label}</div>}
     </div>
@@ -289,12 +314,18 @@ export function VideoEmbed({ embed }: { embed: Extract<SlideElement, { type: 'vi
 }
 
 export function PollEmbed({ embed }: { embed: Extract<SlideElement, { type: 'poll' }> }) {
-  const { isThumbnail, textColor } = useContext(SlideCtx);
+  const { isThumbnail, textColor, revealThreshold, enteringStep } = useContext(SlideCtx);
   const t = useT();
+  // See the matching comment in YoutubeEmbed above — same self-gating
+  // rationale, same MediaLayout bypass. (isThumbnail is always true here
+  // when revealThreshold would be set at all, so this is a no-op in
+  // practice for the branch below, but kept for correctness rather than
+  // relying on that being true forever.)
+  const gateClass = stepGateClassName(embed.step, revealThreshold, enteringStep);
 
   if (isThumbnail) {
     return (
-      <div className="sl-poll">
+      <div className={`sl-poll${gateClass ? ` ${gateClass}` : ''}`} data-step={embed.step}>
         <div className="sl-poll__icon">📊</div>
         <div className="sl-poll__label">{embed.label}</div>
       </div>
@@ -308,7 +339,8 @@ export function PollEmbed({ embed }: { embed: Extract<SlideElement, { type: 'pol
 
   return (
     <div
-      className="sl-poll sl-poll--clickable"
+      className={`sl-poll sl-poll--clickable${gateClass ? ` ${gateClass}` : ''}`}
+      data-step={embed.step}
       onClick={handleClick}
       title={t('preview.openInBrowserTitle', { url: embed.url })}
     >
@@ -384,7 +416,7 @@ function ProgressBar({ el }: { el: Extract<SlideElement, { type: 'progress' }> }
 
 // ── Math block ────────────────────────────────────────────────────────────────
 
-export function MathBlock({ value, display, caption }: { value: string; display: boolean; caption?: string }) {
+export function MathBlock({ value, display, caption, step }: { value: string; display: boolean; caption?: string; step?: number }) {
   const html = useMemo(() => {
     try {
       return katex.renderToString(value, { displayMode: display, throwOnError: false });
@@ -392,14 +424,22 @@ export function MathBlock({ value, display, caption }: { value: string; display:
       return `<code>${value}</code>`;
     }
   }, [value, display]);
+  // Only MathLayout (layouts.tsx) passes `step` — it renders this directly,
+  // bypassing the StepGate wrapper Elements() would otherwise provide, and a
+  // wrapper div here would break .sl-math's width:100% (needs its *immediate*
+  // parent to have a definite width). Elements()'s own call site leaves this
+  // undefined, since gating already happens one level up there.
+  const { revealThreshold, enteringStep } = useContext(SlideCtx);
+  const gateClass = stepGateClassName(step, revealThreshold, enteringStep);
 
   return (
     <>
       <div
-        className={`sl-math${display ? ' sl-math--display' : ''}`}
+        className={`sl-math${display ? ' sl-math--display' : ''}${gateClass ? ` ${gateClass}` : ''}`}
+        data-step={step}
         dangerouslySetInnerHTML={{ __html: html }}
       />
-      {caption && <div className="sl-caption">{caption}</div>}
+      {caption && <div className={withClass('sl-caption', gateClass)} data-step={step}>{caption}</div>}
     </>
   );
 }

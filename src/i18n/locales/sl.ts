@@ -159,7 +159,6 @@ const sl: DeepPartial<Messages> = {
     couldNotPasteMedia: 'Medija ni bilo mogoče prilepiti.',
     saveDocumentFirstTitle: 'Najprej shranite dokument',
     saveDocumentFirstMessage: 'Pred vstavljanjem medijev je treba dokument shraniti, da Kova ve, kam ga mora postaviti.',
-    menuClipboard: 'Odložišče',
     menuCopy: 'Kopiraj',
     menuCut: 'Izreži',
     menuPaste: 'Prilepi',

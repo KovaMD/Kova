@@ -215,6 +215,53 @@ describe('exportPptx native build animations', () => {
     expect(xml.match(/nodeType="clickEffect"/g)?.length).toBe(1);
   });
 
+  it('animates a stepped image on a title-image layout (pulled out of addElements entirely)', async () => {
+    // Regression: addTitleImageSlide never received stepTargets at all, so
+    // its image rendered fully visible regardless of step.
+    const xml = await slideXml(makeSlide(
+      [{ type: 'image', src: PNG_DATA_URL, alt: '', step: 1 }],
+      { layout: 'title-image' },
+    ));
+    expect(xml).toContain('<p:timing>');
+    expect(xml).toMatch(/<p:spTgt spid="\d+"\/>/);
+  });
+
+  it('animates a stepped image on a split layout, on both sides of the split', async () => {
+    // Regression: addSplitSlide threaded stepTargets through for its text
+    // side (addElements) but never wired its own tryAddImage call for the
+    // image side, on either side of the split.
+    const imageOnRight = await slideXml(makeSlide(
+      [
+        { type: 'paragraph', text: 'Text first', html: 'Text first' },
+        { type: 'image', src: PNG_DATA_URL, alt: '', step: 1 },
+      ],
+      { layout: 'split' },
+    ));
+    expect(imageOnRight).toContain('<p:timing>');
+    expect(imageOnRight).toMatch(/<p:spTgt spid="\d+"\/>/);
+
+    const imageOnLeft = await slideXml(makeSlide(
+      [
+        { type: 'image', src: PNG_DATA_URL, alt: '', step: 1 },
+        { type: 'paragraph', text: 'Text second', html: 'Text second' },
+      ],
+      { layout: 'split' },
+    ));
+    expect(imageOnLeft).toContain('<p:timing>');
+    expect(imageOnLeft).toMatch(/<p:spTgt spid="\d+"\/>/);
+  });
+
+  it('animates a stepped code block on a dedicated code layout', async () => {
+    // Regression: addCodeSlide never passed step/stepTargets to addCodeBlock
+    // even though addCodeBlock has fully supported both since the lone-code
+    // fast path in addElements was extended.
+    const xml = await slideXml(makeSlide(
+      [{ type: 'code', lang: 'js', value: 'const x = 1;', step: 1 }],
+      { layout: 'code' },
+    ));
+    expect(xml).toContain('<p:timing>');
+  });
+
   it('keeps the existing fade slide-transition intact alongside the new timing tree', async () => {
     const xml = await slideXml(makeSlide([
       { type: 'paragraph', text: 'A', html: 'A', step: 1 },

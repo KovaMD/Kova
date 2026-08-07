@@ -3,7 +3,7 @@ import type { Slide, SlideElement } from '../../engine/types';
 import { autoSplitElements, groupProgressRuns, splitByColumnBreaks } from '../../engine/layout/elementGrouping';
 import { useT } from '../../i18n';
 import { SlideCtx } from './slideContext';
-import { Elements, CodeBlock, MermaidDiagram, YoutubeEmbed, VideoEmbed, PollEmbed, MathBlock } from './elements';
+import { Elements, StepGate, stepGateClassName, CodeBlock, MermaidDiagram, YoutubeEmbed, VideoEmbed, PollEmbed, MathBlock } from './elements';
 
 // Scales content down to fit its container when it overflows.
 // Measures content extent vs available height after every render and on
@@ -204,7 +204,9 @@ function TitleLayout({ slide }: { slide: Slide }) {
       {subtitles.length > 0 && (
         <div className="sl-title__subtitles">
           {subtitles.map((el, i) => (
-            <p key={i} className="sl-title__subtitle" dangerouslySetInnerHTML={{ __html: el.html }} />
+            <StepGate key={i} step={el.step}>
+              <p className="sl-title__subtitle" dangerouslySetInnerHTML={{ __html: el.html }} />
+            </StepGate>
           ))}
         </div>
       )}
@@ -234,14 +236,31 @@ function TitleContentLayout({ slide }: { slide: Slide }) {
   );
 }
 
+// Some elements' CSS sizing depends on a percentage resolving against their
+// *immediate* parent (height:100%, max-width:90%, etc. against a flex
+// container) — StepGate's wrapper div would sit between them and break that
+// resolution, since the wrapper itself has no definite size to resolve
+// against. This applies the same gating classes/attribute directly onto an
+// existing element instead (mirroring ListItemNode in elements.tsx), so
+// there's no new box in the sizing chain at all.
+function useStepGateClass(step: number | undefined): string | undefined {
+  const { revealThreshold, enteringStep } = useContext(SlideCtx);
+  return stepGateClassName(step, revealThreshold, enteringStep);
+}
+
+function withStepGateClass(base: string, gateClass: string | undefined): string {
+  return gateClass ? `${base} ${gateClass}` : base;
+}
+
 function TitleImageLayout({ slide }: { slide: Slide }) {
   const img = slide.elements.find((e) => e.type === 'image');
+  const gateClass = useStepGateClass(img?.type === 'image' ? img.step : undefined);
   return (
     <div className="sl-title-image">
       <div className="sl-heading">{slide.title}</div>
       <div className="sl-ti-img">
         {img && img.type === 'image' && (
-          <div className="sl-ti-img__inner">
+          <div className={withStepGateClass('sl-ti-img__inner', gateClass)} data-step={img.step}>
             <img src={img.src} alt={img.alt} className="sl-img-fill" />
             {img.caption && <div className="sl-caption">{img.caption}</div>}
           </div>
@@ -257,12 +276,13 @@ function SplitLayout({ slide }: { slide: Slide }) {
   const rest = slide.elements.filter((e) => e.type !== 'image');
   // Put the image on the right when it appears after text in the source.
   const imgOnRight = imgIdx > 0;
+  const gateClass = useStepGateClass(img?.type === 'image' ? img.step : undefined);
 
   const textCol = <OverflowPane className="sl-split__right" elements={rest} />;
   const imgCol = (
     <div className="sl-split__left">
       {img && img.type === 'image' && (
-        <div className="sl-split__img-inner">
+        <div className={withStepGateClass('sl-split__img-inner', gateClass)} data-step={img.step}>
           <img src={img.src} alt={img.alt} className="sl-img-fill" />
           {img.caption && <div className="sl-caption">{img.caption}</div>}
         </div>
@@ -282,12 +302,13 @@ function SplitLayout({ slide }: { slide: Slide }) {
 
 function FullBleedLayout({ slide }: { slide: Slide }) {
   const img = slide.elements.find((e) => e.type === 'image');
+  const gateClass = useStepGateClass(img?.type === 'image' ? img.step : undefined);
   return (
     <div className="sl-full-bleed">
       {img && img.type === 'image' && (
         <>
-          <img src={img.src} alt={img.alt} className="sl-img-cover" />
-          {img.caption && <div className="sl-full-bleed__caption">{img.caption}</div>}
+          <img src={img.src} alt={img.alt} className={withStepGateClass('sl-img-cover', gateClass)} data-step={img.step} />
+          {img.caption && <div className={withStepGateClass('sl-full-bleed__caption', gateClass)} data-step={img.step}>{img.caption}</div>}
         </>
       )}
     </div>
@@ -296,16 +317,22 @@ function FullBleedLayout({ slide }: { slide: Slide }) {
 
 function QuoteLayout({ slide }: { slide: Slide }) {
   const bq = slide.elements.find((e) => e.type === 'blockquote');
+  // mark/text/attr are direct flex children of .sl-quote (centred, sized to
+  // content) — applying the same gate class to all three directly, rather
+  // than wrapping them together in one new div, keeps .sl-quote__text's
+  // max-width:80% resolving against .sl-quote exactly as before (a wrapper
+  // with no definite width of its own would break that).
+  const gateClass = useStepGateClass(bq?.type === 'blockquote' ? bq.step : undefined);
   return (
     <div className="sl-quote">
       {bq && bq.type === 'blockquote' && (
         <>
-          <div className="sl-quote__mark">"</div>
+          <div className={withStepGateClass('sl-quote__mark', gateClass)} data-step={bq.step}>"</div>
           {bq.html
-            ? <div className="sl-quote__text" dangerouslySetInnerHTML={{ __html: bq.html }} />
-            : <div className="sl-quote__text">{bq.text}</div>}
+            ? <div className={withStepGateClass('sl-quote__text', gateClass)} data-step={bq.step} dangerouslySetInnerHTML={{ __html: bq.html }} />
+            : <div className={withStepGateClass('sl-quote__text', gateClass)} data-step={bq.step}>{bq.text}</div>}
           {bq.attribution && (
-            <div className="sl-quote__attr">— {bq.attribution}</div>
+            <div className={withStepGateClass('sl-quote__attr', gateClass)} data-step={bq.step}>— {bq.attribution}</div>
           )}
         </>
       )}
@@ -438,11 +465,21 @@ function MediaLayout({ slide }: { slide: Slide }) {
 
 function CodeLayout({ slide }: { slide: Slide }) {
   const codeEls = slide.elements.filter((e) => e.type === 'code' || e.type === 'mermaid');
+  // .sl-code__block already exists per-item and carries `flex: 1` against
+  // .sl-code's column layout — apply the gate class directly onto it (like
+  // the image layouts above) rather than introducing a wrapper, which would
+  // stop it being a direct flex child and drop that sizing entirely. Called
+  // once here, not per-item inside the map below, since useContext is a hook.
+  const { revealThreshold, enteringStep } = useContext(SlideCtx);
   return (
     <div className="sl-code">
       {slide.title && <div className="sl-heading sl-code__title">{slide.title}</div>}
       {codeEls.map((codeEl, i) => (
-        <div key={i} className="sl-code__block">
+        <div
+          key={i}
+          className={withStepGateClass('sl-code__block', stepGateClassName(codeEl.step, revealThreshold, enteringStep))}
+          data-step={codeEl.step}
+        >
           {codeEl.type === 'code' && (
             <>
               {codeEl.lang && <div className="sl-code__lang">{codeEl.lang}</div>}
@@ -465,7 +502,7 @@ function MathLayout({ slide }: { slide: Slide }) {
       {slide.title && <div className="sl-heading sl-math-layout__title">{slide.title}</div>}
       <div className="sl-math-layout__body">
         {mathEls.map((el, i) => (
-          <MathBlock key={i} value={el.value} display={el.display} caption={el.caption} />
+          <MathBlock key={i} value={el.value} display={el.display} caption={el.caption} step={el.step} />
         ))}
       </div>
     </div>

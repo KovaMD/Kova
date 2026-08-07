@@ -5,9 +5,9 @@ author: Kova
 
 # Build-reveal animations
 
-Mark any bullet, image, code block, table, or other element with `<!-- step -->` and it appears on its own click during a presentation — instead of the whole slide landing at once.
+Mark any bullet, image, code block, table, or other element with `<!-- step -->` and it appears on its own click during a presentation — instead of the whole slide landing at once. <!-- step -->
 
-Advance through this deck in **Presentation mode** (not the editor preview, which always shows everything so you can keep editing) to see each build happen.
+Advance through this deck in **Presentation mode** (not the editor preview, which always shows everything so you can keep editing) to see each build happen. <!-- step -->
 
 ---
 

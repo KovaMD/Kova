@@ -365,8 +365,7 @@ export async function exportToPptx(
   }
 
   const rawBase64 = (await pres.write({ outputType: 'base64' })) as string;
-  const fadedBase64 = await applyFadeTransitions(rawBase64, resolvedSlides.length);
-  const base64 = await applyStepAnimations(fadedBase64, perSlideStepTargets);
+  const base64 = await applyPptxPostProcessing(rawBase64, perSlideStepTargets);
   return { base64, warnings };
 }
 
@@ -379,17 +378,9 @@ const TRANSITION_XML =
   '<p:fade thruBlk="1"/>' +
   '</p:transition>';
 
-async function applyFadeTransitions(base64: string, slideCount: number): Promise<string> {
-  const zip = await JSZip.loadAsync(base64, { base64: true });
-  for (let i = 1; i <= slideCount; i++) {
-    const path = `ppt/slides/slide${i}.xml`;
-    const file = zip.file(path);
-    if (!file) continue;
-    const xml = await file.async('string');
-    if (xml.includes('<p:transition')) continue;
-    zip.file(path, xml.replace('</p:sld>', `${TRANSITION_XML}</p:sld>`));
-  }
-  return zip.generateAsync({ type: 'base64' });
+function applyFadeTransition(xml: string): string {
+  if (xml.includes('<p:transition')) return xml;
+  return xml.replace('</p:sld>', `${TRANSITION_XML}</p:sld>`);
 }
 
 // ── Native click-triggered build animations (progressive reveal, issue #92) ──
@@ -414,17 +405,18 @@ async function applyFadeTransitions(base64: string, slideCount: number): Promise
 // the <p:set>/style.visibility toggle, so a labelling mismatch would not be a
 // "needs repair" failure — but it's the piece most worth double-checking.
 //
-// Scope: only body content that flows through addElements() gets a native
-// animation — title-content, split, two-column, three-column, bsp, and grid
-// layouts, which is where progressive-reveal bullets/paragraphs/images
-// actually live. A handful of single-purpose layouts render their content
-// through their own bespoke path instead of addElements() (addQuoteSlide's
-// hero quote, addMediaSlide's video/poll embeds, addCodeSlide's/addMathLayout's
-// dedicated blocks) — a `<!-- step -->` on one of those still parses and
-// still gates the live preview/presentation/interactive-HTML export, it just
-// exports to PPTX unanimated (visible immediately, same as before this
-// feature existed), rather than erroring. A real but explicitly bounded v1
-// scope gap, not a silent bug.
+// Scope: body content that flows through addElements() (title-content, split,
+// two-column, three-column, bsp, grid — and 'math' layout, which is really
+// just addTitleContentSlide) gets a native animation, and so do the "pulled
+// out" images in addTitleImageSlide/addSplitSlide and the code/diagram block
+// in addCodeSlide, which sit beside addElements() rather than going through
+// it but still register their own stepTargets. Two single-purpose layouts
+// remain genuinely out of scope: addQuoteSlide's hero quote and
+// addMediaSlide's video/poll embeds. A `<!-- step -->` on one of those still
+// parses and still gates the live preview/presentation/interactive-HTML
+// export, it just exports to PPTX unanimated (visible immediately, same as
+// before this feature existed), rather than erroring. A real but explicitly
+// bounded v1 scope gap, not a silent bug.
 //
 // CONFIRMED (real-world testing, not just the disclosure above): a single
 // <p:set> targeting a *wide* paragraph range — <p:pRg st="X" end="Y"> with
@@ -453,6 +445,23 @@ interface StepTarget {
 // avoids threading a separate counter through the whole layout call graph.
 function stepShapeName(area: Area, kind: string): string {
   return `kova:step-${kind}-${Math.round(area.x * 1000)}-${Math.round(area.y * 1000)}`;
+}
+
+// Shared by addCalloutBlock and addCodeBlock below — both render as several
+// separate pptxgenjs shapes (background/bar/title/body; outer/lang-badge/
+// inner/text) that all need to reveal together on one click. `stepName()`
+// hands out a fresh, distinct objectName per call (or undefined when the
+// element isn't stepped at all, so callers skip the objectName option
+// entirely); `registerStep()` pushes it onto stepTargets once pptxgenjs has
+// actually used it.
+function makeStepRegistrar(step: number | undefined, area: Area, kind: string, stepTargets: StepTarget[]) {
+  let shapeCount = 0;
+  return {
+    stepName: (): string | undefined => step === undefined ? undefined : stepShapeName(area, `${kind}-${shapeCount++}`),
+    registerStep: (objectName: string | undefined) => {
+      if (objectName) stepTargets.push({ step: step!, objectName });
+    },
+  };
 }
 
 // OOXML timing node ids only need to be unique within one slide's <p:timing>
@@ -537,16 +546,25 @@ function buildTimingXml(nextId: () => number, clicksByStep: Array<[number, Click
   );
 }
 
-async function applyStepAnimations(base64: string, perSlideTargets: StepTarget[][]): Promise<string> {
-  if (perSlideTargets.every((targets) => targets.length === 0)) return base64;
+// Applies the fade transition (every slide) and, where applicable, the step
+// timing tree (only slides with a stepped target) in one JSZip load→edit→
+// generate pass rather than two — halves the decode/encode cost of the whole
+// archive, which matters once a deck's embedded images/diagrams make it
+// multiple MB. Same two string patches, in the same order (transition before
+// timing, matching how the two used to run as separate sequential passes),
+// just applied to each slide's XML once instead of round-tripping the archive
+// twice.
+async function applyPptxPostProcessing(base64: string, perSlideTargets: StepTarget[][]): Promise<string> {
   const zip = await JSZip.loadAsync(base64, { base64: true });
   for (let i = 0; i < perSlideTargets.length; i++) {
     const targets = perSlideTargets[i];
-    if (targets.length === 0) continue;
     const path = `ppt/slides/slide${i + 1}.xml`;
     const file = zip.file(path);
     if (!file) continue;
     let xml = await file.async('string');
+    xml = applyFadeTransition(xml);
+
+    if (targets.length === 0) { zip.file(path, xml); continue; }
 
     // Resolve each kova:step-* objectName to its real shape id, then strip
     // the placeholder name back to empty — PowerPoint doesn't need a name on
@@ -579,7 +597,10 @@ async function applyStepAnimations(base64: string, perSlideTargets: StepTarget[]
       if (target.paragraphs) buildSpids.add(spid);
       byStep.set(target.step, [...(byStep.get(target.step) ?? []), ...clickTargets]);
     }
-    if (byStep.size === 0) continue;
+    // Still write back — even in this "shouldn't happen" case, xml has
+    // already had its kova:step-* names stripped above, and skipping the
+    // write here would leak that internal marker into the final file.
+    if (byStep.size === 0) { zip.file(path, xml); continue; }
 
     const clicksByStep = [...byStep.entries()].sort(([a], [b]) => a - b);
     const timing = buildTimingXml(makeAnimIdCounter(), clicksByStep, [...buildSpids]);
@@ -643,7 +664,7 @@ function addSlide(
     case 'title':         addTitleSlide(s, slide, t, cy, ch); break;
     case 'section':       addSectionSlide(s, slide, t, cy, ch); break;
     case 'title-content': addTitleContentSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, slideBoldColor, stepTargets); break;
-    case 'title-image':   addTitleImageSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor); break;
+    case 'title-image':   addTitleImageSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, stepTargets); break;
     case 'split':         addSplitSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, stepTargets); break;
     case 'full-bleed':    addFullBleedSlide(s, slide, t, H, warnings); break;
     case 'quote':         addQuoteSlide(s, slide, t, cy, ch, slideTextColor); break;
@@ -652,7 +673,7 @@ function addSlide(
     case 'bsp':           addBspSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, stepTargets); break;
     case 'grid':          addGridSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, stepTargets); break;
     case 'media':         addMediaSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor); break;
-    case 'code':          addCodeSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor); break;
+    case 'code':          addCodeSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, stepTargets); break;
     case 'math':          addTitleContentSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, slideBoldColor, stepTargets); break;
     case 'blank':         addBlankSlide(s, t); break;
     default:              addTitleContentSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, slideBoldColor, stepTargets);
@@ -738,7 +759,7 @@ function addTitleContentSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: num
   addElements(s, slide.elements, t, { x: M, y: cy + hh + 0.1, w: W - M * 2, h: ch - hh - 0.1 }, warnings, tc, codeBg, boldColor, stepTargets);
 }
 
-function addTitleImageSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc) {
+function addTitleImageSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, stepTargets: StepTarget[] = []) {
   s.background = { fill: hex(t.colors.background) };
   // 3% gap mirrors .sl-split__body { gap: 3% } in CSS
   const GAP  = 0.3;
@@ -756,7 +777,10 @@ function addTitleImageSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: numbe
   const img = slide.elements.find((e) => e.type === 'image');
   if (img && img.type === 'image') {
     const capH = img.caption ? CAPTION_H : 0;
-    tryAddImage(s, img.src, { x: M + colW + GAP, y: cy, w: colW, h: ch - capH }, warnings, imgAr(img));
+    const imgArea: Area = { x: M + colW + GAP, y: cy, w: colW, h: ch - capH };
+    const objectName = img.step !== undefined ? stepShapeName(imgArea, 'img') : undefined;
+    tryAddImage(s, img.src, imgArea, warnings, imgAr(img), objectName);
+    if (objectName) stepTargets.push({ step: img.step!, objectName });
     addCaption(s, img.caption, t, M + colW + GAP, cy + ch - capH, colW);
   }
 }
@@ -789,12 +813,18 @@ function addSplitSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, wa
     addElements(s, rest, t, { x: M, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
     if (img && img.type === 'image') {
       const imgX = M + colW + 0.3;
-      tryAddImage(s, img.src, { x: imgX, y: bodyY, w: colW, h: bodyH - capH }, warnings, ar);
+      const imgArea: Area = { x: imgX, y: bodyY, w: colW, h: bodyH - capH };
+      const objectName = img.step !== undefined ? stepShapeName(imgArea, 'img') : undefined;
+      tryAddImage(s, img.src, imgArea, warnings, ar, objectName);
+      if (objectName) stepTargets.push({ step: img.step!, objectName });
       addCaption(s, img.caption, t, imgX, bodyY + bodyH - capH, colW);
     }
   } else {
     if (img && img.type === 'image') {
-      tryAddImage(s, img.src, { x: M, y: bodyY, w: colW, h: bodyH - capH }, warnings, ar);
+      const imgArea: Area = { x: M, y: bodyY, w: colW, h: bodyH - capH };
+      const objectName = img.step !== undefined ? stepShapeName(imgArea, 'img') : undefined;
+      tryAddImage(s, img.src, imgArea, warnings, ar, objectName);
+      if (objectName) stepTargets.push({ step: img.step!, objectName });
       addCaption(s, img.caption, t, M, bodyY + bodyH - capH, colW);
     }
     addElements(s, rest, t, { x: M + colW + 0.3, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
@@ -1066,7 +1096,7 @@ function tryAddLocalVideo(s: PS, src: string, area: Area, warnings: string[]): b
   }
 }
 
-function addCodeSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), codeBg?: string, hc: string = tc) {
+function addCodeSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), codeBg?: string, hc: string = tc, stepTargets: StepTarget[] = []) {
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.65 : 0;
   if (slide.title) {
@@ -1087,7 +1117,10 @@ function addCodeSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, war
   if (imgEl && imgEl.type === 'image') {
     const ar = imgEl.title ? parseFloat(imgEl.title) : NaN;
     const capH = imgEl.caption ? CAPTION_H : 0;
-    tryAddImage(s, imgEl.src, { x: M, y: codeY, w: W - M * 2, h: codeH - capH }, warnings, isFinite(ar) ? ar : undefined);
+    const imgArea: Area = { x: M, y: codeY, w: W - M * 2, h: codeH - capH };
+    const objectName = imgEl.step !== undefined ? stepShapeName(imgArea, 'img') : undefined;
+    tryAddImage(s, imgEl.src, imgArea, warnings, isFinite(ar) ? ar : undefined, objectName);
+    if (objectName) stepTargets.push({ step: imgEl.step!, objectName });
     addCaption(s, imgEl.caption, t, M, codeY + codeH - capH, W - M * 2);
     return;
   }
@@ -1096,7 +1129,7 @@ function addCodeSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, war
   if (!codeEl) return;
 
   addCodeBlock(s, codeEl.value, codeEl.type === 'code' ? codeEl.lang : undefined, t,
-    { x: M, y: codeY, w: W - M * 2, h: codeH }, codeBg);
+    { x: M, y: codeY, w: W - M * 2, h: codeH }, codeBg, codeEl.step, stepTargets);
 }
 
 function addBlankSlide(s: PS, t: Theme) {
@@ -1440,13 +1473,8 @@ function addCalloutBlock(
   const BAR_W = 0.06;
   const PAD   = 0.15;
 
-  // Same "several separate shapes, one step" batching as addCodeBlock above —
-  // background, accent bar, title, and body all reveal together on one click.
-  let shapeCount = 0;
-  const stepName = (): string | undefined => step === undefined ? undefined : stepShapeName(area, `callout-${shapeCount++}`);
-  const registerStep = (objectName: string | undefined) => {
-    if (objectName) stepTargets.push({ step: step!, objectName });
-  };
+  // Background, accent bar, title, and body all reveal together on one click.
+  const { stepName, registerStep } = makeStepRegistrar(step, area, 'callout', stepTargets);
 
   const bgName = stepName();
   s.addShape('rect', {
@@ -1505,11 +1533,7 @@ function addCodeBlock(
   // clickEffect (see the ClickTarget[] batching in applyStepAnimations),
   // reveals the whole block together on one click instead of animating just
   // one piece of it while the rest stay visible.
-  let shapeCount = 0;
-  const stepName = (): string | undefined => step === undefined ? undefined : stepShapeName(area, `code-${shapeCount++}`);
-  const registerStep = (objectName: string | undefined) => {
-    if (objectName) stepTargets.push({ step: step!, objectName });
-  };
+  const { stepName, registerStep } = makeStepRegistrar(step, area, 'code', stepTargets);
 
   const OUTER_PAD = 0.15;
   const LANG_H    = 0.25;

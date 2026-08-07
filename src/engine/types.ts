@@ -21,7 +21,7 @@ export interface ListItem {
   children: ListItem[];
   /** Build-reveal order set via a trailing `<!-- step -->` marker; undefined
    *  means the item is always visible from the start of the slide. See
-   *  `!-- step --` handling in markdownToSlides.ts and getSlideStepValues in
+   *  `<!-- step -->` handling in markdownToSlides.ts and getSlideStepValues in
    *  engine/layout/steps.ts. */
   step?: number;
 }

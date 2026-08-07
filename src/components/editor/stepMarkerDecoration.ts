@@ -1,12 +1,13 @@
 import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
 import { RangeSetBuilder } from '@codemirror/state';
-import { matchStepMarker, createStepAssigner } from '../../engine/parser/stepMarkers';
+import { matchStepMarker, createStepAssigner, STEP_MARKER_PATTERN } from '../../engine/parser/stepMarkers';
+import { extractFrontmatter } from '../../engine/parser/frontmatter';
 
 // A `<!-- step -->` / `<!-- step: N -->` marker at the end of a line, either
 // trailing other content (a bullet/paragraph) or alone on its own line (the
 // own-line-after form used for images/tables/etc.) — both land at end-of-line,
 // so one regex covers both attachment forms.
-const LINE_STEP_RE = /<!--\s*step(?:\s*:\s*\d+)?\s*-->\s*$/;
+const LINE_STEP_RE = new RegExp(`${STEP_MARKER_PATTERN}\\s*$`);
 
 // Small "· N" badge shown right after the marker, resolved via the exact same
 // createStepAssigner sequence the parser uses — so the number an author sees
@@ -26,12 +27,29 @@ const markerDeco = Decoration.mark({ class: 'cm-step-marker' });
 
 function build(view: EditorView) {
   const { doc } = view.state;
+  // Reuses the parser's own frontmatter detection exactly (rather than a
+  // per-line open/close toggle keyed off "--- on line 1") so a document that
+  // *starts* with an unclosed `---` — a real, if unusual, leading slide
+  // separator, not frontmatter — can't get this stuck treating the rest of
+  // the file as frontmatter forever. Only pays for materialising the whole
+  // document as a string (which extractFrontmatter needs) when line 1 could
+  // plausibly be an opening fence at all — real frontmatter always starts on
+  // line 1, so every other keystroke skips straight to firstBodyLine = 1
+  // without that cost. extractFrontmatter returns `body` as a suffix of
+  // `content`, so the length difference is body's start offset.
+  const firstBodyLine = doc.line(1).text.trim() === '---'
+    ? (() => {
+        const content = doc.toString();
+        const { body } = extractFrontmatter(content);
+        return doc.lineAt(content.length - body.length).number;
+      })()
+    : 1;
+
   const b = new RangeSetBuilder<Decoration>();
-  let fm = false;    // inside frontmatter
   let fence = false; // inside ``` or ~~~ code block
   let assignStep = createStepAssigner();
 
-  for (let n = 1; n <= doc.lines; n++) {
+  for (let n = firstBodyLine; n <= doc.lines; n++) {
     const l = doc.line(n);
     const trimmed = l.text.trim();
 
@@ -39,12 +57,9 @@ function build(view: EditorView) {
     if (fence) continue;
 
     if (trimmed === '---') {
-      if (n === 1) fm = true;         // opening frontmatter fence
-      else if (fm) fm = false;        // closing frontmatter fence — not a slide break
-      else assignStep = createStepAssigner(); // real slide separator — steps reset per slide
+      assignStep = createStepAssigner(); // slide separator — steps reset per slide
       continue;
     }
-    if (fm) continue;
 
     const m = l.text.match(LINE_STEP_RE);
     if (!m) continue;

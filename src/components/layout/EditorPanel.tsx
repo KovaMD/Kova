@@ -23,7 +23,7 @@ import {
 } from '../editor/formatCommands';
 import { buildMediaSnippet } from '../editor/mediaSnippet';
 import { buildContextMenuEntries } from '../editor/contextMenuEntries';
-import { insertTable } from '../editor/contextMenuActions';
+import { insertTable, doToggleLineStepMarker } from '../editor/contextMenuActions';
 import { useMediaDragAndDrop } from '../editor/useMediaDragAndDrop';
 import { useMediaPaste } from '../editor/useMediaPaste';
 import { ModalShell } from '../ModalShell';
@@ -320,6 +320,10 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
           { key: 'Mod-`',       run: makeWrapCommand('`',   '`',    'code') },
           { key: 'Mod-]', run: indentLine },
           { key: 'Mod-[', run: dedentLine },
+          {
+            key: 'Mod-Shift-r',
+            run: (view) => { doToggleLineStepMarker(view, view.state.selection.main.head); return true; },
+          },
           { key: 'Mod-ArrowUp',    run: slideNav((i) => i - 1) },
           { key: 'PageUp',         run: slideNav((i) => i - 1) },
           { key: 'Mod-ArrowDown',  run: slideNav((i) => i + 1) },

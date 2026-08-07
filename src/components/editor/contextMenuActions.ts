@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { EditorSelection } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
+import { STEP_MARKER_PATTERN } from '../../engine/parser/stepMarkers';
 
 export function getWordAtPos(view: EditorView, pos: number): { word: string; from: number; to: number } | null {
   const doc = view.state.doc.toString();
@@ -68,11 +69,9 @@ export function insertTable(view: EditorView, rows: number, cols: number): void 
   doInsert(view, `|${headerCells}|\n|${sepCells}|\n${dataRows}`, 2);
 }
 
-// Trailing `<!-- step -->` / `<!-- step: N -->` marker at the end of a line
-// (see engine/parser/stepMarkers.ts) — matches the same STEP_MARKER_RE shape,
-// anchored to end-of-line with optional leading whitespace so it can be
-// stripped cleanly.
-const TRAILING_STEP_RE = /\s*<!--\s*step(?:\s*:\s*\d+)?\s*-->\s*$/;
+// Trailing `<!-- step -->` / `<!-- step: N -->` marker at the end of a line —
+// anchored with optional leading whitespace so it can be stripped cleanly.
+const TRAILING_STEP_RE = new RegExp(`\\s*${STEP_MARKER_PATTERN}\\s*$`);
 
 export function hasLineStepMarker(view: EditorView, pos: number): boolean {
   return TRAILING_STEP_RE.test(view.state.doc.lineAt(pos).text);

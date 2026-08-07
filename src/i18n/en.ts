@@ -162,7 +162,6 @@ const en = {
     couldNotPasteMedia: 'Could not paste media.',
     saveDocumentFirstTitle: 'Save document first',
     saveDocumentFirstMessage: 'Your document needs to be saved before inserting media, so Kova knows where to place it.',
-    menuClipboard: 'Clipboard',
     menuCopy: 'Copy',
     menuCut: 'Cut',
     menuPaste: 'Paste',

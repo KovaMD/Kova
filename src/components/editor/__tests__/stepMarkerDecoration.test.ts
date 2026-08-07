@@ -27,6 +27,16 @@ describe('stepMarkerDecoration', () => {
     expect(badgeNumbers(doc)).toEqual(['· 1', '· 1']);
   });
 
+  it('treats a leading unclosed --- as a real slide separator, not a stuck-open frontmatter fence', () => {
+    // Regression: a per-line open/close toggle keyed off "--- on line 1"
+    // would see this leading `---` as opening frontmatter and never find a
+    // matching close, silently suppressing badges for the rest of the file.
+    // extractFrontmatter (used by the real parser too) correctly treats an
+    // unclosed leading `---` as not frontmatter at all.
+    const doc = '---\n\n- A <!-- step -->';
+    expect(badgeNumbers(doc)).toEqual(['· 1']);
+  });
+
   it('ignores a step-shaped marker inside a fenced code block', () => {
     expect(badgeNumbers('```\n<!-- step -->\n```')).toEqual([]);
   });

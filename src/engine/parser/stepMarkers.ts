@@ -2,7 +2,15 @@
 // marker. Shared by the parser and the editor's CodeMirror decoration so the
 // numbers shown while editing can never drift from what the parser assigns.
 
-export const STEP_MARKER_RE = /^<!--\s*step(?:\s*:\s*(\d+))?\s*-->$/;
+// The marker's actual syntax, unanchored — the one place it's spelled out.
+// Consumers that need it anchored differently (mid-line, end-of-line with
+// leading whitespace, etc. — see stepMarkerDecoration.ts and
+// contextMenuActions.ts) build their own RegExp from this string rather than
+// re-deriving the pattern, so a future syntax tweak can't update one copy
+// and silently miss another.
+export const STEP_MARKER_PATTERN = '<!--\\s*step(?:\\s*:\\s*(\\d+))?\\s*-->';
+
+export const STEP_MARKER_RE = new RegExp(`^${STEP_MARKER_PATTERN}$`);
 
 /**
  * Matches a (trimmed) raw string as a step marker.
