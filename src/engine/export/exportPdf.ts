@@ -18,6 +18,10 @@ const PDF_W_MM     = 254;
 const JPEG_QUALITY = 0.95;
 const PIXEL_RATIO  = 2;
 
+// 1x1 transparent PNG — stands in for images html-to-image cannot fetch.
+const TRANSPARENT_PIXEL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
 // On macOS WKWebView, canvas.toDataURL() throws a SecurityError when the canvas
 // contains images loaded from cross-origin sources (asset:// or remote https://)
 // because the webview's CSP connect-src blocks fetch() to those URLs. Pre-resolve
@@ -48,6 +52,17 @@ async function preResolveExternalImages(el: HTMLElement): Promise<void> {
   }));
 }
 
+// html-to-image rejects with a DOM Event for image failures, which stringifies
+// to a useless "[object Event]".
+function describeError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err instanceof Event) {
+    const target = err.target as HTMLImageElement | null;
+    return target?.src ? `failed to load ${target.src}` : `${err.type} error`;
+  }
+  return String(err);
+}
+
 // Capture a slide as JPEG then composite each Mermaid diagram on top.
 // This avoids modifying the DOM before capture and avoids relying on
 // the off-screen SlideRenderer's Mermaid renders completing in time.
@@ -66,11 +81,17 @@ async function captureSlide(slideEl: HTMLElement, theme: Theme): Promise<string>
   // Step 1: base screenshot — image areas are blank placeholders; Mermaid
   // containers may also be placeholders. Everything else (backgrounds, text,
   // shapes, layout) is captured here.
+  // A broken or unreachable image URL makes html-to-image reject the whole
+  // capture (it assigns an empty src to the clone and rejects on its error
+  // event). The placeholder plus the no-op error handler keep the rest of the
+  // slide renderable; real images are composited from the live DOM in step 3.
   const baseJpeg = await toJpeg(slideEl, {
     quality: JPEG_QUALITY,
     pixelRatio: PIXEL_RATIO,
     width: slideEl.offsetWidth,
     height: slideEl.offsetHeight,
+    imagePlaceholder: TRANSPARENT_PIXEL,
+    onImageErrorHandler: () => {},
   });
 
   // Step 2: build a canvas from the base JPEG.
@@ -81,9 +102,17 @@ async function captureSlide(slideEl: HTMLElement, theme: Theme): Promise<string>
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
 
-  await new Promise<void>((resolve) => {
+  await new Promise<void>((resolve, reject) => {
     const img = new Image();
-    img.onload = () => { ctx.drawImage(img, 0, 0, W, H); resolve(); };
+    img.onload = () => {
+      try {
+        ctx.drawImage(img, 0, 0, W, H);
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = () => reject(new Error('Failed to load base JPEG'));
     img.src = baseJpeg;
   });
 
@@ -103,7 +132,7 @@ async function captureSlide(slideEl: HTMLElement, theme: Theme): Promise<string>
       const scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
       const fitW  = img.naturalWidth  * scale;
       const fitH  = img.naturalHeight * scale;
-      ctx.drawImage(img, cx + (cw - fitW) / 2, cy + (ch - fitH) / 2, fitW, fitH);
+      try { ctx.drawImage(img, cx + (cw - fitW) / 2, cy + (ch - fitH) / 2, fitW, fitH); } catch { /* skip undrawable image */ }
       resolve();
     };
     if (img.complete) { paint(); } else { img.onload = paint; img.onerror = () => resolve(); }
@@ -174,7 +203,8 @@ export async function printPresentation(
     try {
       images.push(await captureSlide(slideElements[i], theme));
     } catch (err) {
-      warnings.push(`Slide ${i + 1}: capture failed — ${String(err)}`);
+      warnings.push(`Slide ${i + 1}: capture failed — ${describeError(err)}`);
+      console.error(`Slide ${i + 1} capture error:`, err);
     }
   }
 
@@ -199,16 +229,102 @@ export async function printPresentation(
   document.body.appendChild(iframe);
 
   await new Promise<void>((resolve) => {
-    const cleanup = () => { iframe.remove(); resolve(); };
     const iwin = iframe.contentWindow!;
-    iwin.addEventListener('afterprint', cleanup, { once: true });
-    const fallback = setTimeout(cleanup, 120_000);
-    iwin.addEventListener('afterprint', () => clearTimeout(fallback), { once: true });
+    let printCalled = false;
+    let cleanupScheduled = false;
+    let fallback: ReturnType<typeof setTimeout> | undefined;
+    let printDialogBlurred = false;
+    let printMediaActive = false;
+    const printMedia = window.matchMedia('print');
+    const iframePrintMedia = iwin.matchMedia('print');
+
+    const cleanup = () => {
+      if (fallback !== undefined) clearTimeout(fallback);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('afterprint', triggerCleanup);
+      iwin.removeEventListener('afterprint', triggerCleanup);
+      printMedia.removeEventListener('change', handlePrintMediaChange);
+      iframePrintMedia.removeEventListener('change', handlePrintMediaChange);
+      iframe.remove();
+      resolve();
+    };
+
+    const triggerCleanup = () => {
+      if (cleanupScheduled) return;
+      cleanupScheduled = true;
+      cleanup();
+    };
+
+    const triggerPrint = () => {
+      if (printCalled || cleanupScheduled) return;
+      printCalled = true;
+      // afterprint is the normal completion signal. This is only a safety net
+      // for webviews that emit neither afterprint nor focus after cancellation.
+      fallback = setTimeout(triggerCleanup, 60_000);
+      iwin.print();
+    };
+
+    const handleWindowBlur = () => {
+      if (printCalled) printDialogBlurred = true;
+    };
+    const handleWindowFocus = () => {
+      if (printDialogBlurred) triggerCleanup();
+    };
+
+    const handlePrintMediaChange = (event: MediaQueryListEvent) => {
+      if (event.matches) {
+        printMediaActive = true;
+      } else if (printMediaActive) {
+        triggerCleanup();
+      }
+    };
+
+    iwin.addEventListener('afterprint', triggerCleanup, { once: true });
+    window.addEventListener('afterprint', triggerCleanup, { once: true });
+    printMedia.addEventListener('change', handlePrintMediaChange);
+    iframePrintMedia.addEventListener('change', handlePrintMediaChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
     const idoc = iframe.contentDocument!;
     idoc.open();
     idoc.write(html);
     idoc.close();
-    iwin.print();
+    
+    // Wait for all images to load before printing
+    const onLoad = () => {
+      const imgs = Array.from(idoc.querySelectorAll<HTMLImageElement>('img'));
+      if (imgs.length === 0) {
+        triggerPrint();
+        return;
+      }
+      
+      let loadedCount = 0;
+      const checkAllLoaded = () => {
+        loadedCount++;
+        if (loadedCount === imgs.length) {
+          triggerPrint();
+        }
+      };
+      
+      imgs.forEach((img) => {
+        if (img.complete) {
+          checkAllLoaded();
+        } else {
+          img.onload = checkAllLoaded;
+          img.onerror = checkAllLoaded;
+        }
+      });
+    };
+    
+    // Always set up listener for DOMContentLoaded (might have already fired)
+    const onDomReady = () => onLoad();
+    idoc.addEventListener('DOMContentLoaded', onDomReady, { once: true });
+    
+    // Also check current state in case DOMContentLoaded already fired
+    if (idoc.readyState !== 'loading') {
+      onLoad();
+    }
   });
 
   return { warnings };
@@ -234,7 +350,8 @@ export async function exportToPdf(
       const dataUrl = await captureSlide(slideElements[i], theme);
       pdf.addImage(dataUrl, 'JPEG', 0, 0, W, H, undefined, 'FAST');
     } catch (err) {
-      warnings.push(`Slide ${i + 1}: capture failed — ${String(err)}`);
+      warnings.push(`Slide ${i + 1}: capture failed — ${describeError(err)}`);
+      console.error(`Slide ${i + 1} capture error:`, err);
     }
   }
 
