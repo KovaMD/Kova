@@ -33,6 +33,11 @@ jobs:
 
           ### Bug fixes
           - **Fixed** `kova --import` silently overwriting an existing file when the target path collides, unless `--force` is passed (closes #214).
+          - **Fixed** the print preview dialog getting stuck at "Preparing Print..." when printing was cancelled, and images with URLs that failed to resolve breaking print/PDF export instead of falling back to an empty pixel (thanks @florian-hubertSE, #227).
+          - **Fixed** the overflow badge showing up in print and PDF export renders, where it isn't actionable.
+
+          ### Security
+          - Resolved 6 npm audit advisories (moderate–high severity): DOMPurify DOM XSS, image-size DoS (removed as a transitive dependency via the pptxgenjs update), js-yaml quadratic CPU consumption, 5 Mermaid advisories (prototype pollution, CSS injection, infinite-loop DoS), nanoid indefinite loop, and 5 undici advisories (response desync, cache/cookie info disclosure, CRLF injection).
 
           ### Known issues
           - **Windows Defender may flag Kova as `Trojan:Win32/Wacatac.C!ml`** during install or update — this is a false positive from Microsoft's heuristic/ML detection, not an actual threat (reported in #224). It's tied to Windows builds still being **test-signed** rather than production-signed; we're in the process of moving to full production signing via [SignPath](https://signpath.io). We'll drop this note once production signing is live.
@@ -211,15 +216,16 @@ jobs:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: 6aea854d-5015-451b-80a3-a1031e70eb9e
           project-slug: kova
-          # TEMPORARY: release-signing is approved on SignPath's side but every
-          # submission to it fails with an opaque "Invalid request to SignPath
-          # API." — ruled out submitter permissions, token identity (tried 3),
-          # the GitHub App installation/repo access, and the default artifact
-          # configuration. Debug logging shows a real 400 with an empty `logs`
-          # array, so there's nothing more diagnosable from the GitHub Actions
-          # side. Reported to SignPath support; reverted to test-signing so
-          # Windows releases aren't blocked while we wait on their reply.
-          signing-policy-slug: test-signing
+          # Retrying release-signing (2026-08-13): SignPath support (Phillip)
+          # pointed at two things — SIGNPATH_API_TOKEN belonging to a submitter
+          # without release-signing access, or signing-policy-slug not actually
+          # being "release-signing" at submission time. The slug was the known
+          # gap (hardcoded to test-signing below); token identity was already
+          # one of the things ruled out before reporting the 400, but worth a
+          # recheck against a submitter explicitly scoped to release-signing.
+          # If it 400s again, send SignPath the run link + timestamp — they
+          # offered to check server-side logs directly.
+          signing-policy-slug: release-signing
           artifact-configuration-slug: Windows_Executable_Samples
           github-artifact-id: ${{ steps.upload-unsigned-windows.outputs.artifact-id }}
           wait-for-completion: true
