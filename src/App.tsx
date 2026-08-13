@@ -3017,6 +3017,7 @@ export default function App() {
                   docTitle={docTitle}
                   docAuthor={docAuthor}
                   docDate={docDate}
+                  hideOverflowBadge
                   onAllDiagramsReady={onPrintSlideReady.current}
                 />
               </div>
@@ -3059,6 +3060,7 @@ export default function App() {
                   docTitle={docTitle}
                   docAuthor={docAuthor}
                   docDate={docDate}
+                  hideOverflowBadge
                   onAllDiagramsReady={onPdfSlideReady.current}
                 />
               </div>
