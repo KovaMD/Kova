@@ -216,16 +216,17 @@ jobs:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: 6aea854d-5015-451b-80a3-a1031e70eb9e
           project-slug: kova
-          # Retrying release-signing (2026-08-13): SignPath support (Phillip)
-          # pointed at two things — SIGNPATH_API_TOKEN belonging to a submitter
-          # without release-signing access, or signing-policy-slug not actually
-          # being "release-signing" at submission time. The slug was the known
-          # gap (hardcoded to test-signing below); token identity was already
-          # one of the things ruled out before reporting the 400, but worth a
-          # recheck against a submitter explicitly scoped to release-signing.
-          # If it 400s again, send SignPath the run link + timestamp — they
-          # offered to check server-side logs directly.
-          signing-policy-slug: release-signing
+          # TEMPORARY: retried release-signing on 2026-08-13 after SignPath
+          # support (Phillip) suggested checking the submitter token's access
+          # and the signing-policy-slug value — both were confirmed correct
+          # (token scoped to a release-signing submitter, slug set to
+          # "release-signing") and it still failed with the same opaque
+          # "Invalid request to SignPath API." 400. Reported back to SignPath
+          # with the run link (github.com/KovaMD/Kova/actions/runs/31739360879,
+          # job 94578679760) and failure timestamp (2026-08-13T20:18:38Z) for
+          # their server-side logs. Reverted to test-signing so Windows
+          # releases aren't blocked while we wait on their reply.
+          signing-policy-slug: test-signing
           artifact-configuration-slug: Windows_Executable_Samples
           github-artifact-id: ${{ steps.upload-unsigned-windows.outputs.artifact-id }}
           wait-for-completion: true
