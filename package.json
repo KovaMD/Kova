@@ -38,7 +38,7 @@
     "katex": "^0.17.0",
     "mdast-util-to-string": "^4.0.0",
     "mermaid": "^11.16.0",
-    "pptxgenjs": "^1.1.5",
+    "pptxgenjs": "^4.0.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-qr-code": "^2.0.21",

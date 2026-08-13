@@ -37,7 +37,7 @@ jobs:
           - **Fixed** the overflow badge showing up in print and PDF export renders, where it isn't actionable.
 
           ### Security
-          - Resolved 6 npm audit advisories (moderate–high severity): DOMPurify DOM XSS, image-size DoS (removed as a transitive dependency via the pptxgenjs update), js-yaml quadratic CPU consumption, 5 Mermaid advisories (prototype pollution, CSS injection, infinite-loop DoS), nanoid indefinite loop, and 5 undici advisories (response desync, cache/cookie info disclosure, CRLF injection).
+          - Resolved 5 npm audit advisories (moderate–high severity): DOMPurify DOM XSS, js-yaml quadratic CPU consumption, 5 Mermaid advisories (prototype pollution, CSS injection, infinite-loop DoS), nanoid indefinite loop, and 5 undici advisories (response desync, cache/cookie info disclosure, CRLF injection). A remaining `image-size` DoS advisory (crafted ICNS/JXL/HEIF images can hang the export process) has no upstream fix available yet — tracked, not yet resolved.
 
           ### Known issues
           - **Windows Defender may flag Kova as `Trojan:Win32/Wacatac.C!ml`** during install or update — this is a false positive from Microsoft's heuristic/ML detection, not an actual threat (reported in #224). It's tied to Windows builds still being **test-signed** rather than production-signed; we're in the process of moving to full production signing via [SignPath](https://signpath.io). We'll drop this note once production signing is live.
