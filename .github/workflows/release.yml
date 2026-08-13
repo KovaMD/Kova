@@ -28,11 +28,7 @@ jobs:
           cat > /tmp/release-notes.md << 'NOTES'
           ## What's new
 
-          ### New features
-          - **Progressive reveal / build animations** — mark any bullet, image, code block, table, formula, diagram, or blockquote with `<!-- step -->` (or `<!-- step: N -->` to group several elements onto the same click) and it appears on its own click during a presentation instead of the whole slide landing at once. Right-click a line in the editor for a quick "Reveal on click" toggle. Exports to real, native click-triggered animations in PowerPoint, not a flattened placeholder. See [`examples/animations-demo.md`](../../blob/main/examples/animations-demo.md) in the repo for a full tour of the syntax across different content types. **This is an initial release of the feature** — verified in **LibreOffice Impress**, but not yet thoroughly tested in **Microsoft PowerPoint**; please open an issue if a build animation doesn't play correctly there (closes #92).
-
           ### Bug fixes
-          - **Fixed** `kova --import` silently overwriting an existing file when the target path collides, unless `--force` is passed (closes #214).
           - **Fixed** the print preview dialog getting stuck at "Preparing Print..." when printing was cancelled, and images with URLs that failed to resolve breaking print/PDF export instead of falling back to an empty pixel (thanks @florian-hubertSE, #227).
           - **Fixed** the overflow badge showing up in print and PDF export renders, where it isn't actionable.
 
