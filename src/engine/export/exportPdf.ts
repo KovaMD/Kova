@@ -229,10 +229,26 @@ export async function printPresentation(
   document.body.appendChild(iframe);
 
   await new Promise<void>((resolve) => {
-    const cleanup = () => { iframe.remove(); resolve(); };
     const iwin = iframe.contentWindow!;
     let printCalled = false;
     let cleanupScheduled = false;
+    let fallback: ReturnType<typeof setTimeout> | undefined;
+    let printDialogBlurred = false;
+    let printMediaActive = false;
+    const printMedia = window.matchMedia('print');
+    const iframePrintMedia = iwin.matchMedia('print');
+
+    const cleanup = () => {
+      if (fallback !== undefined) clearTimeout(fallback);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('afterprint', triggerCleanup);
+      iwin.removeEventListener('afterprint', triggerCleanup);
+      printMedia.removeEventListener('change', handlePrintMediaChange);
+      iframePrintMedia.removeEventListener('change', handlePrintMediaChange);
+      iframe.remove();
+      resolve();
+    };
 
     const triggerCleanup = () => {
       if (cleanupScheduled) return;
@@ -241,15 +257,35 @@ export async function printPresentation(
     };
 
     const triggerPrint = () => {
-      if (printCalled) return;
+      if (printCalled || cleanupScheduled) return;
       printCalled = true;
+      // afterprint is the normal completion signal. This is only a safety net
+      // for webviews that emit neither afterprint nor focus after cancellation.
+      fallback = setTimeout(triggerCleanup, 60_000);
       iwin.print();
     };
 
+    const handleWindowBlur = () => {
+      if (printCalled) printDialogBlurred = true;
+    };
+    const handleWindowFocus = () => {
+      if (printDialogBlurred) triggerCleanup();
+    };
+
+    const handlePrintMediaChange = (event: MediaQueryListEvent) => {
+      if (event.matches) {
+        printMediaActive = true;
+      } else if (printMediaActive) {
+        triggerCleanup();
+      }
+    };
+
     iwin.addEventListener('afterprint', triggerCleanup, { once: true });
-    // Use a shorter timeout (5 seconds) because the afterprint event may not fire when user cancels
-    const fallback = setTimeout(triggerCleanup, 5000);
-    iwin.addEventListener('afterprint', () => clearTimeout(fallback), { once: true });
+    window.addEventListener('afterprint', triggerCleanup, { once: true });
+    printMedia.addEventListener('change', handlePrintMediaChange);
+    iframePrintMedia.addEventListener('change', handlePrintMediaChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
     const idoc = iframe.contentDocument!;
     idoc.open();
     idoc.write(html);
