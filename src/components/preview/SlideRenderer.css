@@ -176,6 +176,18 @@
   position: relative;
 }
 
+/* Explicit `[text](url)` markdown links take the theme accent colour.
+   Autolinks (bare URLs/emails remark-gfm auto-detects) get `sl-link--auto`
+   instead and stay plain text, per the isAutolink() heuristic in
+   markdownToSlides.ts — the two produce identical mdast nodes otherwise. */
+.slide-frame a.sl-link {
+  color: var(--sl-accent);
+}
+.slide-frame a.sl-link--auto {
+  color: inherit;
+  text-decoration: none;
+}
+
 .sl-para { margin: 0 0 0.5em; }
 .sl-para:last-child { margin-bottom: 0; }
 

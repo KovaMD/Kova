@@ -780,6 +780,23 @@ function rawText(src: string, node: Node): string {
 
 // ── Inline node → HTML ───────────────────────────────────────────────────────
 
+// remark-gfm's autolink-literal extension (bare URLs, `www.` domains, email
+// addresses) produces the exact same mdast `link` node shape as explicit
+// `[text](url)` syntax, so the two can't be told apart by node.type. What
+// does differ: an autolink's single text child is always the literal matched
+// string, which equals the url itself (modulo the scheme/mailto: prefix that
+// remark adds). Explicit links almost never have link text identical to
+// their href, so this heuristic distinguishes them without needing the raw
+// source text.
+function isAutolink(node: { url: string; children: unknown[] }): boolean {
+  if (node.children.length !== 1) return false;
+  const child = node.children[0] as { type: string; value?: string };
+  if (child.type !== 'text' || !child.value) return false;
+  const text = child.value;
+  const url = node.url;
+  return url === text || url === `mailto:${text}` || url === `http://${text}` || url === `https://${text}`;
+}
+
 function inlineToHtml(children: Node[]): string {
   return (children as any[]).map((node) => {
     switch (node.type) {
@@ -788,7 +805,10 @@ function inlineToHtml(children: Node[]): string {
       case 'emphasis':    return `<em>${inlineToHtml(node.children)}</em>`;
       case 'delete':      return `<del>${inlineToHtml(node.children)}</del>`;
       case 'inlineCode':  return `<code>${escHtml(node.value as string)}</code>`;
-      case 'link':        return `<a href="${escLinkUrl(node.url as string)}">${inlineToHtml(node.children)}</a>`;
+      case 'link': {
+        const cls = isAutolink(node) ? 'sl-link--auto' : 'sl-link';
+        return `<a href="${escLinkUrl(node.url as string)}" class="${cls}">${inlineToHtml(node.children)}</a>`;
+      }
       case 'image':       return `<img src="${escUrl(node.url as string)}" alt="${escHtml(node.alt ?? '')}" />`;
       case 'break':       return '<br>';
       case 'inlineMath': {
