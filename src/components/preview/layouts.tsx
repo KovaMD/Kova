@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Slide, SlideElement } from '../../engine/types';
-import { autoSplitElements, groupProgressRuns, splitByColumnBreaks } from '../../engine/layout/elementGrouping';
+import { autoSplitElements, explodeListItems, groupProgressRuns, splitByColumnBreaks } from '../../engine/layout/elementGrouping';
 import { useT } from '../../i18n';
 import { SlideCtx } from './slideContext';
 import { Elements, StepGate, stepGateClassName, CodeBlock, MermaidDiagram, YoutubeEmbed, VideoEmbed, PollEmbed, MathBlock } from './elements';
@@ -430,9 +430,10 @@ function BspLayout({ slide }: { slide: Slide }) {
 }
 
 function GridLayout({ slide }: { slide: Slide }) {
-  // Filter column-break elements, then group consecutive progress bars into one cell.
+  // Filter column-break elements, explode lists into one cell per bullet,
+  // then group consecutive progress bars into one cell.
   const filtered = slide.elements.filter((e) => e.type !== 'column-break');
-  const groups = groupProgressRuns(filtered);
+  const groups = groupProgressRuns(explodeListItems(filtered));
   return (
     <div className="sl-grid">
       {slide.title && <div className="sl-heading sl-grid__title">{slide.title}</div>}
