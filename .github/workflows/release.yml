@@ -29,11 +29,9 @@ jobs:
           ## What's new
 
           ### Bug fixes
-          - **Fixed** the print preview dialog getting stuck at "Preparing Print..." when printing was cancelled, and images with URLs that failed to resolve breaking print/PDF export instead of falling back to an empty pixel (thanks @florian-hubertSE, #227).
-          - **Fixed** the overflow badge showing up in print and PDF export renders, where it isn't actionable.
-
-          ### Security
-          - Resolved 5 npm audit advisories (moderate–high severity): DOMPurify DOM XSS, js-yaml quadratic CPU consumption, 5 Mermaid advisories (prototype pollution, CSS injection, infinite-loop DoS), nanoid indefinite loop, and 5 undici advisories (response desync, cache/cookie info disclosure, CRLF injection). A remaining `image-size` DoS advisory (crafted ICNS/JXL/HEIF images can hang the export process) has no upstream fix available yet — tracked, not yet resolved.
+          - **Fixed** hyperlinks written as explicit `[text](url)` Markdown links not picking up the theme's accent colour; bare autolinked URLs and email addresses now correctly stay unstyled plain text instead of showing default browser blue (reported by @datenimperator, #228).
+          - **Fixed** grid layout not automatically splitting a bullet list into one cell per bullet, requiring a manual `|||` delimiter between each item as a workaround (reported by @datenimperator, #229).
+          - **Fixed** images collapsing to a tiny thumbnail instead of filling their column when placed in a `|||` split, BSP, or grid layout (reported by @JustinKenpisi, #230).
 
           ### Known issues
           - **Windows Defender may flag Kova as `Trojan:Win32/Wacatac.C!ml`** during install or update — this is a false positive from Microsoft's heuristic/ML detection, not an actual threat (reported in #224). It's tied to Windows builds still being **test-signed** rather than production-signed; we're in the process of moving to full production signing via [SignPath](https://signpath.io). We'll drop this note once production signing is live.
