@@ -40,6 +40,7 @@ const de: DeepPartial<Messages> = {
     next: 'Weiter', // Next
     endOfPresentation: 'Ende der Präsentation', // End of presentation
     slideAnnounce: 'Folie {{current}} von {{total}}', // Slide {{current}} of {{total}}
+    audienceWindowTimeout: 'Kann Präsentations-Anzeige nicht öffnen — prüfe die Verbindung zu deinem externen Monitor und versuche es erneut', // Could not open the presentation display — check your external monitor connection and try again
   },
   inspector: {
     inspectorTitle: 'Inspektor', // Inspector
@@ -64,6 +65,8 @@ const de: DeepPartial<Messages> = {
     colorBackground: 'Hintergrund', // Background
     colorText: 'Text', // Text
     colorTitleText: 'Titeltext', // Title text
+    colorHeading: 'Überschrift', // Heading
+    colorBold: 'Fettschrift', // Bold text
     colorSectionBg: 'Abschnittshintergrund', // Section bg
     colorCodeBg: 'Code-Hintergrund', // Code bg
     diagramPalette: 'Diagrammpalette', // Diagram palette
@@ -177,6 +180,8 @@ const de: DeepPartial<Messages> = {
     menuInlineCode: 'Inline-Code', // Inline Code
     menuIndent: 'Einrücken - Einzug vergrößern', // Indent
     menuDedent: 'Ausrücken - Einzug verkleinern', // Dedent
+    menuAddStepMarker: 'Bei Anklicken zeigen', // Reveal on click
+    menuRemoveStepMarker: 'Bei Anklicken verbergen', // Remove reveal on click
     menuInsert: 'Einfügen', // Insert
     menuCodeBlock: 'Code-Block', // Code Block
     menuBlockquote: 'Blockzitat', // Blockquote
@@ -358,6 +363,7 @@ const de: DeepPartial<Messages> = {
   },
   settings: {
     windowTitle: 'Einstellungen', // Settings
+    searchPlaceholder: 'Such-Einstellungen ...', // Search settings…
     sectionAppearance: 'Erscheinungsbild', // Appearance
     appTheme: 'App-Design', // App theme
     themeAuto: 'Automatisch', // Auto
@@ -410,6 +416,8 @@ const de: DeepPartial<Messages> = {
     displayModeMirror: 'Spiegeln', // Mirror
     windowedPresenterView: 'Fensterdarstellung für Präsentierende', // Windowed presenter view
     windowedPresenterViewDescription: 'Behalte die Präsentations-Darstellung in einem normalen Fenster statt bildschirmfüllend, damit du die Größe verändern oder ein Fenster danebensetzen kannst.', // Keep the presenter view in a normal window instead of fullscreen, so you can resize it or place another window alongside it.
+    alwaysOnTop: 'Immer oben auf', // Always on top
+    alwaysOnTopDescription: 'Behalte die Präsentations-Darstellung oberhalb von anderen Programmen, damit weder Video-Anrufe noch andere Fenster sie verdecken können.', // Keep the presenter window above other apps, so a video call or another window can't cover it.
     laserPointerColour: 'Farbe des Laserpointers', // Laser pointer colour
     showNextSlidePreview: 'Vorschau der nächsten Folie anzeigen', // Show next slide preview
     showNextSlidePreviewDescription: 'Zeigt in der Referenten-Ansicht eine Vorschau der kommenden Folie an.', // Displays a preview of the upcoming slide in the presenter view.
