@@ -746,6 +746,16 @@ export default function App() {
   // tauri://destroyed handler from a previous session (e.g. close of a leftover
   // audience window) can detect it is out of date and skip its state reset.
   const presentSessionRef = useRef(0);
+  // Windows silently drops WS_EX_TOPMOST on various compositor/dialog
+  // interactions, so a one-shot setAlwaysOnTop isn't enough — reassert it
+  // on an interval for as long as the presenter window should stay on top.
+  const alwaysOnTopIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopAlwaysOnTopReassert = useCallback(() => {
+    if (alwaysOnTopIntervalRef.current !== null) {
+      clearInterval(alwaysOnTopIntervalRef.current);
+      alwaysOnTopIntervalRef.current = null;
+    }
+  }, []);
 
   const handlePresentExit = useCallback(async () => {
     if (isExitingRef.current) return;
@@ -763,6 +773,7 @@ export default function App() {
     // wake lock explicitly first: cli_exit is a hard process exit, so the
     // effect that normally releases it on presentMode→false never runs, and
     // an orphaned macOS caffeinate child would keep the machine awake.
+    stopAlwaysOnTopReassert();
     if (coldPresent) {
       await invoke('set_wake_lock', { active: false }).catch(() => {});
       await invoke('cli_exit', { code: 0 }).catch(() => {});
@@ -776,7 +787,7 @@ export default function App() {
     await getCurrentWindow().setFullscreen(false).catch(() => {});
     await getCurrentWindow().setAlwaysOnTop(false).catch(() => {});
     isExitingRef.current = false;
-  }, [slides, visibleSlides, safePresentIndex, coldPresent]);
+  }, [slides, visibleSlides, safePresentIndex, coldPresent, stopAlwaysOnTopReassert]);
 
   // Moved above handlePresentEnter (originally declared much further down)
   // so its stable-identity useCallback can be listed in handlePresentEnter's
@@ -858,6 +869,7 @@ export default function App() {
           if (presentSessionRef.current !== sessionId) return; // stale session
           unlistenReady?.();
           audienceWin.close().catch(() => {});
+          stopAlwaysOnTopReassert();
           if (coldPresentRef.current) {
             invoke('set_wake_lock', { active: false }).catch(() => {});
             invoke('cli_exit', {
@@ -911,6 +923,7 @@ export default function App() {
         audienceWin.once('tauri://error', () => {
           clearTimeout(readyTimeoutId);
           unlistenReady?.();
+          stopAlwaysOnTopReassert();
           if (coldPresentRef.current) {
             invoke('set_wake_lock', { active: false }).catch(() => {});
             invoke('cli_exit', {
@@ -933,6 +946,7 @@ export default function App() {
         audienceWin.once('tauri://destroyed', () => {
           if (isExitingRef.current) return; // normal exit already in progress
           if (presentSessionRef.current !== sessionId) return; // stale session
+          stopAlwaysOnTopReassert();
           // Cold-started session: the audience window going away ends the
           // presentation, and ending the presentation ends the app.
           if (coldPresentRef.current) {
@@ -949,8 +963,19 @@ export default function App() {
         if (mode === 'dual') {
           setPresenterMode(true);
           if (settings.presenterWindowed) {
+            // A maximized frameless window is visually indistinguishable from
+            // fullscreen (no title bar, taskbar often auto-hidden), and it
+            // can't be placed alongside another window as the setting promises
+            // — so un-maximize rather than just skipping setFullscreen.
+            if (await getCurrentWindow().isMaximized().catch(() => false)) {
+              await getCurrentWindow().unmaximize().catch(() => {});
+            }
             if (settings.presenterAlwaysOnTop) {
+              stopAlwaysOnTopReassert();
               await getCurrentWindow().setAlwaysOnTop(true).catch(() => {});
+              alwaysOnTopIntervalRef.current = setInterval(() => {
+                getCurrentWindow().setAlwaysOnTop(true).catch(() => {});
+              }, 2000);
             }
           } else {
             await getCurrentWindow().setFullscreen(true).catch(() => {});
@@ -964,7 +989,7 @@ export default function App() {
 
     setPresentMode(true);
     await getCurrentWindow().setFullscreen(true).catch(() => {});
-  }, [slides, visibleSlides, safeSlideIndex, activeTheme, aspectRatio, docTitle, docDate, settings.presentationMode, settings.presenterWindowed, settings.presenterAlwaysOnTop, handleWarn, t]);
+  }, [slides, visibleSlides, safeSlideIndex, activeTheme, aspectRatio, docTitle, docDate, settings.presentationMode, settings.presenterWindowed, settings.presenterAlwaysOnTop, handleWarn, t, stopAlwaysOnTopReassert]);
 
   // Cold-start present: enter presentation exactly once, as soon as the file
   // content has been applied (filePath set in the same batch as content).
