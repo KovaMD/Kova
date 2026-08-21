@@ -17,11 +17,42 @@ import mermaid from 'mermaid';
  */
 const DEFAULT_TIMEOUT_MS = 15_000;
 
+// Some diagram types (Gantt, notably) measure their host element's
+// offsetWidth *at render time* to decide their internal coordinate scale
+// (mermaid's ganttRenderer does `w = elem.parentElement.offsetWidth`).
+// mermaid.render() with no explicit container renders into a scratch div it
+// appends straight to `document.body`, so that measurement ends up being
+// whatever the *current window's* body happens to be at that instant —
+// which differs between the main editor window, a freshly-opened
+// presenter/audience WebviewWindow (issue #195), and even between
+// keystrokes while editing, since every edit re-renders. Rendering into a
+// persistent, fixed-width, off-screen host instead makes that measurement
+// deterministic everywhere the app renders Mermaid diagrams (preview,
+// thumbnails, presenter/audience windows, PDF/PPTX export). The width
+// matches the virtual slide canvas used elsewhere (SLIDE_W in
+// presentationShared.tsx / ThumbnailPanel.tsx) so diagrams size themselves
+// the same way they're actually displayed.
+const RENDER_HOST_ID = 'mermaid-render-host';
+const RENDER_HOST_WIDTH = 960;
+const RENDER_HOST_HEIGHT = 540;
+
+function getRenderHost(): HTMLDivElement {
+  let host = document.getElementById(RENDER_HOST_ID) as HTMLDivElement | null;
+  if (!host) {
+    host = document.createElement('div');
+    host.id = RENDER_HOST_ID;
+    host.setAttribute('aria-hidden', 'true');
+    host.style.cssText = `position: fixed; top: 0; left: -99999px; width: ${RENDER_HOST_WIDTH}px; height: ${RENDER_HOST_HEIGHT}px; overflow: hidden; pointer-events: none;`;
+    document.body.appendChild(host);
+  }
+  return host;
+}
+
 let tail: Promise<unknown> = Promise.resolve();
 
 export function queuedMermaidRender(id: string, src: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<{ svg: string }> {
   const run = tail.then(() => Promise.race([
-    mermaid.render(id, src),
+    mermaid.render(id, src, getRenderHost()),
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Mermaid render timeout')), timeoutMs)),
   ]));
   // Chain `tail` through a rejection-swallowing branch so a failed/timed-out
