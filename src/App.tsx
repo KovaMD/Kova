@@ -1492,48 +1492,77 @@ export default function App() {
     }
   }, [filePath, renameValue]);
 
-  const handleSave = useCallback(async () => {
-    if (!filePath) return;
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (!filePath) return false;
     // Optimistic: mark clean before the write so that when the OS file-watcher
     // fires (during the IPC round-trip) isDirtyRef.current is already false and
     // the event is treated as a silent no-op reload rather than a warning.
     // React renders this state change before Rust's disk I/O + IPC completes.
     setIsDirty(false);
+    const savingPath = filePath;
+    const contentAtSave = content;
     try {
       const toWrite = buildSaveContent();
-      await invoke('write_file', { path: filePath, content: toWrite });
-      if (toWrite !== content) setContent(toWrite);
+      await invoke('write_file', { path: savingPath, content: toWrite });
+      // The user may have opened a different document while the write was in
+      // flight (isDirty was already cleared above, so guardDirty let them) —
+      // in that case this save's side effects belong to a document that's no
+      // longer open, so leave the now-active document's state alone.
+      if (filePathRef.current !== savingPath) return true;
       diskContentRef.current = toWrite;
+      if (contentRef.current === contentAtSave) {
+        if (toWrite !== contentAtSave) setContent(toWrite);
+      } else {
+        // The user kept typing while the write was in flight — toWrite only
+        // reflects the pre-save snapshot, so adopting it here would discard
+        // those newer edits. Leave the live content as-is and stay dirty so
+        // a follow-up save picks them up.
+        setIsDirty(true);
+      }
       // Re-register the watcher: atomic_write replaces the file's inode via
       // rename, which causes inotify to drop the watch on the old inode.
       // Explicitly re-watching after each save ensures external changes are
       // detected regardless of how the OS / notify crate handles the rename.
-      await invoke('start_watching', { path: filePath }).catch(console.error);
+      await invoke('start_watching', { path: savingPath }).catch(console.error);
       // Saving resolves any pending external-change conflict: the user's edits
       // win. Dismiss the dialog so the confirmCloseAction "Save" path can
       // proceed with the close, and so Ctrl+S while the dialog is open doesn't
       // leave a stale conflict prompt on screen.
       setShowExternalChangeDialog(false);
+      return true;
     } catch (err) {
-      setIsDirty(true);
+      if (filePathRef.current === savingPath) setIsDirty(true);
       console.error('Save failed:', err);
       setWarnMessage(`Save failed: ${err}`);
+      return false;
     }
   }, [filePath, content, buildSaveContent]);
 
   const handleSaveAs = useCallback(async (): Promise<string | null> => {
+    const startedFromPath = filePath;
     try {
       const target = await save({
         filters: [{ name: 'Markdown', extensions: ['md'] }],
         defaultPath: filePath ?? undefined,
       });
       if (!target) return null;
+      const contentAtSave = content;
       const toWrite = buildSaveContent();
       await invoke('write_file', { path: target, content: toWrite });
-      if (toWrite !== content) setContent(toWrite);
-      setFilePath(target);
-      setIsDirty(false);
+      // The user may have switched to a different document while the native
+      // save dialog was open or the write was in flight — don't adopt `target`
+      // as the active file out from under them in that case.
+      if (filePathRef.current !== startedFromPath) return target;
       diskContentRef.current = toWrite;
+      setFilePath(target);
+      if (contentRef.current === contentAtSave) {
+        setIsDirty(false);
+        if (toWrite !== contentAtSave) setContent(toWrite);
+      } else {
+        // Content changed while the write was in flight — keep those edits
+        // and stay dirty rather than clobbering them with the pre-save snapshot.
+        setIsDirty(true);
+      }
       await invoke('start_watching', { path: target }).catch(console.error);
       return target;
     } catch (err) { console.error('Save As failed:', err); setWarnMessage(`Save failed: ${err}`); return null; }
@@ -2961,7 +2990,8 @@ export default function App() {
                   const action = confirmCloseAction;
                   setConfirmCloseAction(null);
                   if (filePath) {
-                    await handleSave();
+                    const saved = await handleSave();
+                    if (!saved) return;
                   } else {
                     const saved = await handleSaveAs();
                     if (!saved) return;

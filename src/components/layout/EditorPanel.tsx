@@ -1,7 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { indentWithTab, undo, redo, selectAll } from '@codemirror/commands';
-import { Annotation, Compartment, EditorSelection, EditorState, Prec } from '@codemirror/state';
+import { Annotation, Compartment, EditorSelection, EditorState, Prec, Transaction } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { markdown } from '@codemirror/lang-markdown';
@@ -411,7 +411,14 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
     // when they differ do we pay the line-ending-normalising compare. CodeMirror
     // collapses lone \r as well as \r\n, so both must be normalised here too.
     if (current !== content && current !== content.replace(/\r\n/g, '\n').replace(/\r/g, '\n')) {
-      view.dispatch({ changes: { from: 0, to: current.length, insert: content }, annotations: externalSync.of(true) });
+      // Never let this land as an undoable edit: without addToHistory:false,
+      // switching documents (or reloading one from disk) pushes a "replace
+      // whole doc" transaction onto the undo stack, so Ctrl+Z in the newly
+      // loaded document pulls the previous document's content back in.
+      view.dispatch({
+        changes: { from: 0, to: current.length, insert: content },
+        annotations: [externalSync.of(true), Transaction.addToHistory.of(false)],
+      });
     }
   }, [content]);
 
