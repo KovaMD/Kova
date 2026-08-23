@@ -29,9 +29,12 @@ jobs:
           ## What's new
 
           ### Bug fixes
-          - **Fixed** hyperlinks written as explicit `[text](url)` Markdown links not picking up the theme's accent colour; bare autolinked URLs and email addresses now correctly stay unstyled plain text instead of showing default browser blue (reported by @datenimperator, #228).
-          - **Fixed** grid layout not automatically splitting a bullet list into one cell per bullet, requiring a manual `|||` delimiter between each item as a workaround (reported by @datenimperator, #229).
-          - **Fixed** images collapsing to a tiny thumbnail instead of filling their column when placed in a `|||` split, BSP, or grid layout (reported by @JustinKenpisi, #230).
+          - **Fixed** several PPTX export bugs in progressive-reveal animations found through real-world testing in PowerPoint/Impress — stepped tables and images now animate correctly, and a code block or callout sharing a grid cell no longer loses its animation entirely.
+          - **Fixed** display math (LaTeX formulas) sometimes exporting as a blank, unreadable image on Linux with no warning; now falls back to plain text if rendering fails.
+          - Selecting multiple lines and toggling "Reveal on click" now applies to the whole selection instead of just the line under the cursor, and gained a Cmd/Ctrl+Shift+R shortcut.
+          - **Fixed** Gantt diagrams rendering at wildly inconsistent scales depending on which window they rendered in — editor preview, presenter view, and PDF/PPTX export now all match (reported by @a1880, #195).
+          - **Fixed** several missing and incorrect German translation strings across the Settings panel (reported by @a1880, #231, #223).
+          - **Fixed** windowed presenter view and "always on top" not taking effect on Windows (reported by @a1880, #232).
 
           ### Known issues
           - **Windows Defender may flag Kova as `Trojan:Win32/Wacatac.C!ml`** during install or update — this is a false positive from Microsoft's heuristic/ML detection, not an actual threat (reported in #224). It's tied to Windows builds still being **test-signed** rather than production-signed; we're in the process of moving to full production signing via [SignPath](https://signpath.io). We'll drop this note once production signing is live.
