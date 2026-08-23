@@ -176,6 +176,18 @@
   position: relative;
 }
 
+/* Explicit `[text](url)` markdown links take the theme accent colour.
+   Autolinks (bare URLs/emails remark-gfm auto-detects) get `sl-link--auto`
+   instead and stay plain text, per the isAutolink() heuristic in
+   markdownToSlides.ts — the two produce identical mdast nodes otherwise. */
+.slide-frame a.sl-link {
+  color: var(--sl-accent);
+}
+.slide-frame a.sl-link--auto {
+  color: inherit;
+  text-decoration: none;
+}
+
 .sl-para { margin: 0 0 0.5em; }
 .sl-para:last-child { margin-bottom: 0; }
 
@@ -215,10 +227,16 @@
    :where() gives zero specificity so all class-based rules still win. */
 :where(.slide-frame) img { max-width: 100%; height: auto; }
 
-/* Image in body context — constrained by wrapper, user can override via title */
-.sl-img-wrap { display: flex; justify-content: center; overflow: hidden; max-height: 18cqi; max-width: 60%; align-self: center; }
-.sl-img-wrap--user { max-height: unset; max-width: unset; align-self: auto; }
-.sl-img { max-width: 100%; height: auto; object-fit: contain; display: block; }
+/* Image in body context — fills its OverflowPane flex column like Mermaid/
+   video/code do (see the sl-pane-inner/sl-pane-zoom comment above, issue
+   #159), instead of being capped to a small inline thumbnail regardless of
+   how much space is actually available — that mismatch stranded images at
+   thumbnail size whenever they were the sole/dominant content of a pane,
+   e.g. one side of a `|||` split (issue #230). User-set sizes (title="WxH")
+   opt back out via sl-img-wrap--user. */
+.sl-img-wrap { display: flex; justify-content: center; overflow: hidden; flex: 1; min-height: 0; align-self: center; }
+.sl-img-wrap--user { flex: none; align-self: auto; }
+.sl-img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; display: block; }
 .sl-img-fill { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; align-self: center; }
 .sl-img-cover { display: block; max-width: 90%; max-height: 90%; width: auto; height: auto; object-fit: contain; align-self: center; }
 

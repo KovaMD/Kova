@@ -2006,7 +2006,7 @@ dependencies = [
 
 [[package]]
 name = "kova"
-version = "0.7.5"
+version = "0.7.8"
 dependencies = [
  "base64 0.22.1",
  "block2",

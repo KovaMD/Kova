@@ -40,6 +40,7 @@ const de: DeepPartial<Messages> = {
     next: 'Weiter', // Next
     endOfPresentation: 'Ende der Präsentation', // End of presentation
     slideAnnounce: 'Folie {{current}} von {{total}}', // Slide {{current}} of {{total}}
+    audienceWindowTimeout: 'Kann Präsentations-Anzeige nicht öffnen — prüfe die Verbindung zu deinem externen Monitor und versuche es erneut', // Could not open the presentation display — check your external monitor connection and try again
   },
   inspector: {
     inspectorTitle: 'Inspektor', // Inspector
@@ -64,6 +65,8 @@ const de: DeepPartial<Messages> = {
     colorBackground: 'Hintergrund', // Background
     colorText: 'Text', // Text
     colorTitleText: 'Titeltext', // Title text
+    colorHeading: 'Überschrift', // Heading
+    colorBold: 'Fettschrift', // Bold text
     colorSectionBg: 'Abschnittshintergrund', // Section bg
     colorCodeBg: 'Code-Hintergrund', // Code bg
     diagramPalette: 'Diagrammpalette', // Diagram palette
@@ -177,6 +180,8 @@ const de: DeepPartial<Messages> = {
     menuInlineCode: 'Inline-Code', // Inline Code
     menuIndent: 'Einrücken - Einzug vergrößern', // Indent
     menuDedent: 'Ausrücken - Einzug verkleinern', // Dedent
+    menuAddStepMarker: 'Bei Anklicken zeigen', // Reveal on click
+    menuRemoveStepMarker: 'Bei Anklicken verbergen', // Remove reveal on click
     menuInsert: 'Einfügen', // Insert
     menuCodeBlock: 'Code-Block', // Code Block
     menuBlockquote: 'Blockzitat', // Blockquote
@@ -209,7 +214,7 @@ const de: DeepPartial<Messages> = {
     youtubePlaceholder: '▶ YouTube', // ▶ YouTube
     clickToOpenInBrowser: 'Klicken, um im Browser zu öffnen', // Click to open in browser
     openInBrowserTitle: 'Im Browser öffnen: {{url}}', // Open in browser: {{url}}
-    rescaledToFit: 'Größe angepasst/skaliert', // rescaled to fit
+    rescaledToFit: 'Größe angepasst', // rescaled to fit
     noTitledSlidesFound: 'Keine Folien mit Titel gefunden', // No titled slides found
     pollQrUnavailable: 'QR Code ist nicht verfügbar', // QR code unavailable
   },
@@ -277,7 +282,7 @@ const de: DeepPartial<Messages> = {
     menuEdit: 'Bearbeiten', // Edit
     menuNew: 'Neu', // New
     menuOpen: 'Öffnen', // Open
-    menuOpenRecent: 'Zuletzt verwendet/geöffnet', // Open Recent
+    menuOpenRecent: 'Zuletzt geöffnet', // Open Recent
     menuNoRecentFiles: 'Bisher keine Dateien verwendet', // No Recent Files
     menuClearMenu: 'Menü leeren', // Clear Menu
     menuImport: 'Importieren', // Import
@@ -304,10 +309,10 @@ const de: DeepPartial<Messages> = {
     menuSelectAll: 'Alles auswählen', // Select All
     untitledFilename: 'unbenannt.md', // Untitled.md
     presentButton: '▶ Präsentieren', // ▶ Present
-    presentButtonTitle: 'Ab Folie 1 präsentieren (Alt+Klick, um ab der aktuellen Folie zu starten)', // Present from slide 1 (F5) — Shift-F5 or Alt+click to start from current slide
+    presentButtonTitle: 'Ab Folie 1 präsentieren (F5) — Shift-F5 oder Alt+Klick, um ab der aktuellen Folie zu starten', // Present from slide 1 (F5) — Shift-F5 or Alt+click to start from current slide
     enterFocusMode: 'Fokusmodus aktivieren ({{combo}})', // Enter focus mode ({{combo}})
     exitFocusMode: 'Fokusmodus verlassen ({{combo}})', // Exit focus mode ({{combo}})
-    toggleInspector: 'Inspektor ein-/asblenden', // Toggle inspector
+    toggleInspector: 'Inspektor ein-/ausblenden', // Toggle inspector
     settingsButtonTitle: 'Einstellungen', // Settings
     minimise: 'Minimieren', // Minimise
     maximiseRestore: 'Maximieren / Wiederherstellen', // Maximise / Restore
@@ -332,7 +337,7 @@ const de: DeepPartial<Messages> = {
       other: 'Importiert. {{count}} Marp-Funktionen wurden vereinfacht.', // Imported. {{count}} Marp features simplified.
     },
     fileChangedExternally: 'Datei wurde extern geändert', // File changed externally
-    fileChangedExternallyDirty: 'Eine andere Anwendung hat diese Datei geändert. Laden Sie neu, um die neueste Version zu erhalten, oder speichern Sie Ihre aktuellen Änderungen unter einem neuen Namen.', // Another application modified this file. Reload to get the latest version, or save your current edits under a new name.
+    fileChangedExternallyDirty: 'Eine andere Anwendung hat diese Datei geändert. Lade neu, um die neueste Version zu erhalten, oder speichere deine aktuellen Änderungen unter einem neuen Namen.', // Another application modified this file. Reload to get the latest version, or save your current edits under a new name.
     fileChangedExternallyClean: 'Eine andere Anwendung hat diese Datei geändert. Die neueste Version wurde geladen.', // Another application modified this file. The latest version has been loaded.
     exportPdfTitle: 'PDF exportieren', // Export PDF
     slidesPerPage: 'Folien pro Seite', // Slides per page
@@ -358,12 +363,13 @@ const de: DeepPartial<Messages> = {
   },
   settings: {
     windowTitle: 'Einstellungen', // Settings
+    searchPlaceholder: 'Such-Einstellungen ...', // Search settings…
     sectionAppearance: 'Erscheinungsbild', // Appearance
     appTheme: 'App-Design', // App theme
     themeAuto: 'Automatisch', // Auto
     themeDark: 'Dunkel', // Dark
     themeLight: 'Hell', // Light
-    themeAutoDescription: 'Folgt der Erscheinungsbild-Einstellung Ihres Betriebssystems.', // Follows your operating system's appearance setting.
+    themeAutoDescription: 'Folgt der Erscheinungsbild-Einstellung deines Betriebssystems.', // Follows your operating system's appearance setting.
     displayLanguage: 'Anzeigesprache', // Display language
     languageAuto: 'Systemstandard', // System default
     interfaceScale: 'Skalierung der Oberfläche', // Interface scale
@@ -373,9 +379,9 @@ const de: DeepPartial<Messages> = {
     wordWrap: 'Zeilenumbruch', // Word wrap
     wordWrapDescription: 'Bricht lange Zeilen im Editor um. Wenn deaktiviert, erscheint für Zeilen, die breiter als das Panel sind, ein horizontaler Bildlaufbalken.', // Wrap long lines in the editor. When off, a horizontal scrollbar appears for lines wider than the panel.
     contentWidth: 'Breite des Inhalts', // Content width
-    contentWidthDescription: 'Fixiert hält die Zeilen bei einer ansprechenden Breite. Aufgefüllt streckt den Editierbereich während du den Trenner verschiebst.', // Fixed keeps editor lines at a comfortable reading width. Full stretches the editor to fill the panel as you resize the split.
+    contentWidthDescription: 'Fixiert hält die Zeilen bei einer ansprechenden Breite. Voll streckt den Editierbereich während du den Trenner verschiebst.', // Fixed keeps editor lines at a comfortable reading width. Full stretches the editor to fill the panel as you resize the split.
     contentWidthFixed: 'Fixiert', // Fixed
-    contentWidthFull: 'Aufgefüllt', // Full
+    contentWidthFull: 'Voll', // Full
     defaultTheme: 'Standard-Präsentations-Design', // Default presentation theme
     defaultThemeDescription: 'Wird beim Erstellen einer neuen Präsentation angewendet.', // Applied when creating a new presentation.
     sectionLanguageSpelling: 'Sprache & Rechtschreibung', // Language & Spelling
@@ -408,6 +414,10 @@ const de: DeepPartial<Messages> = {
     displayModeSingle: 'Einzelbildschirm', // Single screen
     displayModeDual: 'Zwei Bildschirme', // Dual screen
     displayModeMirror: 'Spiegeln', // Mirror
+    windowedPresenterView: 'Fensterdarstellung für Präsentierende', // Windowed presenter view
+    windowedPresenterViewDescription: 'Behalte die Präsentations-Darstellung in einem normalen Fenster statt bildschirmfüllend, damit du die Größe verändern oder ein Fenster danebensetzen kannst.', // Keep the presenter view in a normal window instead of fullscreen, so you can resize it or place another window alongside it.
+    alwaysOnTop: 'Immer oben auf', // Always on top
+    alwaysOnTopDescription: 'Behalte die Präsentations-Darstellung oberhalb von anderen Programmen, damit weder Video-Anrufe noch andere Fenster sie verdecken können.', // Keep the presenter window above other apps, so a video call or another window can't cover it.
     laserPointerColour: 'Farbe des Laserpointers', // Laser pointer colour
     showNextSlidePreview: 'Vorschau der nächsten Folie anzeigen', // Show next slide preview
     showNextSlidePreviewDescription: 'Zeigt in der Referenten-Ansicht eine Vorschau der kommenden Folie an.', // Displays a preview of the upcoming slide in the presenter view.
@@ -420,7 +430,7 @@ const de: DeepPartial<Messages> = {
     sectionUpdates: 'Updates', // Updates
     checkForUpdates: 'Beim Start nach Updates suchen', // Check for updates on launch
     checkForUpdatesDescription: 'Ruft beim Start das neueste Release-Tag von github.com/KovaMD/Kova ab. Es werden keine persönlichen Daten gesendet.', // Fetches the latest release tag from github.com/KovaMD/Kova on startup. No personal data is sent.
-    updatesManagedByDistro: 'Updates für diese Installation werden von der Paketverwaltung Ihrer Distribution verwaltet.', // Updates for this installation are managed by your distribution's package manager.
+    updatesManagedByDistro: 'Updates für diese Installation werden von der Paketverwaltung deiner Distribution verwaltet.', // Updates for this installation are managed by your distribution's package manager.
     checkNow: 'Jetzt prüfen', // Check now
     checking: 'Wird geprüft…', // Checking…
     upToDate: 'Auf dem neuesten Stand (v{{version}})', // Up to date (v{{version}})
@@ -434,7 +444,18 @@ const de: DeepPartial<Messages> = {
     restartConfirm: 'Du hast ungespeicherte Änderungen. Trotzdem neu starten?', // You have unsaved changes. Restart anyway?
     sectionAbout: 'Über', // About
     aboutLicense: 'Kostenlos und Open Source · GNU General Public License v3', // Free and open source · GNU General Public License v3
+    aboutLinkGithub: 'GitHub', // GitHub
+    aboutLinkGithubDescription: 'Quellcode und Versionen', // Source code and releases
+    aboutLinkIssues: 'Melde ein Problem', // Report an issue
+    aboutLinkIssuesDescription: 'Fehler gefunden oder Idee für Verbesserungen?', // Found a bug, or have a feature idea?
+    aboutLinkWiki: 'Wiki', // Wiki
+    aboutLinkWikiDescription: 'Anleitungen, Designs und Tastatur-Kürzel', // Guides, themes, and keyboard shortcuts
+    aboutLinkSupport: 'Unterstützung durch ein Open Collective', // Support on Open Collective
+    aboutLinkSupportDescription: 'Kova gibt es kostenlos durch Beiträge von Freiwilligen', // Kova is free and community funded
+    aboutLinkCommunity: 'Chat in der Community', // Community chat
+    aboutLinkCommunityDescription: 'Austausch mit anderen Benutzern über die Matrix Plattform', // Talk with other users on Matrix
     showLicenses: 'Lizenzen', // Licenses
+    aboutLicensesDescription: 'Open Source Pakete, die Kova nutzt', // Open source packages used by Kova
   },
 } as const;
 

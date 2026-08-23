@@ -28,33 +28,13 @@ jobs:
           cat > /tmp/release-notes.md << 'NOTES'
           ## What's new
 
-          ### New features
-          - **Export → HTML is now an interactive presentable deck** — a single self-contained HTML file that plays one slide at a time with keyboard/click navigation and fullscreen, instead of a static print-style stack; still prints cleanly if you need that (contributed by @Ayush7614, closes #220).
-          - **PDF export gains speaker-notes handout options** — new `--notes` (1-up notes handout), `--per-page <1|2|4|6>`, and `--paper <a4|letter|slide>` flags for `kova --export pdf` (contributed by @Ayush7614, closes #200).
-          - **New `{author}` template variable** for header/footer text, alongside the existing `{title}`/`{date}`/`{slide_number}`/`{total}` (contributed by @florian-hubertSE, #218).
-          - **`kova --check` now warns on unreachable remote media URLs** — a broken image/video link (bad host, 404, etc.) is flagged instead of silently passing (contributed by @florian-hubertSE, #217).
-          - Presenter view can now run windowed instead of fullscreen (with an "Always on top" option), the Settings modal is reorganised into a searchable category rail, and the About tab gained more links plus a corrected/expanded third-party licence list.
-
           ### Bug fixes
-          - **Fixed** PPTX export writing text placeholders for `!youtube`/`!video` instead of real embedded media — YouTube now embeds as online media and local video embeds via `addMedia` (reported and fixed by @Ayush7614, closes #219).
-          - **Fixed** PPTX export dropping display math (`$$…$$`) to plain monospace text instead of rendering it (reported and fixed by @Ayush7614, closes #196).
-          - **Fixed** `kova --import url` not rewriting GitHub/GitLab/Bitbucket blob URLs to their raw endpoints (reported and fixed by @Ayush7614, closes #197).
-          - **Fixed** an invalid `<!-- color: ... -->` directive being silently ignored, leaving `--check` green on a broken deck (reported and fixed by @Ayush7614, closes #199).
-          - **Fixed** untranslated error message phrasing in the sheet engine's formula evaluator (reported by @a1880, fixed by @amir-rezaei, closes #158).
-          - **Fixed** PPTX export dropping images that share a slide area with other content, e.g. an image alongside a table, or mixed via a `|||` column break — previously only a lone image on a slide was handled.
-          - **Fixed** PPTX import mangling extracted slide text — ordinary Markdown-significant characters (`#`, `>`, `1.`, `*`, `` ` ``, etc.) in plain PowerPoint body text were being reinterpreted as headings/lists/emphasis instead of escaped.
-          - **Fixed** Marp import treating documented syntax inside fenced code samples as live directives, e.g. an example `![bg]` inside a code fence could wrongly consume the real background slot.
-          - **Fixed** Marp's `_class: lead invert` only applying one of the two directives instead of both.
-          - **Fixed** PPTX import misdetecting SmartArt (matched on a literal substring that never appears in the real OOXML type) and silently dropping it with no warning.
-          - **Fixed** PPTX import ordering same-row image/text pairs by insertion order instead of left-to-right position.
-          - **Fixed** a logo-switching race condition, an aspect-ratio tooltip that ignored a custom frontmatter-set ratio, and two dead refs.
-          - **Fixed** only the topmost of several stacked modals closing on Escape — previously a single Escape press could close two at once.
-          - **Fixed** the app getting stuck fullscreen with no audience window and no error if the presentation window hung on launch instead of erroring or loading.
+          - **Fixed** hyperlinks written as explicit `[text](url)` Markdown links not picking up the theme's accent colour; bare autolinked URLs and email addresses now correctly stay unstyled plain text instead of showing default browser blue (reported by @datenimperator, #228).
+          - **Fixed** grid layout not automatically splitting a bullet list into one cell per bullet, requiring a manual `|||` delimiter between each item as a workaround (reported by @datenimperator, #229).
+          - **Fixed** images collapsing to a tiny thumbnail instead of filling their column when placed in a `|||` split, BSP, or grid layout (reported by @JustinKenpisi, #230).
 
-          ### Security
-          - **Fixed** an XSS vector where an image's alt text inside a table cell, list item, or blockquote could break out of its HTML attribute and inject arbitrary attributes, because double quotes weren't escaped in generated attribute values.
-          - **Closed additional SSRF gaps** in the network guard: the CGNAT address range (`100.64.0.0/10`, which routes to some cloud providers' metadata endpoints) and two IPv6 forms that could smuggle a blocked address past the filter; theme font downloads now go through the same guarded client as other remote fetches.
-          - **Mitigated** an algorithmic-complexity vulnerability in `yaml.load` (SNYK-JS-JSYAML-18313070) by passing the `json: true` parse option (fixed by @amir-rezaei, #211).
+          ### Known issues
+          - **Windows Defender may flag Kova as `Trojan:Win32/Wacatac.C!ml`** during install or update — this is a false positive from Microsoft's heuristic/ML detection, not an actual threat (reported in #224). It's tied to Windows builds still being **test-signed** rather than production-signed; we're in the process of moving to full production signing via [SignPath](https://signpath.io). We'll drop this note once production signing is live.
 
           ---
 
@@ -63,7 +43,7 @@ jobs:
           | Platform | Download | Note |
           |---|---|---|
           | **macOS** (Apple Silicon + Intel) | `.dmg` | Signed and notarised — double-click to install |
-          | **Windows 10/11** | `.msi` or `_x64-setup.exe` | Test-signed via [SignPath](https://signpath.io) — SmartScreen warning still expected |
+          | **Windows 10/11** | `.msi` or `_x64-setup.exe` | Test-signed via [SignPath](https://signpath.io) — SmartScreen warning expected, and Defender may flag it (see Known issues above) |
           | **Linux** | `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL/openSUSE), or `.flatpakref` | Install via your package manager |
           | **Linux AppImage** | `.AppImage` | Graphics libs stripped for compatibility with Arch/Fedora/etc. Supports auto-update. |
 
@@ -230,14 +210,16 @@ jobs:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: 6aea854d-5015-451b-80a3-a1031e70eb9e
           project-slug: kova
-          # TEMPORARY: release-signing is approved on SignPath's side but every
-          # submission to it fails with an opaque "Invalid request to SignPath
-          # API." — ruled out submitter permissions, token identity (tried 3),
-          # the GitHub App installation/repo access, and the default artifact
-          # configuration. Debug logging shows a real 400 with an empty `logs`
-          # array, so there's nothing more diagnosable from the GitHub Actions
-          # side. Reported to SignPath support; reverted to test-signing so
-          # Windows releases aren't blocked while we wait on their reply.
+          # TEMPORARY: retried release-signing on 2026-08-13 after SignPath
+          # support (Phillip) suggested checking the submitter token's access
+          # and the signing-policy-slug value — both were confirmed correct
+          # (token scoped to a release-signing submitter, slug set to
+          # "release-signing") and it still failed with the same opaque
+          # "Invalid request to SignPath API." 400. Reported back to SignPath
+          # with the run link (github.com/KovaMD/Kova/actions/runs/31739360879,
+          # job 94578679760) and failure timestamp (2026-08-13T20:18:38Z) for
+          # their server-side logs. Reverted to test-signing so Windows
+          # releases aren't blocked while we wait on their reply.
           signing-policy-slug: test-signing
           artifact-configuration-slug: Windows_Executable_Samples
           github-artifact-id: ${{ steps.upload-unsigned-windows.outputs.artifact-id }}

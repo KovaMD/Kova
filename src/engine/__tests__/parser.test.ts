@@ -285,49 +285,67 @@ describe('element parsing', () => {
     ].join('\n')));
     const table = slides[0].elements.find((e) => e.type === 'table');
     expect(table?.type === 'table' && table.rows[0][0]).toContain('<em>emphasis</em>');
-    expect(table?.type === 'table' && table.rows[0][1]).toContain('<a href="https://example.com">docs</a>');
+    expect(table?.type === 'table' && table.rows[0][1]).toContain('<a href="https://example.com" class="sl-link">docs</a>');
   });
 
   it('defaults a schemeless bare-domain link to https', () => {
     const { slides } = parseDocument(doc('## Slide\n\n[link text](google.de)\n'));
     const para = slides[0].elements.find((e) => e.type === 'paragraph');
-    expect(para?.type === 'paragraph' && para.html).toContain('<a href="https://google.de">link text</a>');
+    expect(para?.type === 'paragraph' && para.html).toContain('<a href="https://google.de" class="sl-link">link text</a>');
   });
 
   it('defaults a protocol-relative link to https', () => {
     const { slides } = parseDocument(doc('## Slide\n\n[link text](//google.de)\n'));
     const para = slides[0].elements.find((e) => e.type === 'paragraph');
-    expect(para?.type === 'paragraph' && para.html).toContain('<a href="https://google.de">link text</a>');
+    expect(para?.type === 'paragraph' && para.html).toContain('<a href="https://google.de" class="sl-link">link text</a>');
   });
 
   it('defaults a bare-domain link with a path to https', () => {
     const { slides } = parseDocument(doc('## Slide\n\n[link text](google.de/page?x=1)\n'));
     const para = slides[0].elements.find((e) => e.type === 'paragraph');
-    expect(para?.type === 'paragraph' && para.html).toContain('<a href="https://google.de/page?x=1">link text</a>');
+    expect(para?.type === 'paragraph' && para.html).toContain('<a href="https://google.de/page?x=1" class="sl-link">link text</a>');
   });
 
   it('leaves an explicit http scheme untouched', () => {
     const { slides } = parseDocument(doc('## Slide\n\n[link text](http://google.de)\n'));
     const para = slides[0].elements.find((e) => e.type === 'paragraph');
-    expect(para?.type === 'paragraph' && para.html).toContain('<a href="http://google.de">link text</a>');
+    expect(para?.type === 'paragraph' && para.html).toContain('<a href="http://google.de" class="sl-link">link text</a>');
   });
 
   it('still strips an unsafe/unrecognised link scheme to #', () => {
     const { slides } = parseDocument(doc('## Slide\n\n[link text](javascript:alert(1))\n'));
     const para = slides[0].elements.find((e) => e.type === 'paragraph');
-    expect(para?.type === 'paragraph' && para.html).toContain('<a href="#">link text</a>');
+    expect(para?.type === 'paragraph' && para.html).toContain('<a href="#" class="sl-link">link text</a>');
   });
 
   it('preserves mailto: links (issue #176)', () => {
     const { slides } = parseDocument(doc('## Slide\n\n[Email me](mailto:ada@example.com)\n'));
     const para = slides[0].elements.find((e) => e.type === 'paragraph');
-    expect(para?.type === 'paragraph' && para.html).toContain('<a href="mailto:ada@example.com">Email me</a>');
+    expect(para?.type === 'paragraph' && para.html).toContain('<a href="mailto:ada@example.com" class="sl-link">Email me</a>');
   });
 
   it('preserves tel: links (issue #176)', () => {
     const { slides } = parseDocument(doc('## Slide\n\n[Call](tel:+15551212)\n'));
     const para = slides[0].elements.find((e) => e.type === 'paragraph');
-    expect(para?.type === 'paragraph' && para.html).toContain('<a href="tel:+15551212">Call</a>');
+    expect(para?.type === 'paragraph' && para.html).toContain('<a href="tel:+15551212" class="sl-link">Call</a>');
+  });
+
+  it('marks a bare autolinked URL so it does not pick up theme link colour (issue #228)', () => {
+    const { slides } = parseDocument(doc('## Slide\n\nSee https://example.com/ for details.\n'));
+    const para = slides[0].elements.find((e) => e.type === 'paragraph');
+    expect(para?.type === 'paragraph' && para.html).toContain('<a href="https://example.com/" class="sl-link--auto">https://example.com/</a>');
+  });
+
+  it('marks an autolinked email so it does not pick up theme link colour (issue #228)', () => {
+    const { slides } = parseDocument(doc('## Slide\n\nContact me at jane@example.com\n'));
+    const para = slides[0].elements.find((e) => e.type === 'paragraph');
+    expect(para?.type === 'paragraph' && para.html).toContain('<a href="mailto:jane@example.com" class="sl-link--auto">jane@example.com</a>');
+  });
+
+  it('still themes an explicit [text](url) link even when it wraps a URL-like label (issue #228)', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n[Test Link](https://kova.md)\n'));
+    const para = slides[0].elements.find((e) => e.type === 'paragraph');
+    expect(para?.type === 'paragraph' && para.html).toContain('<a href="https://kova.md" class="sl-link">Test Link</a>');
   });
 
   it('leaves plain table cell text unchanged', () => {
@@ -555,7 +573,7 @@ describe('custom syntax pre-processor', () => {
     // [Load](abc) becomes an ordinary markdown link once the directive regex
     // fails; the scheme-less URL is sanitised to "#".
     const para = slides[0].elements.find((e) => e.type === 'paragraph');
-    expect(para?.type === 'paragraph' && para.html).toContain('<a href="#">Load</a>');
+    expect(para?.type === 'paragraph' && para.html).toContain('<a href="#" class="sl-link">Load</a>');
     expect(para?.type === 'paragraph' && para.text).toContain('progress');
   });
 });

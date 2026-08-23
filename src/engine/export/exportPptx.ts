@@ -7,7 +7,7 @@ import { buildMermaidRenderSource } from './mermaidSource';
 import { imageMime } from './imageMime';
 import { videoMime } from './videoMime';
 import { buildExportMermaidInit, parseChannels } from './mermaidExportTheme';
-import { autoSplitElements, groupProgressRuns, splitByColumnBreaks } from '../layout/elementGrouping';
+import { autoSplitElements, explodeListItems, groupProgressRuns, splitByColumnBreaks } from '../layout/elementGrouping';
 import mermaid from 'mermaid';
 import katex from 'katex';
 import html2canvas from 'html2canvas';
@@ -977,7 +977,7 @@ function addGridSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, war
   const GAP   = 0.2;
   const cols  = 2;
   const filtered = slide.elements.filter((e) => e.type !== 'column-break');
-  const groups   = groupProgressRuns(filtered);
+  const groups   = groupProgressRuns(explodeListItems(filtered));
   const rows     = Math.ceil(groups.length / cols);
   const cellW    = (W - M * 2 - GAP * (cols - 1)) / cols;
   const cellH    = rows > 0 ? (bodyH - GAP * (rows - 1)) / rows : bodyH;

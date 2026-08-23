@@ -74,6 +74,23 @@ export function splitByColumnBreaks(elements: SlideElement[], columns: number): 
   return groups;
 }
 
+/**
+ * Explodes each list element into one single-item list per cell so grid
+ * layout gives every bullet its own cell without requiring explicit `|||`
+ * breaks — unlike column/bsp layouts, grid auto-infers cells from list
+ * items (see #229). Non-list elements pass through unchanged.
+ *
+ * Shared by the live preview and the PPTX exporter for the same reason as
+ * autoSplitElements/splitByColumnBreaks above: a grid slide must partition
+ * identically in both so the export matches what was edited on screen.
+ */
+export function explodeListItems(elements: SlideElement[]): SlideElement[] {
+  return elements.flatMap((el) => {
+    if (el.type !== 'list' || el.items.length <= 1) return [el];
+    return el.items.map((item) => ({ ...el, items: [item] }));
+  });
+}
+
 export function autoSplitElements(elements: SlideElement[]): [SlideElement[], SlideElement[]] {
   // Single list: split by cumulative estimated line count for visual balance
   if (elements.length === 1 && elements[0].type === 'list') {

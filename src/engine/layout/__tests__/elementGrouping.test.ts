@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { autoSplitElements, groupProgressRuns, splitByColumnBreaks } from '../elementGrouping';
+import { autoSplitElements, explodeListItems, groupProgressRuns, splitByColumnBreaks } from '../elementGrouping';
 import type { SlideElement, ListItem } from '../../types';
 
 const item = (text: string): ListItem => ({ text, html: `<p>${text}</p>`, children: [] });
@@ -22,6 +22,38 @@ describe('groupProgressRuns', () => {
   it('starts a new group when a progress run is broken by another element', () => {
     const groups = groupProgressRuns([progress('a', 1), paragraph('mid'), progress('b', 2)]);
     expect(groups).toEqual([[progress('a', 1)], [paragraph('mid')], [progress('b', 2)]]);
+  });
+});
+
+describe('explodeListItems', () => {
+  it('splits a bullet list into one single-item list per cell (issue #229)', () => {
+    const items = [item('a'), item('b'), item('c')];
+    const list: SlideElement = { type: 'list', ordered: false, items };
+
+    const exploded = explodeListItems([list]);
+
+    expect(exploded).toEqual([
+      { type: 'list', ordered: false, items: [items[0]] },
+      { type: 'list', ordered: false, items: [items[1]] },
+      { type: 'list', ordered: false, items: [items[2]] },
+    ]);
+  });
+
+  it('leaves non-list elements untouched and preserves their position', () => {
+    const list: SlideElement = { type: 'list', ordered: false, items: [item('a'), item('b')] };
+    const exploded = explodeListItems([paragraph('intro'), list, image]);
+
+    expect(exploded).toEqual([
+      paragraph('intro'),
+      { type: 'list', ordered: false, items: [item('a')] },
+      { type: 'list', ordered: false, items: [item('b')] },
+      image,
+    ]);
+  });
+
+  it('leaves a single-item list as-is', () => {
+    const list: SlideElement = { type: 'list', ordered: true, items: [item('only')] };
+    expect(explodeListItems([list])).toEqual([list]);
   });
 });
 

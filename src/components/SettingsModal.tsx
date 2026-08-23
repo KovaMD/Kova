@@ -773,7 +773,7 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
           />
         )}
 
-        {inView('presentation', `${t('settings.windowedPresenterView')} ${t('settings.windowedPresenterViewDescription')} ${t('settings.alwaysOnTop')} ${t('settings.alwaysOnTopDescription')} ${t('settings.showNextSlidePreview')} ${t('settings.showElapsedTimer')} ${t('settings.notesFontSize')}`) && settings.presentationMode === 'dual' && (
+        {inView('presentation', `${t('settings.windowedPresenterView')} ${t('settings.windowedPresenterViewDescription')} ${t('settings.alwaysOnTop')} ${t('settings.alwaysOnTopDescription')} ${t('settings.showNextSlidePreview')} ${t('settings.showElapsedTimer')} ${t('settings.notesFontSize')}`) && (settings.presentationMode === 'dual' || settings.presentationMode === 'auto') && (
           <>
             <Row
               label={t('settings.windowedPresenterView')}
