@@ -1,3 +1,5 @@
+import { fitMermaidViewBox } from './mermaidViewBox';
+
 /**
  * Converts a raw Mermaid SVG string to a PNG data URL.
  *
@@ -69,13 +71,7 @@ export async function svgToPngDataUrl(
       fo.replaceWith(textEl);
     }
 
-    try {
-      const { x, y, width, height } = svgEl.getBBox();
-      if (width > 0 && height > 0) {
-        const pad = 12;
-        svgEl.setAttribute('viewBox', `${x - pad} ${y - pad} ${width + pad * 2} ${height + pad * 2}`);
-      }
-    } catch { /* getBBox unavailable */ }
+    fitMermaidViewBox(svgEl, 12);
     correctedSvg = new XMLSerializer().serializeToString(svgEl);
   }
   document.body.removeChild(container);

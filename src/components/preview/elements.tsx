@@ -9,6 +9,7 @@ import type { SlideElement, ListItem } from '../../engine/types';
 import { mermaidSvgCache } from '../../engine/export/mermaidSvgCache';
 import { buildMermaidRenderSource } from '../../engine/export/mermaidSource';
 import { queuedMermaidRender } from '../../engine/export/mermaidRenderQueue';
+import { fitMermaidViewBox } from '../../engine/export/mermaidViewBox';
 import { useT } from '../../i18n';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { SlideCtx } from './slideContext';
@@ -463,24 +464,12 @@ export function MermaidDiagram({ value, caption }: { value: string; caption?: st
   // the effect cleanup has already run (cleanup nulls it to prevent double-fire).
   const pendingSignalRef = useRef<(() => void) | null>(null);
 
-  // After Mermaid renders, expand the viewBox to the actual bounding box of all
-  // drawn content. Mermaid sometimes declares a viewBox that doesn't include the
-  // legend, causing it to be clipped. getBBox() measures what is really there.
-  // Also fires the deferred signalReady so that export runners see the SVG in
-  // the DOM before they call cloneNode / html-to-image capture.
+  // Once Mermaid has rendered, fit the viewBox to what was actually drawn (see
+  // fitMermaidViewBox), then fire the deferred signalReady so export runners see
+  // the SVG in the DOM before they call cloneNode / html-to-image capture.
   useLayoutEffect(() => {
     const svgEl = containerRef.current?.querySelector('svg');
-    if (svgEl) {
-      try {
-        const { x, y, width, height } = svgEl.getBBox();
-        if (width > 0 && height > 0) {
-          const pad = 8;
-          svgEl.setAttribute('viewBox', `${x - pad} ${y - pad} ${width + pad * 2} ${height + pad * 2}`);
-        }
-      } catch {
-        // getBBox unavailable (detached node, non-rendered context, etc.)
-      }
-    }
+    if (svgEl) fitMermaidViewBox(svgEl);
     const fn = pendingSignalRef.current;
     if (fn) { pendingSignalRef.current = null; fn(); }
   }, [svg]);
