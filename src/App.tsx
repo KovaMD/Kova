@@ -48,7 +48,7 @@ import { exportPdfNative, buildInteractiveDocument, type PdfExportOpts } from '.
 import { SlideRenderer } from './components/preview/SlideRenderer';
 import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml, sanitiseThemeOverrides, type ThemeParseResult } from './engine/theme';
 import { registerBundledFonts, registerCachedFont } from './engine/bundledFonts';
-import type { Slide, Frontmatter } from './engine/types';
+import type { Slide, ListItem, Frontmatter } from './engine/types';
 import { parseAspectRatio } from './engine/types';
 import { getSlideStepCount } from './engine/layout/steps';
 import { imageMime } from './engine/export/imageMime';
@@ -525,6 +525,28 @@ export default function App() {
   // Deck used for presentation + export — hidden slides removed. Reference-equal
   // to entries in `slides`, so index translation uses indexOf/indexOf.
   const visibleSlides = useMemo(() => slides.filter((s) => !s.hidden), [slides]);
+
+  // useResolvedSlides swaps local media srcs from asset:// (a placeholder used
+  // while the async read_file_b64 load is in flight) to data: URLs once loaded.
+  // A cold-start CLI export can otherwise fire its capture the instant slides
+  // resolve, racing that load — the button-triggered export never hits this
+  // because by the time a user clicks it, the deck has been open long enough
+  // for local media to have already resolved.
+  const hasPendingLocalMedia = useMemo(() => {
+    const isPending = (src: string) => src.startsWith('asset://');
+    const htmlIsPending = (html: string) => /src="asset:\/\//.test(html);
+    const itemIsPending = (item: ListItem): boolean =>
+      htmlIsPending(item.html) || item.children.some(itemIsPending);
+    return visibleSlides.some((slide) => {
+      if (slide.backgroundImage && isPending(slide.backgroundImage.src)) return true;
+      return slide.elements.some((el) => {
+        if (el.type === 'image' || el.type === 'video') return isPending(el.src);
+        if (el.type === 'paragraph') return htmlIsPending(el.html);
+        if (el.type === 'list') return el.items.some(itemIsPending);
+        return false;
+      });
+    });
+  }, [visibleSlides]);
   const safePresentIndex = visibleSlides.length > 0
     ? Math.min(presentIndex, visibleSlides.length - 1)
     : 0;
@@ -1701,6 +1723,7 @@ export default function App() {
   const coldExportFiredRef = useRef(false);
   useEffect(() => {
     if (!coldExport || coldExportFiredRef.current || !filePath) return;
+    if (hasPendingLocalMedia) return; // wait for local image/video data URLs to resolve
     coldExportFiredRef.current = true;
     if (visibleSlides.length === 0) {
       invoke('cli_exit', {
@@ -1747,7 +1770,7 @@ export default function App() {
         await fail(err instanceof Error ? err.message : String(err));
       }
     })();
-  }, [coldExport, filePath, visibleSlides, frontmatter, activeTheme, settings.locale, settings.pdfPageSize, runPdfExportCapture]);
+  }, [coldExport, filePath, visibleSlides, hasPendingLocalMedia, frontmatter, activeTheme, settings.locale, settings.pdfPageSize, runPdfExportCapture]);
 
   const handleExportHtml = useCallback(async () => {
     if (visibleSlides.length === 0) return;

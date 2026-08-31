@@ -1,31 +1,35 @@
-import { invoke } from '@tauri-apps/api/core';
-import type { AspectRatio, Slide } from '../types';
-import { getSlideStepValues } from '../layout/steps';
-import { mermaidSvgCache } from './mermaidSvgCache';
-import { imageMime } from './imageMime';
-import { videoMime } from './videoMime';
-import { type PdfExportOpts, planPage, SLIDE_PX_W } from './pdfLayout';
+import {invoke} from '@tauri-apps/api/core';
 
-export type { PdfExportOpts };
+import {getSlideStepValues} from '../layout/steps';
+import type {AspectRatio, Slide} from '../types';
+
+import {imageMime} from './imageMime';
+import {mermaidSvgCache} from './mermaidSvgCache';
+import {type PdfExportOpts, planPage, SLIDE_PX_W} from './pdfLayout';
+import {videoMime} from './videoMime';
+
+export type {PdfExportOpts};
 
 // ── Public entry point ───────────────────────────────────────────────────────
 
 export async function exportPdfNative(
-  slideElements: HTMLElement[],
-  aspectRatio: AspectRatio,
-  savePath: string,
-  opts: PdfExportOpts = {},
-): Promise<void> {
+    slideElements: HTMLElement[],
+    aspectRatio: AspectRatio,
+    savePath: string,
+    opts: PdfExportOpts = {},
+    ): Promise<void> {
   const html = await buildPrintDocument(slideElements, aspectRatio, opts);
   const plan = planPage(aspectRatio, opts);
   const perPage = opts.perPage ?? 1;
-  const pageCount = perPage > 1 ? Math.ceil(slideElements.length / perPage) : slideElements.length;
+  const pageCount = perPage > 1 ? Math.ceil(slideElements.length / perPage) :
+                                  slideElements.length;
   await invoke('export_pdf_native', {
     htmlContent: html,
     outputPath: savePath,
     widthMm: plan.pageWmm,
     heightMm: plan.pageHmm,
-    // Per-page capture rects for the macOS path (one createPDF per page, then merge).
+    // Per-page capture rects for the macOS path (one createPDF per page, then
+    // merge).
     pageCount,
     pageWidthPx: plan.pageWpx,
     pageHeightPx: plan.pageHpx,
@@ -35,22 +39,23 @@ export async function exportPdfNative(
 // ── HTML serialiser ──────────────────────────────────────────────────────────
 
 export async function buildPrintDocument(
-  slideElements: HTMLElement[],
-  aspectRatio: AspectRatio,
-  opts: PdfExportOpts = {},
-): Promise<string> {
+    slideElements: HTMLElement[],
+    aspectRatio: AspectRatio,
+    opts: PdfExportOpts = {},
+    ): Promise<string> {
   const plan = planPage(aspectRatio, opts);
   const perPage = opts.perPage ?? 1;
 
   // Read slide background color from the live DOM before cloning.
   const slideFrame = slideElements[0]?.querySelector('.slide-frame');
-  const slideBg = slideFrame
-    ? getComputedStyle(slideFrame).getPropertyValue('--sl-bg').trim()
-    : '';
+  const slideBg = slideFrame ?
+      getComputedStyle(slideFrame).getPropertyValue('--sl-bg').trim() :
+      '';
 
   // 1. Clone elements and resolve all image/video URLs to data URIs in place.
   const clones = slideElements.map((el) => el.cloneNode(true) as HTMLElement);
-  await Promise.all(clones.map((el) => Promise.all([resolveImages(el), resolveVideos(el)])));
+  await Promise.all(
+      clones.map((el) => Promise.all([resolveImages(el), resolveVideos(el)])));
   // Belt-and-suspenders: if a Mermaid container is still a placeholder (SVG
   // not yet committed to the DOM when we cloned), inject from the render cache.
   clones.forEach(injectMermaidFallbacks);
@@ -62,25 +67,41 @@ export async function buildPrintDocument(
   // Each slide is a 960×native box scaled into a frame sized to the slide's own
   // proportions (so the N-up border hugs the slide), centred in its slot.
   const slot = (el: HTMLElement) =>
-    `<div class="kova-slot"><div class="kova-frame"><div class="kova-scale">${el.outerHTML}</div></div></div>`;
+      `<div class="kova-slot"><div class="kova-frame"><div class="kova-scale">${
+          el.outerHTML}</div></div></div>`;
 
   // 3. Assemble pages — slides scaled/centred onto a standard paper page.
   let pages: string;
   if (plan.mode === 'nup') {
     const sheets: HTMLElement[][] = [];
-    for (let i = 0; i < clones.length; i += perPage) sheets.push(clones.slice(i, i + perPage));
-    pages = sheets.map((sheet) =>
-      `<div class="kova-page"><div class="kova-content kova-grid">${sheet.map(slot).join('')}</div></div>`,
-    ).join('\n');
+    for (let i = 0; i < clones.length; i += perPage)
+      sheets.push(clones.slice(i, i + perPage));
+    pages =
+        sheets
+            .map(
+                (sheet) =>
+                    `<div class="kova-page"><div class="kova-content kova-grid">${
+                        sheet.map(slot).join('')}</div></div>`,
+                )
+            .join('\n');
   } else if (plan.mode === 'notes') {
-    pages = clones.map((el, i) => {
-      const note = escapeHtml((opts.notes?.[i] ?? '').trim());
-      return `<div class="kova-page"><div class="kova-content kova-col">${slot(el)}<div class="kova-notes">${note}</div></div></div>`;
-    }).join('\n');
+    pages =
+        clones
+            .map((el, i) => {
+              const note = escapeHtml((opts.notes?.[i] ?? '').trim());
+              return `<div class="kova-page"><div class="kova-content kova-col">${
+                  slot(el)}<div class="kova-notes">${note}</div></div></div>`;
+            })
+            .join('\n');
   } else {
-    pages = clones.map((el) =>
-      `<div class="kova-page"><div class="kova-content kova-center">${slot(el)}</div></div>`,
-    ).join('\n');
+    pages =
+        clones
+            .map(
+                (el) =>
+                    `<div class="kova-page"><div class="kova-content kova-center">${
+                        slot(el)}</div></div>`,
+                )
+            .join('\n');
   }
 
   const bgCss = slideBg ? `background: ${slideBg} !important;` : '';
@@ -156,8 +177,10 @@ html, body {
   justify-content: center !important;
   overflow: hidden !important;
 }
-.kova-grid .kova-slot { width: ${plan.cellWpx}px !important; height: ${plan.cellHpx}px !important; }
-.kova-col  .kova-slot { width: 100% !important; height: ${plan.cellHpx}px !important; flex: 0 0 auto !important; }
+.kova-grid .kova-slot { width: ${plan.cellWpx}px !important; height: ${
+      plan.cellHpx}px !important; }
+.kova-col  .kova-slot { width: 100% !important; height: ${
+      plan.cellHpx}px !important; flex: 0 0 auto !important; }
 .kova-center .kova-slot { width: 100% !important; height: 100% !important; }
 .kova-frame {
   position: relative !important;
@@ -204,19 +227,20 @@ ${pages}
  * `buildPrintDocument`.
  */
 export async function buildInteractiveDocument(
-  slideElements: HTMLElement[],
-  aspectRatio: AspectRatio,
-  slides: Slide[],
-): Promise<string> {
-  const plan = planPage(aspectRatio, { fullBleed: true });
+    slideElements: HTMLElement[],
+    aspectRatio: AspectRatio,
+    slides: Slide[],
+    ): Promise<string> {
+  const plan = planPage(aspectRatio, {fullBleed: true});
 
   const slideFrame = slideElements[0]?.querySelector('.slide-frame');
-  const slideBg = slideFrame
-    ? getComputedStyle(slideFrame).getPropertyValue('--sl-bg').trim()
-    : '';
+  const slideBg = slideFrame ?
+      getComputedStyle(slideFrame).getPropertyValue('--sl-bg').trim() :
+      '';
 
   const clones = slideElements.map((el) => el.cloneNode(true) as HTMLElement);
-  await Promise.all(clones.map((el) => Promise.all([resolveImages(el), resolveVideos(el)])));
+  await Promise.all(
+      clones.map((el) => Promise.all([resolveImages(el), resolveVideos(el)])));
   clones.forEach(injectMermaidFallbacks);
   clones.forEach(inlinePrintColorAdjust);
 
@@ -233,10 +257,7 @@ export async function buildInteractiveDocument(
 
 /** Pure HTML assembler — unit-tested without Tauri/DOM asset fetches. */
 export function assembleInteractiveDocument(opts: {
-  css: string;
-  slideHtml: string[];
-  slideW: number;
-  slideH: number;
+  css: string; slideHtml: string[]; slideW: number; slideH: number;
   background?: string;
   /**
    * One entry per slide (parallel to `slideHtml`): that slide's distinct
@@ -250,13 +271,20 @@ export function assembleInteractiveDocument(opts: {
    */
   slideSteps?: number[][];
 }): string {
-  const { css, slideHtml, slideW, slideH } = opts;
+  const {css, slideHtml, slideW, slideH} = opts;
   const slideSteps = opts.slideSteps ?? slideHtml.map(() => []);
   const background = opts.background || '#111';
-  const slides = slideHtml.map((html, i) =>
-    `<div class="kova-deck-slide${i === 0 ? ' is-active' : ''}" data-index="${i}" aria-hidden="${i === 0 ? 'false' : 'true'}">` +
-    `<div class="kova-deck-frame"><div class="kova-deck-scale">${html}</div></div></div>`,
-  ).join('\n');
+  const slides =
+      slideHtml
+          .map(
+              (html, i) =>
+                  `<div class="kova-deck-slide${
+                      i === 0 ? ' is-active' : ''}" data-index="${
+                      i}" aria-hidden="${i === 0 ? 'false' : 'true'}">` +
+                  `<div class="kova-deck-frame"><div class="kova-deck-scale">${
+                      html}</div></div></div>`,
+              )
+          .join('\n');
   const total = slideHtml.length;
 
   return `<!DOCTYPE html>
@@ -454,18 +482,19 @@ ${slides}
 // (race between setSvg() and signalReady()), the clone will be a placeholder
 // div with no SVG child. Inject the cached SVG string so the diagram appears.
 function injectMermaidFallbacks(root: HTMLElement): void {
-  const containers = Array.from(root.querySelectorAll<HTMLElement>('[data-mermaid-src]'));
+  const containers =
+      Array.from(root.querySelectorAll<HTMLElement>('[data-mermaid-src]'));
   for (const container of containers) {
     if (container.querySelector('svg')) continue;
     const src = container.getAttribute('data-mermaid-src') ?? '';
     const cached = mermaidSvgCache.get(src);
     if (!cached) continue;
     const scaled = cached.replace(/<svg\b([^>]*)>/i, (_m, attrs: string) => {
-      let a = attrs
-        .replace(/\bwidth="[^"]*"/, 'width="100%"')
-        .replace(/\bheight="[^"]*"/, 'height="100%"')
-        .replace(/\bstyle="[^"]*max-width[^"]*"/, '');
-      if (!/preserveAspectRatio/.test(a)) a += ' preserveAspectRatio="xMidYMid meet"';
+      let a = attrs.replace(/\bwidth="[^"]*"/, 'width="100%"')
+                  .replace(/\bheight="[^"]*"/, 'height="100%"')
+                  .replace(/\bstyle="[^"]*max-width[^"]*"/, '');
+      if (!/preserveAspectRatio/.test(a))
+        a += ' preserveAspectRatio="xMidYMid meet"';
       return `<svg${a}>`;
     });
     container.innerHTML = scaled;
@@ -495,21 +524,23 @@ async function resolveImages(el: HTMLElement): Promise<void> {
   const imgs = Array.from(el.querySelectorAll<HTMLImageElement>('img'));
   await Promise.all(imgs.map(async (img) => {
     const src = img.getAttribute('src') ?? '';
-    let dataUrl: string | null = null;
+    let dataUrl: string|null = null;
     try {
       if (src.startsWith('asset://')) {
         const path = decodeURIComponent(src.replace(/^asset:\/\/[^/]*/, ''));
-        const b64  = await invoke<string>('read_file_b64', { path });
+        const b64 = await invoke<string>('read_file_b64', {path});
         dataUrl = `data:${imageMime(path)};base64,${b64}`;
       } else if (src.startsWith('https://') || src.startsWith('http://')) {
-        const [b64, mime] = await invoke<[string, string]>('fetch_url_b64', { url: src });
+        const [b64, mime] =
+            await invoke<[string, string]>('fetch_url_b64', {url: src});
         dataUrl = `data:${mime};base64,${b64}`;
       } else if (src.startsWith('tauri://') || src.startsWith('/')) {
         const fetchUrl = src.startsWith('/') ? `tauri://localhost${src}` : src;
         const res = await fetch(fetchUrl);
         if (res.ok) dataUrl = await blobToDataUrl(await res.blob());
       }
-    } catch { /* leave original src */ }
+    } catch { /* leave original src */
+    }
     if (dataUrl) img.src = dataUrl;
   }));
 }
@@ -518,21 +549,23 @@ async function resolveVideos(el: HTMLElement): Promise<void> {
   const vids = Array.from(el.querySelectorAll<HTMLVideoElement>('video'));
   await Promise.all(vids.map(async (vid) => {
     const src = vid.getAttribute('src') ?? '';
-    let dataUrl: string | null = null;
+    let dataUrl: string|null = null;
     try {
       if (src.startsWith('asset://')) {
         const path = decodeURIComponent(src.replace(/^asset:\/\/[^/]*/, ''));
-        const b64  = await invoke<string>('read_file_b64', { path });
+        const b64 = await invoke<string>('read_file_b64', {path});
         dataUrl = `data:${videoMime(path)};base64,${b64}`;
       } else if (src.startsWith('https://') || src.startsWith('http://')) {
-        const [b64, mime] = await invoke<[string, string]>('fetch_url_b64', { url: src });
+        const [b64, mime] =
+            await invoke<[string, string]>('fetch_url_b64', {url: src});
         dataUrl = `data:${mime};base64,${b64}`;
       } else if (src.startsWith('tauri://') || src.startsWith('/')) {
         const fetchUrl = src.startsWith('/') ? `tauri://localhost${src}` : src;
         const res = await fetch(fetchUrl);
         if (res.ok) dataUrl = await blobToDataUrl(await res.blob());
       }
-    } catch { /* leave original src */ }
+    } catch { /* leave original src */
+    }
     if (dataUrl) vid.src = dataUrl;
   }));
 }
@@ -552,7 +585,8 @@ async function extractAllCss(): Promise<string> {
         try {
           const res = await fetch(sheet.href);
           if (res.ok) parts.push(await res.text());
-        } catch { /* skip */ }
+        } catch { /* skip */
+        }
       }
     }
   }
@@ -580,7 +614,7 @@ async function resolveFontUrls(css: string): Promise<string> {
       let dataUrl: string;
       if (url.startsWith('asset://')) {
         const path = decodeURIComponent(url.replace(/^asset:\/\/[^/]*/, ''));
-        const b64  = await invoke<string>('read_file_b64', { path });
+        const b64 = await invoke<string>('read_file_b64', {path});
         dataUrl = `data:${extToFontMime(path)};base64,${b64}`;
       } else if (url.startsWith('tauri://') || url.startsWith('/')) {
         const fetchUrl = url.startsWith('/') ? `tauri://localhost${url}` : url;
@@ -588,10 +622,11 @@ async function resolveFontUrls(css: string): Promise<string> {
         if (!res.ok) return;
         dataUrl = await blobToDataUrl(await res.blob());
       } else {
-        return; // leave http/https font URLs as-is
+        return;  // leave http/https font URLs as-is
       }
       resolved.set(url, dataUrl);
-    } catch { /* leave URL as-is */ }
+    } catch { /* leave URL as-is */
+    }
   }));
 
   // Replace all matched URLs in the CSS.
@@ -604,13 +639,18 @@ async function resolveFontUrls(css: string): Promise<string> {
 // ── Utilities ────────────────────────────────────────────────────────────────
 
 function escapeHtml(s: string): string {
-  return s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
+  return s.replace(
+      /[&<>]/g,
+      (c) =>
+          (c === '&'     ? '&amp;' :
+               c === '<' ? '&lt;' :
+                           '&gt;'));
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload  = () => resolve(reader.result as string);
+    reader.onload = () => resolve(reader.result as string);
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
@@ -619,8 +659,8 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 function extToFontMime(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase() ?? '';
   if (ext === 'woff2') return 'font/woff2';
-  if (ext === 'woff')  return 'font/woff';
-  if (ext === 'ttf')   return 'font/ttf';
-  if (ext === 'otf')   return 'font/otf';
+  if (ext === 'woff') return 'font/woff';
+  if (ext === 'ttf') return 'font/ttf';
+  if (ext === 'otf') return 'font/otf';
   return 'font/woff2';
 }

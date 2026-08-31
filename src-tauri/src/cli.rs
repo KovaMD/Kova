@@ -666,13 +666,36 @@ fn absolutize(path: &str) -> String {
 
 fn canonicalise_or_exit(path: &str, verb: &str) -> String {
     match std::fs::canonicalize(path) {
-        Ok(p) => p.to_string_lossy().into_owned(),
+        Ok(p) => strip_verbatim_prefix(p.to_string_lossy().into_owned()),
         Err(_) => {
             attach_parent_console();
             eprintln!("kova: {verb} '{path}': no such file");
             std::process::exit(1);
         }
     }
+}
+
+/// `std::fs::canonicalize` on Windows returns the `\\?\` extended-length
+/// ("verbatim") prefix form (and `\\?\UNC\host\share` for UNC paths). The
+/// frontend derives a document directory from this path with plain string
+/// splitting (see resolvePath.ts), which doesn't expect that prefix — its
+/// literal `?` is mistaken for the start of a URL query string and truncates
+/// every path built from it down to a single backslash. Strip it back to the
+/// ordinary `C:\...` / `\\host\share\...` form other platforms already have.
+#[cfg(windows)]
+fn strip_verbatim_prefix(path: String) -> String {
+    if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else if let Some(rest) = path.strip_prefix(r"\\?\") {
+        rest.to_string()
+    } else {
+        path
+    }
+}
+
+#[cfg(not(windows))]
+fn strip_verbatim_prefix(path: String) -> String {
+    path
 }
 
 /// Release builds use the Windows GUI subsystem (no console), so terminal
