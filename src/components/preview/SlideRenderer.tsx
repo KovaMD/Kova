@@ -75,18 +75,8 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
     diagramReadyCount.current += 1;
     if (diagramReadyCount.current >= mermaidCount) onAllDiagramsReadyRef.current?.();
   }, [mermaidCount]);
-  // No cleanup to undo this signal, so StrictMode's dev-only mount→cleanup→
-  // mount cycle would otherwise call onAllDiagramsReady twice per slide —
-  // overshooting the export's total ready count before slides with actual
-  // Mermaid diagrams (whose own signal is properly deduped, see MermaidDiagram)
-  // ever finish rendering, so the capture fires too early. Guard with a ref
-  // so only the first invocation counts.
-  const zeroDiagramSignalledRef = useRef(false);
   useEffect(() => {
-    if (onAllDiagramsReady && mermaidCount === 0 && !zeroDiagramSignalledRef.current) {
-      zeroDiagramSignalledRef.current = true;
-      onAllDiagramsReady();
-    }
+    if (onAllDiagramsReady && mermaidCount === 0) onAllDiagramsReady();
   }, [onAllDiagramsReady, mermaidCount]);
 
   const templateVars = { title: docTitle, author: docAuthor, date: docDate, slideNumber, totalSlides };
