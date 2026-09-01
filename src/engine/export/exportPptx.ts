@@ -1888,9 +1888,12 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
       // addTable itself, this was previously never wired to stepTargets at
       // all, so a stepped table rendered fully visible regardless of step.
       const objectName = tableEl.step !== undefined ? stepShapeName(tableArea, 'table') : undefined;
-      addTable(s, tableEl, t, tableArea, tc, objectName);
+      const usedH = addTable(s, tableEl, t, tableArea, tc, objectName, warnings);
       if (objectName) stepTargets.push({ step: tableEl.step!, objectName });
-      addCaption(s, tableEl.caption, t, area.x, belowY + tableH - capH, area.w);
+      // Anchor the caption just under the fitted table (which is usually
+      // shorter than its allotted share) rather than at the bottom of the
+      // share, but never past it — images, if any, start at that boundary.
+      addCaption(s, tableEl.caption, t, area.x, belowY + Math.min(usedH, tableH - capH), area.w);
     }
 
     const mediaY = belowY + belowH * (tableEl?.type === 'table' ? tableFrac : 0);
@@ -1927,6 +1930,107 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
   }
 }
 
+// ── Table auto-fit ───────────────────────────────────────────────────────────
+//
+// PptxGenJS with autoPage:false (the mode we use — one slide in, one slide out)
+// does no wrapping maths of its own: it emits `<a:tr h="{h / rowCount}">` and
+// leaves the layout to PowerPoint. But `a:tr/@h` is a *minimum* — PowerPoint
+// grows every row to fit its text and never shrinks the font — so a dense table
+// handed a small area runs straight off the bottom of the slide, and the
+// equal-width columns pptxgenjs assigns by default make a long-text column wrap
+// into tall, lopsided rows. The live preview sidesteps all this by measuring
+// the DOM and zoom-scaling the pane to fit (OverflowPane in layouts.tsx). With
+// no DOM at export time we approximate the same outcome: estimate the wrapped
+// height, step the font size down until it fits, and hand PowerPoint explicit
+// content-weighted column widths and per-row heights so it renders close to
+// what we computed.
+
+const TABLE_MAX_FONT = 14;
+const TABLE_MIN_FONT = 7;
+// Inches of row height per text line, per point of font size. PowerPoint renders
+// table cells at roughly font-size x 1.2 line spacing; the estimate is biased a
+// little high so it errs towards shrinking a touch too much (a slightly smaller
+// table) rather than too little (overflow — the bug this fixes).
+const TABLE_LINE_FACTOR = 1.3 / 72;
+const TABLE_CELL_VMARGIN = 0.04; // in; top and bottom each (pptx "narrow" cell margin)
+const TABLE_CELL_HMARGIN = 0.06; // in; left and right each
+// Average glyph advance as a fraction of the em — 0.5 is the usual rule of
+// thumb for proportional body text and matches the character-per-line constant
+// pptxgenjs itself assumes for auto-paging.
+const TABLE_CHAR_EM = 0.5;
+
+interface TableFit {
+  fontSize: number;
+  colW: number[];
+  rowH: number[];
+  height: number;
+  overflow: boolean;
+}
+
+// `matrix` is the plain-text grid (header row first). Returns the largest font
+// size in [TABLE_MIN_FONT, TABLE_MAX_FONT] whose estimated table height fits
+// `area.h`, plus the column/row geometry to emit for it. `overflow` is true when
+// even the minimum font can't fit — the row heights are then squeezed so the
+// graphic frame still lands on the slide (PowerPoint may nudge them back up a
+// hair, but a tight table beats one hanging off the edge).
+function fitTableToArea(matrix: string[][], area: Area): TableFit {
+  const availH = Math.max(0.5, area.h);
+  const availW = Math.max(1, area.w);
+  const nCols = Math.max(1, ...matrix.map((r) => r.length));
+
+  // Column widths, weighted by each column's longest cell. Clamp every column's
+  // desired width into [8%, 50%] of the total before normalising, so no column
+  // is starved to an unreadable thread and none swallows the whole table.
+  const em = (fs: number) => (fs * TABLE_CHAR_EM) / 72;
+  const clampLo = availW * 0.08;
+  const clampHi = availW * 0.5;
+  const desired: number[] = [];
+  for (let c = 0; c < nCols; c++) {
+    let maxLen = 1;
+    for (const row of matrix) maxLen = Math.max(maxLen, (row[c] ?? '').length);
+    desired.push(Math.min(clampHi, Math.max(clampLo, maxLen * em(TABLE_MAX_FONT))));
+  }
+  const desiredSum = desired.reduce((a, b) => a + b, 0);
+  const colW = desired.map((d) => (d / desiredSum) * availW);
+
+  const linesFor = (text: string, colWidth: number, fs: number): number => {
+    const usable = Math.max(0.2, colWidth - TABLE_CELL_HMARGIN * 2);
+    const cpl = Math.max(1, Math.floor(usable / em(fs)));
+    return (text || ' ')
+      .split('\n')
+      .reduce((sum, seg) => sum + Math.max(1, Math.ceil(seg.trim().length / cpl)), 0);
+  };
+  const rowHeightsFor = (fs: number): number[] =>
+    matrix.map((row) => {
+      let maxLines = 1;
+      for (let c = 0; c < nCols; c++) {
+        maxLines = Math.max(maxLines, linesFor(row[c] ?? '', colW[c], fs));
+      }
+      return maxLines * fs * TABLE_LINE_FACTOR + TABLE_CELL_VMARGIN * 2;
+    });
+
+  let fontSize = TABLE_MAX_FONT;
+  let rowH = rowHeightsFor(fontSize);
+  let total = rowH.reduce((a, b) => a + b, 0);
+  while (total > availH && fontSize > TABLE_MIN_FONT) {
+    fontSize -= 1;
+    rowH = rowHeightsFor(fontSize);
+    total = rowH.reduce((a, b) => a + b, 0);
+  }
+
+  let overflow = false;
+  if (total > availH) {
+    const squeeze = availH / total;
+    rowH = rowH.map((h) => h * squeeze);
+    total = availH;
+    overflow = true;
+  }
+
+  return { fontSize, colW, rowH, height: total, overflow };
+}
+
+/** Renders the table into `area`, auto-fitting font/columns/rows. Returns the
+ *  height actually consumed (<= area.h) so the caller can place a caption. */
 function addTable(
   s: PS,
   el: Extract<SlideElement, { type: 'table' }>,
@@ -1934,30 +2038,49 @@ function addTable(
   area: Area,
   tc: string = hex(t.colors.text),
   objectName?: string,
-) {
+  warnings: string[] = [],
+): number {
   const colAlign = (i: number): 'left' | 'center' | 'right' =>
     (el.align?.[i] as 'left' | 'center' | 'right' | null | undefined) ?? 'left';
 
-  const headerRow = el.headers.map((h, i) => ({
-    text: stripHtml(h),
+  const headerText = el.headers.map(stripHtml);
+  const bodyText = el.rows.map((row) => row.map(stripHtml));
+  const fit = fitTableToArea([headerText, ...bodyText], area);
+
+  if (fit.overflow) {
+    const label = headerText.join(' | ').slice(0, 40);
+    warnings.push(
+      `Table too large for the slide — scaled down to ${fit.fontSize}pt and may still be tight${label ? ` (columns: "${label}")` : ''}`,
+    );
+  }
+
+  const headerRow = headerText.map((h, i) => ({
+    text: h,
     options: {
       bold: true,
       color: hex(t.colors.title_text),
       fill: { color: hex(t.colors.primary) },
       align: colAlign(i),
+      fontSize: fit.fontSize,
     },
   }));
-  const bodyRows = el.rows.map((row) =>
-    row.map((cell, i) => ({ text: stripHtml(cell), options: { color: tc, fontSize: 14, align: colAlign(i) } }))
+  const bodyRows = bodyText.map((row) =>
+    row.map((cell, i) => ({ text: cell, options: { color: tc, fontSize: fit.fontSize, align: colAlign(i) } })),
   );
 
   s.addTable([headerRow, ...bodyRows], {
-    x: area.x, y: area.y, w: area.w, h: area.h,
-    fontSize: 14,
+    x: area.x, y: area.y, w: area.w, h: fit.height,
+    colW: fit.colW,
+    rowH: fit.rowH,
+    fontSize: fit.fontSize,
     fontFace: firstFont(t.fonts.body),
+    valign: 'top',
+    margin: [TABLE_CELL_VMARGIN, TABLE_CELL_HMARGIN, TABLE_CELL_VMARGIN, TABLE_CELL_HMARGIN],
     border: { color: hex(t.colors.accent), pt: 0.5 },
     ...(objectName ? { objectName } : {}),
   });
+
+  return fit.height;
 }
 
 // PptxGenJS `sizing.contain` is broken for pre-encoded data URLs because it
