@@ -17,7 +17,7 @@ export interface PendingImport {
   force: boolean;
 }
 
-export type CliExportFormat = 'pptx' | 'pdf';
+export type CliExportFormat = 'pptx' | 'pdf' | 'html';
 
 export interface PendingExport {
   format: CliExportFormat;
