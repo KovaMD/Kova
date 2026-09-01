@@ -46,6 +46,11 @@
           src = ./src-tauri;
           cargoLock.lockFile = ./src-tauri/Cargo.lock;
 
+          # `tauri build` enables this feature automatically. Since the Nix
+          # package calls Cargo directly, enable it here so Tauri embeds
+          # frontendDist instead of loading devUrl (localhost:1420).
+          buildFeatures = [ "custom-protocol" ];
+
           # Tauri embeds frontendDist (../dist) at compile time — supply the
           # prebuilt assets instead of letting it shell out to npm.
           preBuild = ''
