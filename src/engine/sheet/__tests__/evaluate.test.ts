@@ -52,7 +52,7 @@ describe('evaluate', () => {
   });
 
   it('errors on a non-numeric cell inside an aggregate', () => {
-    expect(() => run('sum(score)', { score: [1, 'n/a'] })).toThrow(/needs numbers/);
+    expect(() => run('sum(score)', { score: [1, 'n/a'] })).toThrow(/expected a number/);
   });
 
   it('errors when a vector is used as a scalar', () => {
@@ -84,7 +84,7 @@ describe('evaluate', () => {
   });
 
   it('errors on an aggregate over a column containing an empty-string cell, instead of silently skipping it', () => {
-    expect(() => run('sum(score)', { score: [1, '', 3] })).toThrow(/needs numbers/);
+    expect(() => run('sum(score)', { score: [1, '', 3] })).toThrow(/expected a number/);
   });
 
   it('counts an empty-string cell as present, unlike an empty (null) cell', () => {
