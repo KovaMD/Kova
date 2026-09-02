@@ -9,6 +9,7 @@ import type { Root, Node, Paragraph, List, ListItem as MdastListItem, Code, Bloc
 
 import type { Slide, SlideElement, ListItem, LayoutType, Frontmatter, ParsedDocument } from '../types';
 import { detectLayout } from '../layout/autoLayout';
+import { progressBarInnerHtml } from '../progressBar';
 import { extractFrontmatter } from './frontmatter';
 import { extractSpeakerNotes } from './speakerNotes';
 import { extractBgImage } from './bgImage';
@@ -237,7 +238,6 @@ const YOUTUBE_RE      = /^!youtube\[([^\]]*)\]\(([^)]*)\)$/;
 const VIDEO_RE        = /^!video\[([^\]]*)\]\(([^)]*)\)$/;
 const POLL_RE         = /^!poll\[([^\]]*)\]\(([^)]*)\)$/;
 const PROGRESS_RE     = /^!progress\[([^\]]*)\]\((\d+(?:\.\d+)?)\)$/;
-const TABLE_PROGRESS_RE = /^!progress\[([^\]]*)\]\((\d+(?:\.\d+)?)\)$/;
 const CAPTION_RE      = /^!caption\[([^\]]*)\]$/;
 const REF_RE          = /^!ref\[([^\]]*)\]$/;
 const TOC_RE          = /^!toc$/;
@@ -871,24 +871,9 @@ function inlineToHtml(children: Node[]): string {
 }
 
 function tableCellHtml(raw: string, children: Node[]): string {
-  const progress = raw.trim().match(TABLE_PROGRESS_RE);
+  const progress = raw.trim().match(PROGRESS_RE);
   if (!progress) return children.length ? inlineToHtml(children) : escHtml(raw);
-  return progressHtml(progress[1], parseFloat(progress[2]));
-}
-
-function progressHtml(label: string, value: number): string {
-  const pct = Math.max(0, Math.min(100, value));
-  return [
-    '<div class="sl-progress sl-progress--table">',
-    '<div class="sl-progress__header">',
-    `<span class="sl-progress__label">${escHtml(label)}</span>`,
-    `<span class="sl-progress__pct">${escHtml(String(pct))}%</span>`,
-    '</div>',
-    '<div class="sl-progress__track">',
-    `<div class="sl-progress__fill" style="width: ${pct}%"></div>`,
-    '</div>',
-    '</div>',
-  ].join('');
+  return `<div class="sl-progress sl-progress--table">${progressBarInnerHtml(progress[1], parseFloat(progress[2]))}</div>`;
 }
 
 // Escapes '"' too, not just <>&: this is also used to build attribute values
