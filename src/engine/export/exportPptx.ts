@@ -2043,8 +2043,9 @@ function addTable(
   const colAlign = (i: number): 'left' | 'center' | 'right' =>
     (el.align?.[i] as 'left' | 'center' | 'right' | null | undefined) ?? 'left';
 
-  const headerText = el.headers.map(stripHtml);
-  const bodyText = el.rows.map((row) => row.map(stripHtml));
+  const cellText = (html: string) => progressBarText(html) ?? stripHtml(html);
+  const headerText = el.headers.map(cellText);
+  const bodyText = el.rows.map((row) => row.map(cellText));
   const fit = fitTableToArea([headerText, ...bodyText], area);
 
   if (fit.overflow) {
@@ -2286,6 +2287,25 @@ const NAMED_COLORS: Record<string, string> = {
 
 function firstFont(stack: string): string {
   return stack.split(',')[0].trim().replace(/['"]/g, '');
+}
+
+// A `!progress` directive in a table cell is rendered as an HTML bar (see
+// progressBar.ts). PptxGenJS table cells can't hold shapes, so the block
+// `!progress` path's rect drawing isn't available here — fall back to a text
+// meter (label · filled/empty blocks · percent) rather than stripHtml's
+// run-together "Done75%".
+function progressBarText(cellHtml: string): string | null {
+  if (!cellHtml.includes('sl-progress')) return null;
+  const div = document.createElement('div');
+  div.innerHTML = cellHtml;
+  const bar = div.querySelector('.sl-progress');
+  if (!bar) return null;
+  const label = (bar.querySelector('.sl-progress__label')?.textContent ?? '').trim();
+  const pctText = (bar.querySelector('.sl-progress__pct')?.textContent ?? '').trim();
+  const pct = Math.max(0, Math.min(100, parseFloat(pctText) || 0));
+  const filled = Math.round(pct / 10);
+  const meter = '█'.repeat(filled) + '░'.repeat(10 - filled);
+  return [label, meter, pctText].filter(Boolean).join('  ');
 }
 
 function stripHtml(html: string): string {

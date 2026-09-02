@@ -686,7 +686,7 @@
 
 .sl-progress { padding: 0.35em 0; }
 
-.sl-table .sl-progress { min-width: 8em; padding: 0; }
+.sl-progress--table { min-width: 8em; padding: 0; }
 
 .sl-progress__header {
   display: flex;

@@ -6,6 +6,7 @@ import 'katex/dist/katex.min.css';
 import { QRCode } from 'react-qr-code';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import type { SlideElement, ListItem } from '../../engine/types';
+import { progressBarInnerHtml } from '../../engine/progressBar';
 import { mermaidSvgCache } from '../../engine/export/mermaidSvgCache';
 import { buildMermaidRenderSource } from '../../engine/export/mermaidSource';
 import { queuedMermaidRender } from '../../engine/export/mermaidRenderQueue';
@@ -401,17 +402,11 @@ export function CodeBlock({ lang, value }: { lang: string; value: string }) {
 // ── Progress bar ──────────────────────────────────────────────────────────────
 
 function ProgressBar({ el }: { el: Extract<SlideElement, { type: 'progress' }> }) {
-  const pct = Math.max(0, Math.min(100, el.value));
   return (
-    <div className="sl-progress">
-      <div className="sl-progress__header">
-        <span className="sl-progress__label">{el.label}</span>
-        <span className="sl-progress__pct">{pct}%</span>
-      </div>
-      <div className="sl-progress__track">
-        <div className="sl-progress__fill" style={{ width: `${pct}%` }} />
-      </div>
-    </div>
+    <div
+      className="sl-progress"
+      dangerouslySetInnerHTML={{ __html: progressBarInnerHtml(el.label, el.value) }}
+    />
   );
 }
 
