@@ -1,0 +1,31 @@
+name: Frontend Tests
+
+# Runs the Vitest suite (engine parser, sheet, layout, PPTX/PDF/HTML export,
+# ...). nix-build only compiles the frontend (tsc + vite build), so without
+# this a test-only regression can sit on main unnoticed. Rust tests run inside
+# nix-build; this covers the TypeScript side.
+on:
+  push:
+    branches: [main]
+    paths: [src/**, package.json, package-lock.json, tsconfig*.json, vitest.config.ts]
+  pull_request:
+    paths: [src/**, package.json, package-lock.json, tsconfig*.json, vitest.config.ts]
+
+jobs:
+  vitest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
