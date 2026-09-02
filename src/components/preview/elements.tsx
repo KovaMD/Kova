@@ -514,10 +514,21 @@ export function MermaidDiagram({ value, caption }: { value: string; caption?: st
           signalReady();
         }
       });
-    // If this render is cancelled mid-flight (e.g. theme change during export),
-    // signal ready so the export count still advances; the replacement render
-    // will also signal when it completes.
-    return () => { cancelled = true; pendingSignalRef.current = null; signalReady(); };
+    // A render cancelled mid-flight (e.g. StrictMode's dev-only discard of the
+    // first of two mounts, or a theme change during export) only counts as
+    // "ready" if a previously-rendered SVG for this exact source is already
+    // cached — that's what the belt-and-suspenders fallback in
+    // exportPdfNative.ts's injectMermaidFallbacks would inject. Otherwise this
+    // is the diagram's first-ever render, nothing is cached yet, and signalling
+    // ready here would let an export snapshot the DOM before the replacement
+    // render (already in flight) has a chance to actually commit an SVG —
+    // the replacement render's own completion (or SlideRenderer's timeout
+    // fallback) is what will signal readiness instead.
+    return () => {
+      cancelled = true;
+      pendingSignalRef.current = null;
+      if (mermaidSvgCache.get(value)) signalReady();
+    };
   }, [baseId, value, mermaidInit]);
 
   if (!svg) {

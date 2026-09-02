@@ -666,7 +666,7 @@ fn absolutize(path: &str) -> String {
 
 fn canonicalise_or_exit(path: &str, verb: &str) -> String {
     match std::fs::canonicalize(path) {
-        Ok(p) => p.to_string_lossy().into_owned(),
+        Ok(p) => crate::file_io::strip_verbatim_prefix(p.to_string_lossy().into_owned()),
         Err(_) => {
             attach_parent_console();
             eprintln!("kova: {verb} '{path}': no such file");

@@ -48,7 +48,7 @@ import { exportPdfNative, buildInteractiveDocument, type PdfExportOpts } from '.
 import { SlideRenderer } from './components/preview/SlideRenderer';
 import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml, sanitiseThemeOverrides, type ThemeParseResult } from './engine/theme';
 import { registerBundledFonts, registerCachedFont } from './engine/bundledFonts';
-import type { Slide, Frontmatter } from './engine/types';
+import type { Slide, ListItem, Frontmatter } from './engine/types';
 import { parseAspectRatio } from './engine/types';
 import { getSlideStepCount } from './engine/layout/steps';
 import { imageMime } from './engine/export/imageMime';
@@ -525,6 +525,45 @@ export default function App() {
   // Deck used for presentation + export — hidden slides removed. Reference-equal
   // to entries in `slides`, so index translation uses indexOf/indexOf.
   const visibleSlides = useMemo(() => slides.filter((s) => !s.hidden), [slides]);
+
+  // useResolvedSlides swaps local media srcs from a placeholder (used while the
+  // async read_file_b64 load is in flight) to data: URLs once loaded. The
+  // placeholder is convertFileSrc's asset:// URL on macOS/Linux, but Windows'
+  // WebView2 can't load custom schemes directly, so Tauri rewrites it there to
+  // http://asset.localhost/... instead — both forms must be recognised or this
+  // gate never fires on Windows, the platform the CLI export bug targets. A
+  // cold-start CLI export can otherwise fire its capture the instant slides
+  // resolve, racing that load — the button-triggered export never hits this
+  // because by the time a user clicks it, the deck has been open long enough
+  // for local media to have already resolved.
+  const hasPendingLocalMedia = useMemo(() => {
+    const isPending = (src: string) => src.startsWith('asset://') || src.startsWith('http://asset.localhost/');
+    const htmlIsPending = (html: string) => /src="(?:asset:\/\/|http:\/\/asset\.localhost\/)/.test(html);
+    const itemIsPending = (item: ListItem): boolean =>
+      htmlIsPending(item.html) || item.children.some(itemIsPending);
+    return visibleSlides.some((slide) => {
+      if (slide.backgroundImage && isPending(slide.backgroundImage.src)) return true;
+      return slide.elements.some((el) => {
+        if (el.type === 'image' || el.type === 'video') return isPending(el.src);
+        if (el.type === 'paragraph') return htmlIsPending(el.html);
+        if (el.type === 'list') return el.items.some(itemIsPending);
+        return false;
+      });
+    });
+  }, [visibleSlides]);
+
+  // Bounded wait for the gate above: if read_file_b64 fails for a missing or
+  // mistyped path, that src never becomes a data: URL and hasPendingLocalMedia
+  // would otherwise stay true forever, hanging a CLI export silently. This
+  // timer is wall-clock (not dependent on further slide/media changes to
+  // re-fire), so it still fires even if nothing else ever triggers a re-render.
+  const MEDIA_WAIT_TIMEOUT_MS = 5_000;
+  const [mediaWaitExpired, setMediaWaitExpired] = useState(false);
+  useEffect(() => {
+    if (!hasPendingLocalMedia) { setMediaWaitExpired(false); return; }
+    const timer = setTimeout(() => setMediaWaitExpired(true), MEDIA_WAIT_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [hasPendingLocalMedia]);
   const safePresentIndex = visibleSlides.length > 0
     ? Math.min(presentIndex, visibleSlides.length - 1)
     : 0;
@@ -1701,6 +1740,7 @@ export default function App() {
   const coldExportFiredRef = useRef(false);
   useEffect(() => {
     if (!coldExport || coldExportFiredRef.current || !filePath) return;
+    if (hasPendingLocalMedia && !mediaWaitExpired) return; // wait (bounded) for local image/video data URLs to resolve
     coldExportFiredRef.current = true;
     if (visibleSlides.length === 0) {
       invoke('cli_exit', {
@@ -1747,7 +1787,7 @@ export default function App() {
         await fail(err instanceof Error ? err.message : String(err));
       }
     })();
-  }, [coldExport, filePath, visibleSlides, frontmatter, activeTheme, settings.locale, settings.pdfPageSize, runPdfExportCapture]);
+  }, [coldExport, filePath, visibleSlides, hasPendingLocalMedia, mediaWaitExpired, frontmatter, activeTheme, settings.locale, settings.pdfPageSize, runPdfExportCapture]);
 
   const handleExportHtml = useCallback(async () => {
     if (visibleSlides.length === 0) return;

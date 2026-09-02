@@ -56,6 +56,30 @@ pub fn safe_write_path(path: &str) -> Result<PathBuf, String> {
     Ok(resolved)
 }
 
+/// `std::fs::canonicalize` on Windows returns the `\\?\` extended-length
+/// ("verbatim") prefix form (and `\\?\UNC\host\share` for UNC paths), which
+/// several downstream consumers of a canonicalised path don't expect: the
+/// frontend derives a document directory from it with plain string
+/// splitting (see resolvePath.ts) and mistakes the literal `?` for the start
+/// of a URL query string, and Explorer's `/select` doesn't recognise the
+/// prefix either. Strips it back to the ordinary `C:\...` /
+/// `\\host\share\...` form other platforms already return.
+#[cfg(windows)]
+pub fn strip_verbatim_prefix(path: String) -> String {
+    if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else if let Some(rest) = path.strip_prefix(r"\\?\") {
+        rest.to_string()
+    } else {
+        path
+    }
+}
+
+#[cfg(not(windows))]
+pub fn strip_verbatim_prefix(path: String) -> String {
+    path
+}
+
 pub fn read(path: &str) -> Result<String, String> {
     let safe = safe_read_path(path)?;
     std::fs::read_to_string(&safe).map_err(|e| format!("Failed to read file: {e}"))
