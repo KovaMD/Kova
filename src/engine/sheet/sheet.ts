@@ -1,6 +1,7 @@
 import { SheetError } from './lexer';
 import { parseExpr } from './parser';
 import { evaluate, render, type Result, type Scope, type Value } from './evaluate';
+import { looksLikeProgressDirective, parseProgressDirective } from '../progressBar';
 
 export interface SheetOpts {
   precision: number;
@@ -39,7 +40,7 @@ export function slugify(header: string): string {
 // costs the author nothing in a non-Kova viewer.)
 export function isFooterRow(row: string[]): boolean {
   const first = (row[0] ?? '').trim();
-  return first.startsWith('!') && !isProgressCell(first);
+  return first.startsWith('!') && !looksLikeProgressDirective(first);
 }
 
 function hasFormula(raw: string[][], r: number): boolean {
@@ -131,11 +132,11 @@ export function evaluateSheet(
   forEachFormula(raw, (r, c) => {
     try {
       const text = cellText(raw, r, c);
-      const progress = text.match(PROGRESS_FORMULA_RE);
-      if (progress) {
+      const progress = parseProgressDirective(text);
+      if (progress && 'formula' in progress) {
         const value = cell(r, c);
         if (typeof value !== 'number') throw new SheetError(`expected a number, got '${value}'`);
-        out[r][c] = `!progress[${progress[1]}](${render(value, opts.precision)})`;
+        out[r][c] = `!progress[${progress.label}](${render(value, opts.precision)})`;
       } else {
         out[r][c] = render(cell(r, c), opts.precision);
       }
@@ -162,17 +163,10 @@ function forEachFormula(raw: string[][], fn: (r: number, c: number) => void): vo
   }
 }
 
-const PROGRESS_FORMULA_RE = /^!progress\[([^\]]*)\]\(\s*=(.+)\)$/;
-const PROGRESS_CELL_RE = /^!progress\[[^\]]*\]\(.+\)$/;
-
-function isProgressCell(text: string): boolean {
-  return PROGRESS_CELL_RE.test(text);
-}
-
 function cellFormula(text: string): string | null {
   if (text.startsWith('=')) return text.slice(1);
-  const progress = text.match(PROGRESS_FORMULA_RE);
-  return progress ? progress[2] : null;
+  const progress = parseProgressDirective(text);
+  return progress && 'formula' in progress ? progress.formula : null;
 }
 
 function literal(text: string): Value {
