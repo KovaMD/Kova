@@ -332,7 +332,7 @@ export default function App() {
   const fileMenuRef = useRef<HTMLDivElement>(null);
   const [editMenuOpen, setEditMenuOpen]       = useState(false);
   const editMenuRef = useRef<HTMLDivElement>(null);
-  const [pdfExportContext, setPdfExportContext] = useState<{ slides: Slide[]; savePath: string } | null>(null);
+  const [pdfExportContext, setPdfExportContext] = useState<{ slides: Slide[] } | null>(null);
   const pdfSlideRefs         = useRef<Map<number, HTMLElement>>(new Map());
   const pdfExportRunnerRef   = useRef<(() => Promise<void>) | null>(null);
   const pdfSlideReadyCount   = useRef(0);
@@ -1653,79 +1653,68 @@ export default function App() {
     }
   });
 
+  // Mounts the off-screen slide list, waits for every slide to signal ready
+  // (onPdfSlideReady), then runs `capture` against the rendered elements and
+  // resolves with its result. Shared by the PDF and HTML export paths (button
+  // and headless CLI alike); each caller supplies just the capture step and
+  // reports success/failure its own way. Rejects if `capture` throws.
+  const runOffscreenCapture = useCallback(<T,>(
+    visSlides: Slide[],
+    capture: (elements: HTMLElement[]) => Promise<T>,
+  ): Promise<T> => {
+    pdfSlideRefs.current.clear();
+    pdfSlideReadyCount.current = 0;
+    pdfSlideReadyTotal.current = visSlides.length;
+    return new Promise<T>((resolve, reject) => {
+      pdfExportRunnerRef.current = async () => {
+        try {
+          const elements = Array.from(
+            { length: visSlides.length },
+            (_, i) => pdfSlideRefs.current.get(i),
+          ).filter((el): el is HTMLElement => Boolean(el));
+          resolve(await capture(elements));
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error(String(err)));
+        } finally {
+          setPdfExportContext(null);
+          pdfSlideRefs.current.clear();
+          pdfExportRunnerRef.current = null;
+        }
+      };
+      setPdfExportContext({ slides: visSlides });
+    });
+  }, []);
+
   // Shared by the button (handleExportPdf) and the headless CLI export path:
-  // mounts the off-screen slide list, waits for it to render (native print
-  // first, raster fallback on failure), writes the file, and reports back
-  // what happened rather than alerting — each caller handles that its own
-  // way (a dialog here, stdout/stderr for the CLI). Throws only on total
-  // failure (both native and the raster fallback failed).
-  const runPdfExportCapture = useCallback(async (
+  // native print first, raster fallback on failure. Reports what happened
+  // rather than alerting — each caller handles that its own way (a dialog
+  // here, stdout/stderr for the CLI). Rejects only on total failure (both
+  // native and the raster fallback failed).
+  const runPdfExportCapture = useCallback((
     visSlides: Slide[],
     savePath: string,
     opts: PdfExportOpts,
-  ): Promise<{ warnings: string[]; usedFallback: boolean; fallbackReason?: string }> => {
-    pdfSlideRefs.current.clear();
-    pdfSlideReadyCount.current = 0;
-    pdfSlideReadyTotal.current = visSlides.length;
-    return new Promise((resolve, reject) => {
-      pdfExportRunnerRef.current = async () => {
-        try {
-          const elements = Array.from(
-            { length: visSlides.length },
-            (_, i) => pdfSlideRefs.current.get(i),
-          ).filter((el): el is HTMLElement => Boolean(el));
-
-          try {
-            await exportPdfNative(elements, aspectRatio, savePath, opts);
-            resolve({ warnings: [], usedFallback: false });
-          } catch (nativeErr) {
-            // Native backend unavailable/failed — degrade to the raster renderer.
-            // It's one-slide-per-page and ignores handout/N-up/paper options.
-            const { base64, warnings } = await exportToPdf(elements, activeTheme, aspectRatio);
-            await invoke('write_file_bytes', { path: savePath, data: base64 });
-            resolve({ warnings, usedFallback: true, fallbackReason: String(nativeErr) });
-          }
-        } catch (err) {
-          reject(err instanceof Error ? err : new Error(String(err)));
-        } finally {
-          setPdfExportContext(null);
-          pdfSlideRefs.current.clear();
-          pdfExportRunnerRef.current = null;
-        }
-      };
-      setPdfExportContext({ slides: visSlides, savePath });
-    });
-  }, [aspectRatio, activeTheme]);
+  ): Promise<{ warnings: string[]; usedFallback: boolean; fallbackReason?: string }> =>
+    runOffscreenCapture(visSlides, async (elements) => {
+      try {
+        await exportPdfNative(elements, aspectRatio, savePath, opts);
+        return { warnings: [], usedFallback: false };
+      } catch (nativeErr) {
+        // Native backend unavailable/failed — degrade to the raster renderer.
+        // It's one-slide-per-page and ignores handout/N-up/paper options.
+        const { base64, warnings } = await exportToPdf(elements, activeTheme, aspectRatio);
+        await invoke('write_file_bytes', { path: savePath, data: base64 });
+        return { warnings, usedFallback: true, fallbackReason: String(nativeErr) };
+      }
+    }), [runOffscreenCapture, aspectRatio, activeTheme]);
 
   // Shared by the button (handleExportHtml) and the headless CLI export path
-  // (kova --export html): mounts the same off-screen slide list the PDF
-  // capture uses, waits for it to render, and assembles the self-contained
-  // interactive deck. Returns the HTML string; throws on failure — each
-  // caller reports its own way (a dialog here, stderr for the CLI).
-  const runHtmlExportCapture = useCallback((visSlides: Slide[]): Promise<string> => {
-    pdfSlideRefs.current.clear();
-    pdfSlideReadyCount.current = 0;
-    pdfSlideReadyTotal.current = visSlides.length;
-    return new Promise<string>((resolve, reject) => {
-      pdfExportRunnerRef.current = async () => {
-        try {
-          const elements = Array.from(
-            { length: visSlides.length },
-            (_, i) => pdfSlideRefs.current.get(i),
-          ).filter((el): el is HTMLElement => Boolean(el));
-          resolve(await buildInteractiveDocument(elements, aspectRatio, visSlides));
-        } catch (err) {
-          reject(err instanceof Error ? err : new Error(String(err)));
-        } finally {
-          setPdfExportContext(null);
-          pdfSlideRefs.current.clear();
-          pdfExportRunnerRef.current = null;
-        }
-      };
-      // savePath is unused by the off-screen renderer (it reads .slides only).
-      setPdfExportContext({ slides: visSlides, savePath: '' });
-    });
-  }, [aspectRatio]);
+  // (kova --export html): assembles the self-contained interactive deck.
+  // Returns the HTML string; each caller reports failure its own way.
+  const runHtmlExportCapture = useCallback((visSlides: Slide[]): Promise<string> =>
+    runOffscreenCapture(visSlides, (elements) =>
+      buildInteractiveDocument(elements, aspectRatio, visSlides),
+    ), [runOffscreenCapture, aspectRatio]);
 
   const handleExportPdf = useCallback(async (opts: PdfExportOpts = {}) => {
     if (visibleSlides.length === 0) return;
