@@ -360,6 +360,56 @@ describe('element parsing', () => {
     expect(table?.type === 'table' && table.rows[0]).toEqual(['plain', 'text']);
   });
 
+  it('renders !progress directives in table cells as progress bars', () => {
+    const { slides } = parseDocument(doc([
+      '## Slide',
+      '',
+      '| Feature | Status |',
+      '|---------|--------|',
+      '| Preview | !progress[Task Complete](75) |',
+    ].join('\n')));
+    const table = slides[0].elements.find((e) => e.type === 'table');
+    const cell = table?.type === 'table' ? table.rows[0][1] : '';
+    expect(cell).toContain('sl-progress--table');
+    expect(cell).toContain('Task Complete');
+    expect(cell).toContain('width: 75%');
+  });
+
+  it('renders calculated !progress directives in sheet table cells', () => {
+    const { slides } = parseDocument(doc([
+      '## Slide',
+      '',
+      '!let vat = 0.255',
+      '',
+      '!sheet',
+      '| item | qty | unit | total |',
+      '|------|----:|-----:|------:|',
+      '| motor | 3 | 12.50 | =qty * unit |',
+      '| ESC | 2 | 8.00 | =qty * unit |',
+      '| !Total | | | !progress[Done](=sum(total) * (1 + vat)) |',
+    ].join('\n')));
+    const table = slides[0].elements.find((e) => e.type === 'table');
+    const cell = table?.type === 'table' ? table.rows[2][3] : '';
+    expect(cell).toContain('sl-progress--table');
+    expect(cell).toContain('Done');
+    expect(cell).toContain('width: 67.14%');
+  });
+
+  it('does not treat a first-column !progress directive as a sheet footer marker', () => {
+    const { slides } = parseDocument(doc([
+      '## Slide',
+      '',
+      '!sheet',
+      '| status | value |',
+      '|--------|------:|',
+      '| !progress[Done](75) | 1 |',
+    ].join('\n')));
+    const table = slides[0].elements.find((e) => e.type === 'table');
+    const cell = table?.type === 'table' ? table.rows[0][0] : '';
+    expect(cell).toContain('sl-progress--table');
+    expect(cell).toContain('width: 75%');
+  });
+
   it('renders inline formatting in table header cells', () => {
     const { slides } = parseDocument(doc([
       '## Slide',

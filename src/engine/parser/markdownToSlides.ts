@@ -198,6 +198,7 @@ const YOUTUBE_RE      = /^!youtube\[([^\]]*)\]\(([^)]*)\)$/;
 const VIDEO_RE        = /^!video\[([^\]]*)\]\(([^)]*)\)$/;
 const POLL_RE         = /^!poll\[([^\]]*)\]\(([^)]*)\)$/;
 const PROGRESS_RE     = /^!progress\[([^\]]*)\]\((\d+(?:\.\d+)?)\)$/;
+const TABLE_PROGRESS_RE = /^!progress\[([^\]]*)\]\((\d+(?:\.\d+)?)\)$/;
 const CAPTION_RE      = /^!caption\[([^\]]*)\]$/;
 const REF_RE          = /^!ref\[([^\]]*)\]$/;
 const TOC_RE          = /^!toc$/;
@@ -458,8 +459,8 @@ function convertRoot(
       case 'table': {
         const t = node as Table;
         const [headerRow, ...bodyRows] = t.children;
-        const headers = (headerRow?.children ?? []).map((cell) => inlineToHtml(cell.children as Node[]));
-        let rows = bodyRows.map((row) => row.children.map((cell) => inlineToHtml(cell.children as Node[])));
+        const headers = (headerRow?.children ?? []).map((cell) => tableCellHtml(rawText(src, cell), cell.children as Node[]));
+        let rows = bodyRows.map((row) => row.children.map((cell) => tableCellHtml(rawText(src, cell), cell.children as Node[])));
 
         if (pendingSheet) {
           // Raw source, not mdast: remark reads `=a*b*c` as `a<em>b</em>c`.
@@ -468,10 +469,10 @@ function convertRoot(
           rows = bodyRows.map((row, r) =>
             row.children.map((cell, c) => {
               const value = computed[r + 1]?.[c];
-              if (value != null) return escHtml(value);
+              if (value != null) return tableCellHtml(value, []);
               // A literal cell keeps the HTML remark already built for it, so
               // `| !**Total** |` stays bold — minus the footer marker.
-              const html = inlineToHtml(cell.children as Node[]);
+              const html = tableCellHtml(rawText(src, cell), cell.children as Node[]);
               return c === 0 && isFooterRow(rawCells[r + 1] ?? []) ? html.replace(/^!\s*/, '') : html;
             }),
           );
@@ -828,6 +829,27 @@ function inlineToHtml(children: Node[]): string {
       default:            return node.children ? inlineToHtml(node.children) : '';
     }
   }).join('');
+}
+
+function tableCellHtml(raw: string, children: Node[]): string {
+  const progress = raw.trim().match(TABLE_PROGRESS_RE);
+  if (!progress) return children.length ? inlineToHtml(children) : escHtml(raw);
+  return progressHtml(progress[1], parseFloat(progress[2]));
+}
+
+function progressHtml(label: string, value: number): string {
+  const pct = Math.max(0, Math.min(100, value));
+  return [
+    '<div class="sl-progress sl-progress--table">',
+    '<div class="sl-progress__header">',
+    `<span class="sl-progress__label">${escHtml(label)}</span>`,
+    `<span class="sl-progress__pct">${escHtml(String(pct))}%</span>`,
+    '</div>',
+    '<div class="sl-progress__track">',
+    `<div class="sl-progress__fill" style="width: ${pct}%"></div>`,
+    '</div>',
+    '</div>',
+  ].join('');
 }
 
 // Escapes '"' too, not just <>&: this is also used to build attribute values

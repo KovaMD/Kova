@@ -38,11 +38,12 @@ export function slugify(header: string): string {
 // that starts with `=`. (remark renders `\!` as a plain `!`, so the escape
 // costs the author nothing in a non-Kova viewer.)
 export function isFooterRow(row: string[]): boolean {
-  return (row[0] ?? '').trim().startsWith('!');
+  const first = (row[0] ?? '').trim();
+  return first.startsWith('!') && !isProgressCell(first);
 }
 
 function hasFormula(raw: string[][], r: number): boolean {
-  return (raw[r] ?? []).some((_, c) => cellText(raw, r, c).startsWith('='));
+  return (raw[r] ?? []).some((_, c) => cellFormula(cellText(raw, r, c)) !== null);
 }
 
 export function evaluateSheet(
@@ -86,7 +87,8 @@ export function evaluateSheet(
     if (visiting.has(key)) throw new SheetError(`circular reference in column '${cols[c]}'`);
 
     const text = cellText(raw, r, c);
-    if (!text.startsWith('=')) {
+    const formula = cellFormula(text);
+    if (formula === null) {
       const v = literal(text);
       memo.set(key, v);
       return v;
@@ -100,7 +102,7 @@ export function evaluateSheet(
     visiting.add(key);
     try {
       const scope = footerRows.includes(r) ? footerScope() : rowScope(r);
-      const v = evaluate(parseExpr(text.slice(1)), scope);
+      const v = evaluate(parseExpr(formula), scope);
       if (Array.isArray(v)) throw new SheetError('expected a single value, got a whole column');
       memo.set(key, v);
       return v;
@@ -128,7 +130,15 @@ export function evaluateSheet(
 
   forEachFormula(raw, (r, c) => {
     try {
-      out[r][c] = render(cell(r, c), opts.precision);
+      const text = cellText(raw, r, c);
+      const progress = text.match(PROGRESS_FORMULA_RE);
+      if (progress) {
+        const value = cell(r, c);
+        if (typeof value !== 'number') throw new SheetError(`expected a number, got '${value}'`);
+        out[r][c] = `!progress[${progress[1]}](${render(value, opts.precision)})`;
+      } else {
+        out[r][c] = render(cell(r, c), opts.precision);
+      }
     } catch (err) {
       out[r][c] = `#ERR ${err instanceof SheetError ? err.message : 'evaluation failed'}`;
     }
@@ -140,16 +150,29 @@ export function evaluateSheet(
 // The footer marker is not part of the cell's content.
 function cellText(raw: string[][], r: number, c: number): string {
   const text = (raw[r]?.[c] ?? '').trim();
-  if (r > 0 && c === 0 && text.startsWith('!')) return text.slice(1).trim();
+  if (r > 0 && c === 0 && isFooterRow(raw[r] ?? [])) return text.slice(1).trim();
   return text;
 }
 
 function forEachFormula(raw: string[][], fn: (r: number, c: number) => void): void {
   for (let r = 1; r < raw.length; r++) {
     for (let c = 0; c < raw[r].length; c++) {
-      if (cellText(raw, r, c).startsWith('=')) fn(r, c);
+      if (cellFormula(cellText(raw, r, c)) !== null) fn(r, c);
     }
   }
+}
+
+const PROGRESS_FORMULA_RE = /^!progress\[([^\]]*)\]\(\s*=(.+)\)$/;
+const PROGRESS_CELL_RE = /^!progress\[[^\]]*\]\(.+\)$/;
+
+function isProgressCell(text: string): boolean {
+  return PROGRESS_CELL_RE.test(text);
+}
+
+function cellFormula(text: string): string | null {
+  if (text.startsWith('=')) return text.slice(1);
+  const progress = text.match(PROGRESS_FORMULA_RE);
+  return progress ? progress[2] : null;
 }
 
 function literal(text: string): Value {
