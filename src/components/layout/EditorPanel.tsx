@@ -28,6 +28,7 @@ import { useMediaDragAndDrop } from '../editor/useMediaDragAndDrop';
 import { useMediaPaste } from '../editor/useMediaPaste';
 import { ModalShell } from '../ModalShell';
 import { isMac } from '../../engine/keybindings';
+import { slideStartLines } from '../../engine/parser/markdownToSlides';
 import { spellCheckExtension } from '../../engine/spellcheck/spellCheckExtension';
 import { initSpellChecker } from '../../engine/spellcheck/spellChecker';
 import type { SpellCheckLanguage } from '../../engine/spellcheck/spellChecker';
@@ -221,30 +222,9 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
     scrollToSlide(index: number) {
       const view = viewRef.current;
       if (!view) return;
-      const doc = view.state.doc.toString();
-
-      // Skip past the frontmatter block
-      const fmMatch = doc.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
-      const bodyStart = fmMatch ? fmMatch[0].length : 0;
-
-      let pos = bodyStart;
-
-      if (index > 0) {
-        // Find the index-th standalone --- separator in the body
-        const body = doc.slice(bodyStart);
-        const sep = /^---$/gm;
-        let found = 0;
-        let m: RegExpExecArray | null;
-        while ((m = sep.exec(body)) !== null) {
-          found++;
-          if (found === index) {
-            // Place cursor on the line after the --- separator
-            const afterSep = bodyStart + m.index + m[0].length;
-            pos = afterSep + (doc[afterSep] === '\r' ? 2 : doc[afterSep] === '\n' ? 1 : 0);
-            break;
-          }
-        }
-      }
+      const starts = slideStartLines(view.state.doc.toString());
+      const line = starts[index] ?? starts[starts.length - 1] ?? 1;
+      const pos = view.state.doc.line(Math.min(line, view.state.doc.lines)).from;
 
       view.dispatch({
         selection: EditorSelection.cursor(pos),
@@ -282,11 +262,12 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
         onChangeRef.current(update.state.doc.toString());
       }
       if (update.selectionSet || update.docChanged) {
-        const pos = update.state.selection.main.head;
-        const raw = update.state.doc.toString().slice(0, pos);
-        // Strip frontmatter block so its --- delimiters aren't counted as slide separators
-        const stripped = raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
-        const slideIndex = (stripped.match(/^---$/gm) ?? []).length;
+        const cursorLine = update.state.doc.lineAt(update.state.selection.main.head).number;
+        const starts = slideStartLines(update.state.doc.toString());
+        let slideIndex = 0;
+        for (let i = 0; i < starts.length; i++) {
+          if (starts[i] <= cursorLine) slideIndex = i; else break;
+        }
         onCursorSlideRef.current?.(slideIndex);
       }
     });

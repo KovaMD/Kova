@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseDocument, computeNextStep } from '../parser/markdownToSlides';
+import { parseDocument, computeNextStep, slideStartLines } from '../parser/markdownToSlides';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -782,6 +782,35 @@ describe('computeNextStep', () => {
   it('scopes to the containing slide, ignoring markers on other slides', () => {
     const content = doc('## First\n\n- A <!-- step -->\n\n---\n\n## Second\n\n- B');
     expect(computeNextStep(content, 13)).toBe(1);
+  });
+});
+
+describe('slideStartLines', () => {
+  it('matches parseDocument slide count and points at each slide body', () => {
+    const content = '---\ntitle: T\n---\n\n## One\n\n---\n\n## Two\n';
+    const starts = slideStartLines(content);
+    expect(starts).toHaveLength(parseDocument(content).slides.length);
+    expect(content.split('\n')[starts[0] - 1]).toBe('');
+    expect(content.split('\n')[starts[1] - 1]).toBe('');
+  });
+
+  it('ignores --- lines inside a fenced code block', () => {
+    const content = '## One\n\n```mermaid\n---\nconfig: x\n---\nflowchart TD\n```\n\n---\n\n## Two\n';
+    const starts = slideStartLines(content);
+    expect(starts).toHaveLength(2);
+    expect(starts[1]).toBe(11);
+  });
+
+  it('skips empty slides, as parseDocument does', () => {
+    const content = '## One\n\n---\n\n---\n\n## Two\n';
+    const starts = slideStartLines(content);
+    expect(starts).toHaveLength(parseDocument(content).slides.length);
+    expect(starts).toEqual([1, 6]);
+  });
+
+  it('keeps line numbers correct with CRLF line endings', () => {
+    const content = '## One\r\n\r\n---\r\n\r\n## Two\r\n';
+    expect(slideStartLines(content)).toEqual([1, 4]);
   });
 });
 
