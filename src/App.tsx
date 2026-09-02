@@ -1697,6 +1697,36 @@ export default function App() {
     });
   }, [aspectRatio, activeTheme]);
 
+  // Shared by the button (handleExportHtml) and the headless CLI export path
+  // (kova --export html): mounts the same off-screen slide list the PDF
+  // capture uses, waits for it to render, and assembles the self-contained
+  // interactive deck. Returns the HTML string; throws on failure — each
+  // caller reports its own way (a dialog here, stderr for the CLI).
+  const runHtmlExportCapture = useCallback((visSlides: Slide[]): Promise<string> => {
+    pdfSlideRefs.current.clear();
+    pdfSlideReadyCount.current = 0;
+    pdfSlideReadyTotal.current = visSlides.length;
+    return new Promise<string>((resolve, reject) => {
+      pdfExportRunnerRef.current = async () => {
+        try {
+          const elements = Array.from(
+            { length: visSlides.length },
+            (_, i) => pdfSlideRefs.current.get(i),
+          ).filter((el): el is HTMLElement => Boolean(el));
+          resolve(await buildInteractiveDocument(elements, aspectRatio, visSlides));
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error(String(err)));
+        } finally {
+          setPdfExportContext(null);
+          pdfSlideRefs.current.clear();
+          pdfExportRunnerRef.current = null;
+        }
+      };
+      // savePath is unused by the off-screen renderer (it reads .slides only).
+      setPdfExportContext({ slides: visSlides, savePath: '' });
+    });
+  }, [aspectRatio]);
+
   const handleExportPdf = useCallback(async (opts: PdfExportOpts = {}) => {
     if (visibleSlides.length === 0) return;
     // The in-window buttons disable while an export is already in flight, but
@@ -1730,13 +1760,14 @@ export default function App() {
     }
   }, [visibleSlides, filePath, runPdfExportCapture, t, pdfExportContext, printContext]);
 
-  // Cold-start export (kova --export pptx|pdf FILE OUT): the load effect
+  // Cold-start export (kova --export pptx|pdf|html FILE OUT): the load effect
   // above applies --theme and loads the deck; this fires once slides are
   // resolved. PPTX needs no rendered DOM (exportToPptx works from slide data
   // directly); PDF reuses the exact capture path the button uses above,
   // native print against the hidden dedicated print window (export_pdf_native
   // already always creates one, whether launched from the GUI or the CLI)
-  // with the same raster fallback on failure.
+  // with the same raster fallback on failure; HTML reuses the same off-screen
+  // capture as the Export → HTML button.
   const coldExportFiredRef = useRef(false);
   useEffect(() => {
     if (!coldExport || coldExportFiredRef.current || !filePath) return;
@@ -1765,6 +1796,12 @@ export default function App() {
           await finish(lines.join('\n'));
           return;
         }
+        if (coldExport.format === 'html') {
+          const html = await runHtmlExportCapture([...visibleSlides]);
+          await invoke('write_file', { path: coldExport.output, content: html });
+          await finish(`wrote '${coldExport.output}'`);
+          return;
+        }
         // Honour CLI --notes / --per-page / --paper; fall back to settings paper (#187 / #200).
         const paper = (coldExport.paper as 'a4' | 'letter' | 'slide' | null)
           ?? settings.pdfPageSize;
@@ -1787,7 +1824,7 @@ export default function App() {
         await fail(err instanceof Error ? err.message : String(err));
       }
     })();
-  }, [coldExport, filePath, visibleSlides, hasPendingLocalMedia, mediaWaitExpired, frontmatter, activeTheme, settings.locale, settings.pdfPageSize, runPdfExportCapture]);
+  }, [coldExport, filePath, visibleSlides, hasPendingLocalMedia, mediaWaitExpired, frontmatter, activeTheme, settings.locale, settings.pdfPageSize, runPdfExportCapture, runHtmlExportCapture]);
 
   const handleExportHtml = useCallback(async () => {
     if (visibleSlides.length === 0) return;
@@ -1801,33 +1838,14 @@ export default function App() {
     });
     if (!target) return;
     const savePath = target.toLowerCase().endsWith('.html') ? target : `${target}.html`;
-    const visSlides = [...visibleSlides];
-    pdfSlideRefs.current.clear();
-    pdfSlideReadyCount.current = 0;
-    pdfSlideReadyTotal.current = visSlides.length;
-    await new Promise<void>(resolve => {
-      pdfExportRunnerRef.current = async () => {
-        try {
-          const elements = Array.from(
-            { length: visSlides.length },
-            (_, i) => pdfSlideRefs.current.get(i),
-          ).filter((el): el is HTMLElement => Boolean(el));
-
-          const html = await buildInteractiveDocument(elements, aspectRatio, visSlides);
-          await invoke('write_file', { path: savePath, content: html });
-        } catch (err) {
-          console.error('HTML export failed:', err);
-          window.alert(t('app.htmlExportFailed', { error: String(err) }));
-        } finally {
-          setPdfExportContext(null);
-          pdfSlideRefs.current.clear();
-          pdfExportRunnerRef.current = null;
-          resolve();
-        }
-      };
-      setPdfExportContext({ slides: visSlides, savePath });
-    });
-  }, [visibleSlides, filePath, aspectRatio, t, pdfExportContext, printContext]);
+    try {
+      const html = await runHtmlExportCapture([...visibleSlides]);
+      await invoke('write_file', { path: savePath, content: html });
+    } catch (err) {
+      console.error('HTML export failed:', err);
+      window.alert(t('app.htmlExportFailed', { error: String(err) }));
+    }
+  }, [visibleSlides, filePath, runHtmlExportCapture, t, pdfExportContext, printContext]);
 
   const handlePrint = useCallback(async () => {
     if (visibleSlides.length === 0) return;

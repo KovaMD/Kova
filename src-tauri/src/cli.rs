@@ -108,17 +108,19 @@ pub enum ImportFormat {
     Url,
 }
 
-/// Serialises as a bare lowercase string ("pptx"/"pdf") — same reasoning as
-/// `ImportFormat` above.
+/// Serialises as a bare lowercase string ("pptx"/"pdf"/"html") — same
+/// reasoning as `ImportFormat` above.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ExportFormat {
     Pptx,
     Pdf,
+    /// Self-contained interactive HTML deck (the Export → HTML output).
+    Html,
 }
 
 const IMPORT_USAGE: &str = "--import requires: --import <marp|pptx|url> <input> <output>";
-const EXPORT_USAGE: &str = "--export requires: --export <pptx|pdf> <input> <output>";
+const EXPORT_USAGE: &str = "--export requires: --export <pptx|pdf|html> <input> <output>";
 
 const USAGE: &str = "\
 Usage:
@@ -126,7 +128,8 @@ Usage:
   kova --present <FILE.md>                  present FILE directly (.md/.markdown only)
   kova --check <FILE.md>                    validate FILE and exit (.md/.markdown only)
   kova --import <marp|pptx|url> <IN> <OUT>  convert IN to Kova Markdown
-  kova --export <pptx|pdf> <IN> <OUT>       export IN via Kova's engine
+  kova --export <pptx|pdf|html> <IN> <OUT>  export IN via Kova's engine
+                                           (html is a self-contained deck)
 
 Modifiers (combine with an action, any order):
   --theme <NAME|PATH>   override the deck theme for this run; a name is
@@ -315,9 +318,10 @@ pub fn parse_cli_args(args: Vec<String>) -> CliArgs {
                 let format = match format.as_str() {
                     "pptx" => ExportFormat::Pptx,
                     "pdf" => ExportFormat::Pdf,
+                    "html" => ExportFormat::Html,
                     other => {
                         return CliArgs::Error(format!(
-                            "unknown export format '{other}' (expected pptx or pdf)"
+                            "unknown export format '{other}' (expected pptx, pdf, or html)"
                         ))
                     }
                 };
@@ -337,6 +341,7 @@ pub fn parse_cli_args(args: Vec<String>) -> CliArgs {
                 let expected_out = match format {
                     ExportFormat::Pptx => &[".pptx"][..],
                     ExportFormat::Pdf => &[".pdf"][..],
+                    ExportFormat::Html => &[".html"][..],
                 };
                 if !has_extension(&output, expected_out) {
                     return CliArgs::Error(format!(
@@ -502,6 +507,7 @@ fn format_name_export(f: &ExportFormat) -> &'static str {
     match f {
         ExportFormat::Pptx => "pptx",
         ExportFormat::Pdf => "pdf",
+        ExportFormat::Html => "html",
     }
 }
 
@@ -875,6 +881,32 @@ mod tests {
     }
 
     #[test]
+    fn export_html_format_parses() {
+        let run = expect_run(&["--export", "html", "in.md", "out.html"]);
+        assert_eq!(
+            run.action,
+            Some(Action::Export {
+                format: ExportFormat::Html,
+                input: "in.md".into(),
+                output: "out.html".into(),
+            })
+        );
+    }
+
+    #[test]
+    fn export_html_rejects_wrong_output_extension() {
+        let msg = expect_error(&["--export", "html", "in.md", "out.pdf"]);
+        assert!(msg.contains("--export html output must be a .html file"), "{msg}");
+    }
+
+    #[test]
+    fn export_html_rejects_layout_flags() {
+        // --notes / --per-page / --paper are PDF-only; html has no paper model.
+        let msg = expect_error(&["--per-page", "2", "--export", "html", "in.md", "out.html"]);
+        assert!(msg.contains("--notes, --per-page, and --paper require --export pdf"), "{msg}");
+    }
+
+    #[test]
     fn export_pdf_notes_and_layout_flags() {
         let run = expect_run(&[
             "--notes",
@@ -992,7 +1024,7 @@ mod tests {
     fn export_unknown_format() {
         assert_eq!(
             expect_error(&["--export", "docx", "in", "out"]),
-            "unknown export format 'docx' (expected pptx or pdf)"
+            "unknown export format 'docx' (expected pptx, pdf, or html)"
         );
     }
 
