@@ -190,7 +190,7 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
 
       {/* Main content area */}
       <div
-        className="sl-content-area"
+        className={slide.backgroundImage ? 'sl-content-area sl-content-area--bg-image' : 'sl-content-area'}
         style={slide.backgroundImage ? {
           backgroundImage: `url("${slide.backgroundImage.src}")`,
           backgroundSize: slide.backgroundImage.size,
