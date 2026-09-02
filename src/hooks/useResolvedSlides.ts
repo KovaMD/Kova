@@ -1,11 +1,15 @@
-import {invoke} from '@tauri-apps/api/core';
-import {useEffect, useMemo, useRef, useState} from 'react';
-
-import {imageMime} from '../engine/export/imageMime';
-import {videoMime} from '../engine/export/videoMime';
-import {detectLayout} from '../engine/layout/autoLayout';
-import {localPathFromMediaSrc, resolveHtmlSrcs, resolveImageSrc, VIDEO_EXT_RE,} from '../engine/resolveMediaPath';
-import type {ListItem, Slide} from '../engine/types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { detectLayout } from '../engine/layout/autoLayout';
+import { imageMime } from '../engine/export/imageMime';
+import { videoMime } from '../engine/export/videoMime';
+import type { Slide, ListItem } from '../engine/types';
+import {
+  localPathFromMediaSrc,
+  resolveImageSrc,
+  resolveHtmlSrcs,
+  VIDEO_EXT_RE,
+} from '../engine/resolveMediaPath';
 
 // Rewrite image srcs to data: URLs (or asset:// while loading) so Tauri's
 // WebView can load them reliably on all platforms, including Windows/WebView2,
@@ -21,11 +25,10 @@ import type {ListItem, Slide} from '../engine/types';
 // exist (deleted, or shifted out of cache by an insertion) are
 // garbage-collected rather than accumulating for the life of the session.
 export function useResolvedSlides(rawSlides: Slide[], docDir: string): Slide[] {
-  // Load all local images/videos as base64 data URLs via IPC. convertFileSrc /
-  // the asset:// protocol is unreliable on Windows/WebView2, so we bypass it
+  // Load all local images/videos as base64 data URLs via IPC. convertFileSrc / the
+  // asset:// protocol is unreliable on Windows/WebView2, so we bypass it
   // entirely for local media files — the same approach already used for logos.
-  const [localImageUrls, setLocalImageUrls] =
-      useState<Map<string, string>>(() => new Map());
+  const [localImageUrls, setLocalImageUrls] = useState<Map<string, string>>(() => new Map());
   // parseDocument always returns a new *array* reference for rawSlides (even
   // when individual Slide objects are reused), so this effect re-runs on
   // every keystroke, not just when media actually changes. Track the last
@@ -67,46 +70,30 @@ export function useResolvedSlides(rawSlides: Slide[], docDir: string): Slide[] {
 
     const setIfChanged = (next: Map<string, string>) => {
       const prev = resolvedRef.current;
-      const unchanged = next.size === prev.size &&
-          Array.from(next).every(([k, v]) => prev.get(k) === v);
+      const unchanged = next.size === prev.size
+        && Array.from(next).every(([k, v]) => prev.get(k) === v);
       if (unchanged) return;
       resolvedRef.current = next;
       setLocalImageUrls(next);
     };
 
-    if (paths.size === 0) {
-      setIfChanged(new Map());
-      return;
-    }
+    if (paths.size === 0) { setIfChanged(new Map()); return; }
 
     let cancelled = false;
-    Promise
-        .all(Array.from(paths).map(async (path) => {
-          try {
-            const b64 = await invoke<string>('read_file_b64', {path});
-            const mime =
-                VIDEO_EXT_RE.test(path) ? videoMime(path) : imageMime(path);
-            return [path, `data:${mime};base64,${b64}`] as [string, string];
-          } catch (e) {
-            console.error('[Kova] read_file_b64 failed for', path, e);
-            return null;
-          }
-        }))
-        .then((entries) => {
-          if (!cancelled)
-            setIfChanged(new Map(
-                entries.filter((e): e is[string, string] => e !== null)));
-        });
+    Promise.all(Array.from(paths).map(async (path) => {
+      try {
+        const b64 = await invoke<string>('read_file_b64', { path });
+        const mime = VIDEO_EXT_RE.test(path) ? videoMime(path) : imageMime(path);
+        return [path, `data:${mime};base64,${b64}`] as [string, string];
+      } catch (e) { console.error('[Kova] read_file_b64 failed for', path, e); return null; }
+    })).then((entries) => {
+      if (!cancelled) setIfChanged(new Map(entries.filter((e): e is [string, string] => e !== null)));
+    });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [rawSlides, docDir]);
 
-  const resolvedSlidesCacheRef = useRef<{
-    docDir: string; localImageUrls: Map<string, string>;
-    cache: WeakMap<Slide, Slide>
-  }>({
+  const resolvedSlidesCacheRef = useRef<{ docDir: string; localImageUrls: Map<string, string>; cache: WeakMap<Slide, Slide> }>({
     docDir: '',
     localImageUrls: new Map(),
     cache: new WeakMap(),
@@ -114,35 +101,27 @@ export function useResolvedSlides(rawSlides: Slide[], docDir: string): Slide[] {
 
   const slides = useMemo<Slide[]>(() => {
     function resolveItem(item: ListItem): ListItem {
-      return {
-        ...item,
-        html: resolveHtmlSrcs(item.html, docDir, localImageUrls),
-        children: item.children.map(resolveItem)
-      };
+      return { ...item, html: resolveHtmlSrcs(item.html, docDir, localImageUrls), children: item.children.map(resolveItem) };
     }
 
     let cacheHolder = resolvedSlidesCacheRef.current;
-    if (cacheHolder.docDir !== docDir ||
-        cacheHolder.localImageUrls !== localImageUrls) {
-      // docDir or image cache changed — every resolved src would be wrong,
-      // start fresh.
-      cacheHolder = {docDir, localImageUrls, cache: new WeakMap()};
+    if (cacheHolder.docDir !== docDir || cacheHolder.localImageUrls !== localImageUrls) {
+      // docDir or image cache changed — every resolved src would be wrong, start fresh.
+      cacheHolder = { docDir, localImageUrls, cache: new WeakMap() };
       resolvedSlidesCacheRef.current = cacheHolder;
     }
-    const {cache} = cacheHolder;
+    const { cache } = cacheHolder;
 
     // Pre-compute TOC entries from all non-hidden, titled slides. Derived from
-    // rawSlides (titles are identical in raw vs resolved) so it's always
-    // current. TOC slides are excluded from the WeakMap cache below because
-    // their resolved content depends on other slides' titles, not just their
-    // own raw text. Exclude the first non-hidden H1 slide (the cover/title
-    // slide) from the TOC. Subsequent H1 hero slides within the deck are
-    // included.
-    const coverIndex =
-        rawSlides.find((s) => !s.hidden && s.titleLevel === 1)?.index ?? -1;
-    const tocEntries =
-        rawSlides.filter((s) => !s.hidden && s.title && s.index !== coverIndex)
-            .map((s) => ({title: s.title, index: s.index}));
+    // rawSlides (titles are identical in raw vs resolved) so it's always current.
+    // TOC slides are excluded from the WeakMap cache below because their resolved
+    // content depends on other slides' titles, not just their own raw text.
+    // Exclude the first non-hidden H1 slide (the cover/title slide) from the TOC.
+    // Subsequent H1 hero slides within the deck are included.
+    const coverIndex = rawSlides.find((s) => !s.hidden && s.titleLevel === 1)?.index ?? -1;
+    const tocEntries = rawSlides
+      .filter((s) => !s.hidden && s.title && s.index !== coverIndex)
+      .map((s) => ({ title: s.title, index: s.index }));
 
     return rawSlides.map((slide) => {
       const hasToc = slide.elements.some((e) => e.type === 'toc');
@@ -151,39 +130,26 @@ export function useResolvedSlides(rawSlides: Slide[], docDir: string): Slide[] {
         if (cached) return cached;
       }
       const resolvedElements = slide.elements.map((el) => {
-        if (el.type === 'image' || el.type === 'video')
-          return {...el, src: resolveImageSrc(el.src, docDir, localImageUrls)};
-        if (el.type === 'paragraph')
-          return {
-            ...el,
-            html: resolveHtmlSrcs(el.html, docDir, localImageUrls)
-          };
-        if (el.type === 'list')
-          return {...el, items: el.items.map(resolveItem)};
-        if (el.type === 'toc')
-          return {
-            ...el,
-            entries: tocEntries.filter((e) => e.index !== slide.index)
-          };
+        if (el.type === 'image' || el.type === 'video') return { ...el, src: resolveImageSrc(el.src, docDir, localImageUrls) };
+        if (el.type === 'paragraph') return { ...el, html: resolveHtmlSrcs(el.html, docDir, localImageUrls) };
+        if (el.type === 'list')      return { ...el, items: el.items.map(resolveItem) };
+        if (el.type === 'toc')       return { ...el, entries: tocEntries.filter((e) => e.index !== slide.index) };
         return el;
       });
       // detectLayout ran at parse time against a placeholder toc with zero
       // entries (the real slide titles aren't known until this pass), so a
       // long toc never tripped the two-column overflow guard. Re-run it now
       // that entries are populated, unless the user pinned an explicit layout.
-      const layout = hasToc && !slide.layoutOverride ?
-          detectLayout(resolvedElements, slide.titleLevel, !!slide.title) :
-          slide.layout;
+      const layout = hasToc && !slide.layoutOverride
+        ? detectLayout(resolvedElements, slide.titleLevel, !!slide.title)
+        : slide.layout;
       const resolved: Slide = {
         ...slide,
         elements: resolvedElements,
         layout,
-        backgroundImage: slide.backgroundImage ? {
-          ...slide.backgroundImage,
-          src:
-              resolveImageSrc(slide.backgroundImage.src, docDir, localImageUrls)
-        } :
-                                                 undefined,
+        backgroundImage: slide.backgroundImage
+          ? { ...slide.backgroundImage, src: resolveImageSrc(slide.backgroundImage.src, docDir, localImageUrls) }
+          : undefined,
       };
       if (!hasToc) cache.set(slide, resolved);
       return resolved;
