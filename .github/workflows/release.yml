@@ -28,13 +28,17 @@ jobs:
           cat > /tmp/release-notes.md << 'NOTES'
           ## What's new
 
+          ### New features
+          - **`kova --export html`** now writes a self-contained interactive HTML deck straight from the command line, alongside the existing `pptx` and `pdf` export formats (requested by @Ayush7614, #220, #242).
+          - **Progress bars work inside tables.** A `!progress[label](value)` directive can now sit in a Markdown table cell, including a computed `!sheet` cell driven by a formula such as `!progress[Done](=sum(total))` (contributed by @florian-hubertSE, #240).
+
           ### Bug fixes
-          - **Fixed** several PPTX export bugs in progressive-reveal animations found through real-world testing in PowerPoint/Impress — stepped tables and images now animate correctly, and a code block or callout sharing a grid cell no longer loses its animation entirely.
-          - **Fixed** display math (LaTeX formulas) sometimes exporting as a blank, unreadable image on Linux with no warning; now falls back to plain text if rendering fails.
-          - Selecting multiple lines and toggling "Reveal on click" now applies to the whole selection instead of just the line under the cursor, and gained a Cmd/Ctrl+Shift+R shortcut.
-          - **Fixed** Gantt diagrams rendering at wildly inconsistent scales depending on which window they rendered in — editor preview, presenter view, and PDF/PPTX export now all match (reported by @a1880, #195).
-          - **Fixed** several missing and incorrect German translation strings across the Settings panel (reported by @a1880, #231, #223).
-          - **Fixed** windowed presenter view and "always on top" not taking effect on Windows (reported by @a1880, #232).
+          - **Fixed** Gantt charts still collapsing to an unreadable sliver when every task sits in the past or future. Mermaid draws its "today" marker at the real current date, far off-canvas, and the viewBox auto-fit was pulling it into frame (reported by @a1880, #195).
+          - **Fixed** the Nix flake building a broken package that opened to a blank window reading "Could not connect to localhost" (contributed by @vadika, reported by @felix-seifert, #233, #237).
+          - **Fixed** `kova --export pdf` on Windows dropping images and diagrams that use a relative path (contributed by @florian-hubertSE, #235).
+          - **Fixed** a full-slide `![bg]` background image being painted over, and hidden, on a bare title or section slide (contributed by @florian-hubertSE, #236).
+          - **Fixed** dense tables overrunning the bottom of the slide when exported to PPTX; they now scale down to fit their area the way the live preview does (#238).
+          - **Fixed** the editor's cursor-to-slide tracking drifting out of alignment when a `---` line appears inside a fenced code block, such as a Mermaid config block (contributed by @florian-hubertSE, #239).
 
           ### Known issues
           - **Windows Defender may flag Kova as `Trojan:Win32/Wacatac.C!ml`** during install or update — this is a false positive from Microsoft's heuristic/ML detection, not an actual threat (reported in #224). It's tied to Windows builds still being **test-signed** rather than production-signed; we're in the process of moving to full production signing via [SignPath](https://signpath.io). We'll drop this note once production signing is live.
