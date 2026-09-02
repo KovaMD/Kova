@@ -12,6 +12,10 @@ import { SlideLayout } from './layouts';
 
 mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'strict' });
 
+// Longer than queuedMermaidRender's own per-diagram timeout (mermaidRenderQueue.ts)
+// so a diagram still genuinely in flight gets its full chance to finish first.
+const MERMAID_READY_TIMEOUT_MS = 20_000;
+
 // Header/footer text. A `|` in the *theme template* splits it into left | center | right
 // parts (issue #30). Segments are pre-split from the template before variable resolution
 // so a doc title containing `|` (e.g. "Costs | Benefits") is never treated as a separator.
@@ -71,23 +75,40 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
   const diagramReadyCount = useRef(0);
   const onAllDiagramsReadyRef = useRef(onAllDiagramsReady);
   useEffect(() => { onAllDiagramsReadyRef.current = onAllDiagramsReady; });
+  // Guards every path below that can call onAllDiagramsReady (threshold reached,
+  // zero-diagram fast path, timeout fallback) so a slide only ever signals once.
+  const allDiagramsSignalledRef = useRef(false);
+  const signalAllDiagramsReady = useCallback(() => {
+    if (allDiagramsSignalledRef.current) return;
+    allDiagramsSignalledRef.current = true;
+    onAllDiagramsReadyRef.current?.();
+  }, []);
   const onDiagramReady = useCallback(() => {
     diagramReadyCount.current += 1;
-    if (diagramReadyCount.current >= mermaidCount) onAllDiagramsReadyRef.current?.();
-  }, [mermaidCount]);
+    if (diagramReadyCount.current >= mermaidCount) signalAllDiagramsReady();
+  }, [mermaidCount, signalAllDiagramsReady]);
   // No cleanup to undo this signal, so StrictMode's dev-only mount→cleanup→
   // mount cycle would otherwise call onAllDiagramsReady twice per slide —
   // overshooting the export's total ready count before slides with actual
   // Mermaid diagrams (whose own signal is properly deduped, see MermaidDiagram)
   // ever finish rendering, so the capture fires too early. Guard with a ref
   // so only the first invocation counts.
-  const zeroDiagramSignalledRef = useRef(false);
   useEffect(() => {
-    if (onAllDiagramsReady && mermaidCount === 0 && !zeroDiagramSignalledRef.current) {
-      zeroDiagramSignalledRef.current = true;
-      onAllDiagramsReady();
-    }
-  }, [onAllDiagramsReady, mermaidCount]);
+    if (onAllDiagramsReady && mermaidCount === 0) signalAllDiagramsReady();
+  }, [onAllDiagramsReady, mermaidCount, signalAllDiagramsReady]);
+  // Bounded wait: a diagram whose render is cancelled before it ever caches an
+  // SVG (see MermaidDiagram's cleanup) doesn't advance the ready count, and
+  // relies on a later render of the same diagram to finish and signal instead
+  // — if that never happens (e.g. a broken diagram whose replacement render
+  // also keeps getting cancelled), this slide would otherwise block the export
+  // forever. Force readiness after a timeout comfortably longer than
+  // queuedMermaidRender's own per-diagram timeout, so a diagram that's still
+  // genuinely in flight gets its full chance to finish first.
+  useEffect(() => {
+    if (!onAllDiagramsReady || mermaidCount === 0) return;
+    const timer = setTimeout(signalAllDiagramsReady, MERMAID_READY_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [onAllDiagramsReady, mermaidCount, signalAllDiagramsReady]);
 
   const templateVars = { title: docTitle, author: docAuthor, date: docDate, slideNumber, totalSlides };
   const headerSegs = theme.header.show

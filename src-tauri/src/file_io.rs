@@ -42,9 +42,7 @@ pub fn safe_read_path(path: &str) -> Result<PathBuf, String> {
         .map_err(|e| format!("Failed to read file: {e}"))?;
     check_in_home(&canonical)?;
     Ok(canonical)
-}
-
-// For writes the file may not exist yet; canonicalize the parent instead.
+}// For writes the file may not exist yet; canonicalize the parent instead.
 pub fn safe_write_path(path: &str) -> Result<PathBuf, String> {
     let p = Path::new(path);
     let parent = p.parent().ok_or_else(|| "Invalid path: no parent directory".to_string())?;
@@ -54,6 +52,30 @@ pub fn safe_write_path(path: &str) -> Result<PathBuf, String> {
     let resolved = canonical_parent.join(filename);
     check_in_home(&resolved)?;
     Ok(resolved)
+}
+
+/// `std::fs::canonicalize` on Windows returns the `\\?\` extended-length
+/// ("verbatim") prefix form (and `\\?\UNC\host\share` for UNC paths), which
+/// several downstream consumers of a canonicalised path don't expect: the
+/// frontend derives a document directory from it with plain string
+/// splitting (see resolvePath.ts) and mistakes the literal `?` for the start
+/// of a URL query string, and Explorer's `/select` doesn't recognise the
+/// prefix either. Strips it back to the ordinary `C:\...` /
+/// `\\host\share\...` form other platforms already return.
+#[cfg(windows)]
+pub fn strip_verbatim_prefix(path: String) -> String {
+    if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else if let Some(rest) = path.strip_prefix(r"\\?\") {
+        rest.to_string()
+    } else {
+        path
+    }
+}
+
+#[cfg(not(windows))]
+pub fn strip_verbatim_prefix(path: String) -> String {
+    path
 }
 
 pub fn read(path: &str) -> Result<String, String> {

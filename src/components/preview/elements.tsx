@@ -522,7 +522,8 @@ export function MermaidDiagram({ value, caption }: { value: string; caption?: st
     // is the diagram's first-ever render, nothing is cached yet, and signalling
     // ready here would let an export snapshot the DOM before the replacement
     // render (already in flight) has a chance to actually commit an SVG —
-    // the replacement render's own completion is what will signal readiness.
+    // the replacement render's own completion (or SlideRenderer's timeout
+    // fallback) is what will signal readiness instead.
     return () => {
       cancelled = true;
       pendingSignalRef.current = null;

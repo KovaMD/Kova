@@ -158,8 +158,7 @@ pub fn show_in_file_manager(path: String) -> Result<(), String> {
         if is_file {
             // Strip the \\?\ extended-length prefix that canonicalize adds on Windows
             // — Explorer /select does not recognise UNC-prefixed paths.
-            let path_str = canonical.to_string_lossy();
-            let clean = path_str.strip_prefix(r"\\?\").unwrap_or(&path_str);
+            let clean = file_io::strip_verbatim_prefix(canonical.to_string_lossy().into_owned());
             cmd.arg(format!("/select,\"{}\"", clean));
         } else {
             cmd.arg(&canonical);
