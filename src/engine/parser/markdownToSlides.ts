@@ -59,6 +59,45 @@ export function splitIntoRawSlides(body: string): string[] {
   return slides;
 }
 
+/**
+ * 1-based line numbers of the first body line of every slide parseDocument
+ * would produce, for the raw (un-normalised) editor content. The editor uses
+ * this to map cursor position ↔ slide index; it must apply exactly the same
+ * fenced-code and empty-slide rules as parseDocument, otherwise a '---' inside
+ * a fenced block (e.g. a mermaid front-matter config) shifts the mapping.
+ */
+export function slideStartLines(rawContent: string): number[] {
+  // \r\n → \n is 1:1 per line, so line numbers are unaffected by normalising.
+  const normalised = rawContent.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const { body } = extractFrontmatter(normalised);
+  const frontmatterLineCount = normalised.slice(0, normalised.length - body.length).split('\n').length - 1;
+
+  const starts: number[] = [];
+  const lines = body.split('\n');
+  let inFencedCode = false;
+  let segmentStart = 0;
+  let segment: string[] = [];
+
+  const flush = () => {
+    if (segment.join('\n').trim()) starts.push(frontmatterLineCount + segmentStart + 1);
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (/^(`{3,}|~{3,})/.test(t)) inFencedCode = !inFencedCode;
+    if (!inFencedCode && t === '---') {
+      flush();
+      segment = [];
+      segmentStart = i + 1;
+      continue;
+    }
+    segment.push(lines[i]);
+  }
+  flush();
+
+  return starts;
+}
+
 // A step-marker occurrence found anywhere on a line — unanchored, so it
 // matches both the trailing-inline form and the own-line-after form alike;
 // this only needs to *find* markers in document order, not validate their
