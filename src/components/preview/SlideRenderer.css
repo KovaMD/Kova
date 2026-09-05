@@ -407,7 +407,10 @@
   flex-direction: column;
   align-items: var(--sl-title-ax, center);
   justify-content: var(--sl-title-ay, center);
-  background-color: var(--sl-primary);
+  /* Section dividers get their own theme colour (colors.section_bg), which
+     falls back to the brand primary if a custom theme omits it. PPTX export
+     already paints section_bg — keep the in-app preview in step. */
+  background-color: var(--sl-section-bg, var(--sl-primary));
   background-image: var(--sl-deco-img, none);
   background-size: var(--sl-deco-size, auto);
   padding: 8% 10% var(--sl-title-pb, 8%) 10%;
