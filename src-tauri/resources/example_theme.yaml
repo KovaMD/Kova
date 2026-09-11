@@ -9,6 +9,12 @@
 
 name: My Custom Theme
 
+# By default a custom theme inherits any property you don't set from the
+# built-in light theme. Set `extends` to inherit from a different theme
+# instead — a built-in id (light, dark, ...) or another installed custom
+# theme's filename (without .yaml).
+# extends: dark
+
 colors:
   primary:    "#1B3A5C"   # title/section slide background, strong accents
   accent:     "#2563EB"   # links, highlights, progress bars
@@ -35,7 +41,9 @@ footer:
   show:              false
   text:              "{title} — {slide_number} / {total}"
   show_slide_number: true
+  # hide_on_title:   true   # suppress just on the title slide
 
 header:
   show: false
   text: ""
+  # hide_on_title: true   # suppress just on the title slide

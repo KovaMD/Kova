@@ -3,6 +3,7 @@ import {
   themeToVars,
   resolveTemplate,
   parseThemeYaml,
+  resolveCustomThemeLibrary,
   hexToHsl,
   hslToHex,
   isLightHex,
@@ -460,6 +461,125 @@ footer:
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.theme.logo).toBeUndefined();
+  });
+
+  // Issue #249 — a theme's `extends:` names another theme to inherit
+  // unspecified properties from, instead of always the built-in light theme.
+  it('inherits colors from a built-in theme named by extends', () => {
+    const result = parseThemeYaml('my-dark-variant', 'name: My Dark Variant\nextends: dark\n');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.theme.colors.primary).toBe('#111827'); // dark theme's primary
+  });
+
+  it('falls back to the light theme when extends names an unknown theme', () => {
+    const result = parseThemeYaml('my-theme', 'name: My Theme\nextends: does-not-exist\n');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.theme.colors.primary).toBe(DEFAULT_THEME.colors.primary);
+  });
+});
+
+// ── resolveCustomThemeLibrary (issue #249: extends across a batch) ─────────────
+
+describe('resolveCustomThemeLibrary', () => {
+  it('resolves entries with no extends exactly like parseThemeYaml', () => {
+    const { results, warnings } = resolveCustomThemeLibrary([
+      ['plain', 'name: Plain\ncolors:\n  primary: "#123456"\n'],
+    ]);
+    expect(warnings).toEqual([]);
+    expect(results[0].ok).toBe(true);
+    if (!results[0].ok) return;
+    expect(results[0].theme.colors.primary).toBe('#123456');
+    expect(results[0].theme.colors.text).toBe(DEFAULT_THEME.colors.text);
+  });
+
+  it('resolves extends against another theme in the same batch', () => {
+    const { results, warnings } = resolveCustomThemeLibrary([
+      ['base-theme', 'name: Base\ncolors:\n  primary: "#ABCDEF"\n'],
+      ['child-theme', 'name: Child\nextends: base-theme\n'],
+    ]);
+    expect(warnings).toEqual([]);
+    const child = results[1];
+    expect(child.ok).toBe(true);
+    if (!child.ok) return;
+    expect(child.theme.colors.primary).toBe('#ABCDEF');
+  });
+
+  it('resolves a transitive extends chain (child -> middle -> built-in)', () => {
+    const { results, warnings } = resolveCustomThemeLibrary([
+      ['middle-theme', 'name: Middle\nextends: dark\n'],
+      ['child-theme', 'name: Child\nextends: middle-theme\n'],
+    ]);
+    expect(warnings).toEqual([]);
+    const child = results[1];
+    expect(child.ok).toBe(true);
+    if (!child.ok) return;
+    expect(child.theme.colors.primary).toBe('#111827'); // inherited via middle-theme
+  });
+
+  it('order of entries does not matter for extends resolution', () => {
+    const { results, warnings } = resolveCustomThemeLibrary([
+      ['child-theme', 'name: Child\nextends: base-theme\n'],
+      ['base-theme', 'name: Base\ncolors:\n  primary: "#ABCDEF"\n'],
+    ]);
+    expect(warnings).toEqual([]);
+    const child = results[0];
+    expect(child.ok).toBe(true);
+    if (!child.ok) return;
+    expect(child.theme.colors.primary).toBe('#ABCDEF');
+  });
+
+  it('falls back to the default theme and warns when extends names an unknown theme', () => {
+    const { results, warnings } = resolveCustomThemeLibrary([
+      ['orphan', 'name: Orphan\nextends: nope\n'],
+    ]);
+    expect(results[0].ok).toBe(true);
+    if (!results[0].ok) return;
+    expect(results[0].theme.colors.primary).toBe(DEFAULT_THEME.colors.primary);
+    expect(warnings.length).toBe(1);
+    expect(warnings[0]).toContain('orphan');
+    expect(warnings[0]).toContain('nope');
+  });
+
+  it('falls back to the default theme and warns on a two-theme extends cycle', () => {
+    const { results, warnings } = resolveCustomThemeLibrary([
+      ['theme-a', 'name: A\nextends: theme-b\ncolors:\n  primary: "#111111"\n'],
+      ['theme-b', 'name: B\nextends: theme-a\ncolors:\n  primary: "#222222"\n'],
+    ]);
+    expect(results[0].ok).toBe(true);
+    expect(results[1].ok).toBe(true);
+    if (!results[0].ok || !results[1].ok) return;
+    // Each theme's own colors still apply — only the *inherited* base falls
+    // back to light, it isn't a total parse failure.
+    expect(results[0].theme.colors.primary).toBe('#111111');
+    expect(results[1].theme.colors.primary).toBe('#222222');
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings.some((w) => w.includes('circular'))).toBe(true);
+  });
+
+  it('falls back to the default theme and warns when a theme extends itself', () => {
+    const { results, warnings } = resolveCustomThemeLibrary([
+      ['self-theme', 'name: Self\nextends: self-theme\n'],
+    ]);
+    expect(results[0].ok).toBe(true);
+    if (!results[0].ok) return;
+    expect(results[0].theme.colors.primary).toBe(DEFAULT_THEME.colors.primary);
+    expect(warnings.some((w) => w.includes('circular'))).toBe(true);
+  });
+
+  it('does not let a custom theme id shadow a same-named built-in for extends resolution', () => {
+    // A custom theme filename could collide with a built-in id (e.g. "dark.yaml").
+    // extends: should still resolve to the *built-in*, not create self-reference.
+    const { results, warnings } = resolveCustomThemeLibrary([
+      ['dark', 'name: My Dark\nextends: dark\ncolors:\n  accent: "#FF00FF"\n'],
+    ]);
+    expect(warnings).toEqual([]);
+    expect(results[0].ok).toBe(true);
+    if (!results[0].ok) return;
+    const builtInDark = BUILT_IN_THEMES.find((t) => t.id === 'dark')!;
+    expect(results[0].theme.colors.primary).toBe(builtInDark.colors.primary);
+    expect(results[0].theme.colors.accent).toBe('#FF00FF');
   });
 });
 

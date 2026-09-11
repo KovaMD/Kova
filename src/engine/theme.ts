@@ -613,19 +613,97 @@ export function sanitiseThemeOverrides(raw: Record<string, unknown>): ThemeOverr
 
 export type ThemeParseResult = { ok: true; theme: Theme } | { ok: false; error: string };
 
+/** Parse a theme YAML string into a raw object, without normalising it. */
+function parseThemeRaw(content: string): { ok: true; raw: Record<string, unknown> } | { ok: false; error: string } {
+  try {
+    const raw = yaml.load(content, { schema: yaml.CORE_SCHEMA, json: true }) as Record<string, unknown>;
+    return { ok: true, raw: raw ?? {} };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** A raw `extends:` value resolved against the built-in themes only (a single
+ *  theme parsed in isolation has no other custom themes to extend from). */
+function resolveExtendsBase(rawExtends: unknown): Theme {
+  if (typeof rawExtends === 'string') {
+    const found = BUILT_IN_THEMES.find((t) => t.id === rawExtends);
+    if (found) return found;
+  }
+  return DEFAULT_THEME;
+}
+
 /**
  * Parse a custom theme from YAML content (uses the same js-yaml already
  * installed). `baseDir`, when given, is the theme file's own directory —
  * used to resolve a relative `logo:` path (issue #250) so a self-contained
  * theme folder (theme.yaml + logo.png) keeps working if the folder is moved.
+ * `base`, when given, overrides the theme's own `extends:` — used by
+ * `resolveCustomThemeLibrary` to resolve `extends:` against a whole batch of
+ * themes rather than just the built-ins.
  */
-export function parseThemeYaml(id: string, content: string, baseDir?: string): ThemeParseResult {
-  try {
-    const raw = yaml.load(content, { schema: yaml.CORE_SCHEMA, json: true }) as Record<string, unknown>;
-    return { ok: true, theme: normaliseTheme(id, raw, baseDir) };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+export function parseThemeYaml(id: string, content: string, baseDir?: string, base?: Theme): ThemeParseResult {
+  const parsed = parseThemeRaw(content);
+  if (!parsed.ok) return parsed;
+  return { ok: true, theme: normaliseTheme(id, parsed.raw, baseDir, base ?? resolveExtendsBase(parsed.raw.extends)) };
+}
+
+/**
+ * Resolve a batch of custom theme YAML files together, so one theme's
+ * `extends:` can name another theme in the same batch — not just a built-in
+ * (issue #249). Falls back to the default (light) theme for any entry whose
+ * `extends:` names an unknown theme, a theme that failed to parse, or forms a
+ * cycle (directly or transitively extending itself) — surfaced as a warning
+ * rather than failing the whole batch.
+ */
+export function resolveCustomThemeLibrary(
+  entries: Array<[string, string]>,
+  baseDir?: string,
+): { results: ThemeParseResult[]; warnings: string[] } {
+  const parsedById = new Map(entries.map(([id, content]) => [id, parseThemeRaw(content)] as const));
+  const resolved = new Map<string, Theme>();
+  const resolving = new Set<string>();
+  const warnings: string[] = [];
+
+  function resolveOne(id: string, raw: Record<string, unknown>): Theme {
+    resolving.add(id);
+    const extendsId = typeof raw.extends === 'string' ? raw.extends : undefined;
+    const base = resolveBase(id, extendsId);
+    const theme = normaliseTheme(id, raw, baseDir, base);
+    resolving.delete(id);
+    resolved.set(id, theme);
+    return theme;
   }
+
+  function resolveBase(forId: string, extendsId: string | undefined): Theme {
+    if (!extendsId) return DEFAULT_THEME;
+    const builtIn = BUILT_IN_THEMES.find((t) => t.id === extendsId);
+    if (builtIn) return builtIn;
+    if (resolved.has(extendsId)) return resolved.get(extendsId)!;
+    if (resolving.has(extendsId)) {
+      warnings.push(`Theme '${forId}' has a circular extends chain via '${extendsId}' — using the default theme instead.`);
+      return DEFAULT_THEME;
+    }
+    const target = parsedById.get(extendsId);
+    if (!target) {
+      warnings.push(`Theme '${forId}' extends unknown theme '${extendsId}' — using the default theme instead.`);
+      return DEFAULT_THEME;
+    }
+    if (!target.ok) {
+      warnings.push(`Theme '${forId}' extends '${extendsId}', which failed to parse — using the default theme instead.`);
+      return DEFAULT_THEME;
+    }
+    return resolveOne(extendsId, target.raw);
+  }
+
+  const results: ThemeParseResult[] = entries.map(([id]) => {
+    const parsed = parsedById.get(id)!;
+    if (!parsed.ok) return parsed;
+    if (resolved.has(id)) return { ok: true, theme: resolved.get(id)! };
+    return { ok: true, theme: resolveOne(id, parsed.raw) };
+  });
+
+  return { results, warnings };
 }
 
 // Rejects any string that contains characters capable of escaping a CSS property
@@ -690,8 +768,7 @@ function resolveThemeLogo(rawLogo: unknown, baseDir?: string): string | undefine
   return `${trimmedBase}/${cleanRelative}`;
 }
 
-function normaliseTheme(id: string, raw: Record<string, unknown>, baseDir?: string): Theme {
-  const base = DEFAULT_THEME;
+function normaliseTheme(id: string, raw: Record<string, unknown>, baseDir: string | undefined, base: Theme): Theme {
   const colors = (raw.colors as Partial<ThemeColors>) ?? {};
   const fonts = (raw.fonts as Partial<ThemeFonts>) ?? {};
   const layout = (raw.layout as Partial<ThemeLayout>) ?? {};

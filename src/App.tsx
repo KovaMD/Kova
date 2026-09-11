@@ -46,7 +46,7 @@ import { exportToPptx } from './engine/export/exportPptx';
 import { exportToPdf, printPresentation } from './engine/export/exportPdf';
 import { exportPdfNative, buildInteractiveDocument, type PdfExportOpts } from './engine/export/exportPdfNative';
 import { SlideRenderer } from './components/preview/SlideRenderer';
-import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml, sanitiseThemeOverrides, type ThemeParseResult, type ThemeOverridePatch } from './engine/theme';
+import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml, resolveCustomThemeLibrary, sanitiseThemeOverrides, type ThemeParseResult, type ThemeOverridePatch } from './engine/theme';
 import { registerBundledFonts, registerCachedFont } from './engine/bundledFonts';
 import type { Slide, ListItem, Frontmatter } from './engine/types';
 import { parseAspectRatio } from './engine/types';
@@ -128,9 +128,12 @@ async function resolveCliTheme(arg: CliThemeArg): Promise<Theme | null> {
   if (builtIn) return builtIn;
   try {
     const [dir, entries] = await invoke<[string, Array<[string, string]>]>('load_custom_themes');
-    for (const [id, yaml] of entries) {
-      if (id !== arg.name) continue;
-      const parsed = parseThemeYaml(id, yaml, dir);
+    const idx = entries.findIndex(([id]) => id === arg.name);
+    if (idx !== -1) {
+      // Resolve the whole installed library together so extends: can target
+      // another installed theme, not just a built-in (issue #249).
+      const { results } = resolveCustomThemeLibrary(entries, dir);
+      const parsed = results[idx];
       if (parsed.ok) return parsed.theme;
       return fail(`invalid theme '${arg.name}': ${parsed.error}`);
     }
@@ -632,7 +635,9 @@ export default function App() {
   const reloadCustomThemes = useCallback(() => {
     invoke<[string, Array<[string, string]>]>('load_custom_themes')
       .then(([dir, entries]) => {
-        const results: ThemeParseResult[] = entries.map(([id, yaml]) => parseThemeYaml(id, yaml, dir));
+        // Resolved together (not entry-by-entry) so extends: can target
+        // another installed theme, not just a built-in (issue #249).
+        const { results, warnings } = resolveCustomThemeLibrary(entries, dir);
         const custom = results.filter((r): r is Extract<ThemeParseResult, { ok: true }> => r.ok).map((r) => r.theme);
         const errors = results.filter((r): r is Extract<ThemeParseResult, { ok: false }> => !r.ok).map((r) => r.error);
         setAllThemes(() => {
@@ -642,7 +647,8 @@ export default function App() {
           const cliTheme = cliThemeRef.current;
           return cliTheme && !base.some((t) => t.id === cliTheme.id) ? [...base, cliTheme] : base;
         });
-        if (errors.length > 0) setWarnMessage(`Theme parse error:\n${errors.join('\n')}`);
+        const messages = [...errors, ...warnings];
+        if (messages.length > 0) setWarnMessage(`Theme issue:\n${messages.join('\n')}`);
       })
       .catch(() => {});
   }, []);
