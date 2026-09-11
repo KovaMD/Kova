@@ -7,6 +7,20 @@ import type { Translator } from '../../i18n';
 import { isMac } from '../../engine/keybindings';
 import { encodeMarkdownPath } from './mediaSnippet';
 
+// A whole-string URL match (not "contains a URL somewhere") — pasting text
+// that merely mentions a URL alongside other words should still just replace
+// the selection normally; only pasting nothing but a bare URL over marked
+// text turns it into a link (issue #247), matching GitHub's own paste-to-
+// linkify behaviour: https://github.blog/changelog/2021-11-10-linkify-selected-text-on-url-paste/
+const BARE_URL_RE = /^https?:\/\/\S+$/;
+
+/** Exported for testing — the rest of this file is DOM/CodeMirror plumbing
+ *  around this one decision (linkify vs. plain-replace). */
+export function pastedUrl(text: string): string | null {
+  const trimmed = text.trim();
+  return BARE_URL_RE.test(trimmed) ? trimmed : null;
+}
+
 interface UseMediaPasteParams {
   containerRef: RefObject<HTMLDivElement | null>;
   viewRef: RefObject<EditorView | null>;
@@ -33,7 +47,26 @@ export function useMediaPaste({ containerRef, viewRef, filePathRef, onWarnRef, t
         const items = e.clipboardData?.items;
         if (!items) return;
         const mediaItem = Array.from(items).find((item) => item.type.startsWith('image/') || item.type.startsWith('video/'));
-        if (!mediaItem) return; // no media — let CodeMirror handle text paste natively
+        if (!mediaItem) {
+          // No media — turn "paste a bare URL over selected text" into a
+          // markdown link (issue #247) before falling through to let
+          // CodeMirror handle a plain text paste natively.
+          const view = viewRef.current;
+          const sel = view?.state.selection.main;
+          if (view && sel && sel.from !== sel.to) {
+            const url = pastedUrl(e.clipboardData?.getData('text/plain') ?? '');
+            if (url) {
+              e.preventDefault();
+              const snippet = `[${view.state.sliceDoc(sel.from, sel.to)}](${url})`;
+              view.dispatch({
+                changes: { from: sel.from, to: sel.to, insert: snippet },
+                selection: EditorSelection.cursor(sel.from + snippet.length),
+              });
+              view.focus();
+            }
+          }
+          return;
+        }
         e.preventDefault();
         const blob = mediaItem.getAsFile();
         if (!blob) return;
@@ -174,6 +207,22 @@ export function useMediaPaste({ containerRef, viewRef, filePathRef, onWarnRef, t
         // the correct cursor position; otherwise the dispatch is silently
         // rejected when the cursor would land past the end of the new document.
         const normalised = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+        // Pasting a bare URL over selected text turns it into a markdown
+        // link instead of overwriting the selection (issue #247).
+        if (selection.from !== selection.to) {
+          const url = pastedUrl(normalised);
+          if (url) {
+            const snippet = `[${view.state.sliceDoc(selection.from, selection.to)}](${url})`;
+            view.dispatch({
+              changes: { from: selection.from, to: selection.to, insert: snippet },
+              selection: EditorSelection.cursor(selection.from + snippet.length),
+            });
+            view.focus();
+            return;
+          }
+        }
+
         view.dispatch({
           changes: { from: selection.from, to: selection.to, insert: normalised },
           selection: EditorSelection.cursor(selection.from + normalised.length),
