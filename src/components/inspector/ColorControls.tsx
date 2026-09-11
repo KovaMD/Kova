@@ -6,6 +6,7 @@ import type { MessageKey } from '../../i18n';
 
 interface Props {
   colors: ThemeColors;
+  overriddenKeys?: ReadonlySet<string>;
   onChange: (key: keyof ThemeColors, value: string) => void;
   onChartColorChange: (index: number, value: string) => void;
   onChartPaletteReset: () => void;
@@ -38,7 +39,7 @@ const hexLabelStyle: React.CSSProperties = {
   fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace', width: 52,
 };
 
-export function ColorControls({ colors, onChange, onChartColorChange, onChartPaletteReset }: Props) {
+export function ColorControls({ colors, overriddenKeys, onChange, onChartColorChange, onChartPaletteReset }: Props) {
   const t = useT();
   const [chartOpen, setChartOpen] = useState(false);
 
@@ -53,13 +54,17 @@ export function ColorControls({ colors, onChange, onChartColorChange, onChartPal
       {COLOR_FIELDS.map(({ key, labelKey, fallbackKey }) => {
         const value = (colors[key] as string | undefined)
           ?? (fallbackKey ? (colors[fallbackKey] as string) : '#000000');
+        const isOverridden = overriddenKeys?.has(key) ?? false;
         return (
           <div key={key} style={colorRowStyle}>
             <label
               htmlFor={`color-${key}`}
-              style={{ fontSize: 11, color: 'var(--text-label)', flex: 1, cursor: 'pointer' }}
+              style={{ fontSize: 11, color: 'var(--text-label)', flex: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
             >
               {t(labelKey)}
+              {isOverridden && (
+                <span title={t('inspector.overriddenHint')} style={{ color: 'var(--accent)', fontSize: 8, lineHeight: 1 }}>●</span>
+              )}
             </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <input

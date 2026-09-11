@@ -6,6 +6,7 @@ import { useT } from '../../i18n';
 
 interface Props {
   fonts: ThemeFonts;
+  overriddenKeys?: ReadonlySet<string>;
   onChange: (key: keyof ThemeFonts, value: string) => void;
 }
 
@@ -162,7 +163,7 @@ function FontSelect({ value, groups, onChange }: {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function FontControls({ fonts, onChange }: Props) {
+export function FontControls({ fonts, overriddenKeys, onChange }: Props) {
   const t = useT();
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
 
@@ -199,11 +200,15 @@ export function FontControls({ fonts, onChange }: Props) {
         const unresolved = Boolean(current)
           && !curatedValues.has(current)
           && !isFontStackSatisfied(current, systemFonts);
+        const isOverridden = overriddenKeys?.has(key) ?? false;
 
         return (
           <div key={key}>
             <label style={{ fontSize: 11, color: 'var(--text-label)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
               {t(labelKey)}
+              {isOverridden && (
+                <span title={t('inspector.overriddenHint')} style={{ color: 'var(--accent)', fontSize: 8, lineHeight: 1 }}>●</span>
+              )}
               {unresolved && (
                 <span
                   title={t('inspector.fontUnavailableWarning', { font: primaryName })}

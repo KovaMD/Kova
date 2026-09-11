@@ -104,6 +104,7 @@ const en = {
     fontFieldBody: 'Body',
     fontFieldCode: 'Code',
     fontUnavailableWarning: '"{{font}}" isn\'t installed on this computer. Kova is falling back to a substitute font here — and the same substitution may happen differently (or not at all) on another OS, so this deck may look different when opened elsewhere.',
+    overriddenHint: 'Overridden — differs from the theme default',
     themeLibraryTitle: 'More Themes',
     themeLibraryLoading: 'Loading…',
     themeLibraryError: 'Could not reach themes.kova.md',

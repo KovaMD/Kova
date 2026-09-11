@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Theme, ThemeOverridePatch } from '../../engine/theme';
+import type { Theme, ThemeOverridePatch, ThemeOverrides } from '../../engine/theme';
 import { defaultChartPalette } from '../../engine/theme';
 import type { Frontmatter } from '../../engine/types';
 import { ThemePicker } from '../inspector/ThemePicker';
@@ -15,6 +15,7 @@ interface Props {
   slideCount: number;
   frontmatter: Frontmatter;
   theme: Theme;
+  themeOverrides: ThemeOverrides;
   allThemes: Theme[];
   onThemeSelect: (id: string) => void;
   onThemeChange: (patch: ThemeOverridePatch) => void | Promise<void>;
@@ -28,7 +29,7 @@ const ALL_SECTIONS: Section[] = ['format', 'theme', 'colours', 'fonts', 'documen
 
 export function InspectorPanel({
   filePath, slideCount, frontmatter,
-  theme, allThemes, onThemeSelect, onThemeChange, onMetaChange, onFormat, onOpenLibrary,
+  theme, themeOverrides, allThemes, onThemeSelect, onThemeChange, onMetaChange, onFormat, onOpenLibrary,
 }: Props) {
   const t = useT();
   const [open, setOpen] = useState<Set<Section>>(new Set(['format']));
@@ -36,6 +37,8 @@ export function InspectorPanel({
   const [localAuthor, setLocalAuthor] = useState(frontmatter.author ?? '');
   const [localDate,   setLocalDate]   = useState(frontmatter.date   != null ? String(frontmatter.date) : '');
   const focusedFieldRef = useRef<'title' | 'author' | 'date' | null>(null);
+  const colorOverrideKeys = new Set(Object.keys(themeOverrides.colors ?? {}));
+  const fontOverrideKeys = new Set(Object.keys(themeOverrides.fonts ?? {}));
 
   // Guard against overwriting a field the user is actively editing.
   useEffect(() => { if (focusedFieldRef.current !== 'title')  setLocalTitle(frontmatter.title ?? ''); },  [frontmatter.title]);
@@ -135,6 +138,7 @@ export function InspectorPanel({
         <Accordion label={t('inspector.sectionColours')} open={open.has('colours')} onToggle={() => toggle('colours')}>
           <ColorControls
             colors={theme.colors}
+            overriddenKeys={colorOverrideKeys}
             onChange={(key, val) => onThemeChange({ colors: { [key]: val } })}
             onChartColorChange={(index, val) => {
               const current = theme.colors.chart_colors ?? defaultChartPalette(theme.colors.accent, 8);
@@ -149,6 +153,7 @@ export function InspectorPanel({
         <Accordion label={t('inspector.sectionFonts')} open={open.has('fonts')} onToggle={() => toggle('fonts')}>
           <FontControls
             fonts={theme.fonts}
+            overriddenKeys={fontOverrideKeys}
             onChange={(key, val) => onThemeChange({ fonts: { [key]: val } })}
           />
         </Accordion>
@@ -161,6 +166,10 @@ export function InspectorPanel({
             header={theme.header}
             footer={theme.footer}
             toc={theme.toc}
+            logoOverridden={'logo' in themeOverrides}
+            headerOverridden={themeOverrides.header !== undefined}
+            footerOverridden={themeOverrides.footer !== undefined}
+            tocOverridden={themeOverrides.toc !== undefined}
             onLogoChange={(path) => onThemeChange({ logo: path ?? null })}
             onLogoPositionChange={(pos) => onThemeChange({ logo_position: pos })}
             onLogoOpacityChange={(opacity) => onThemeChange({ logo_opacity: opacity })}

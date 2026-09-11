@@ -11,6 +11,10 @@ interface Props {
   header: Theme['header'];
   footer: Theme['footer'];
   toc: Theme['toc'];
+  logoOverridden?: boolean;
+  headerOverridden?: boolean;
+  footerOverridden?: boolean;
+  tocOverridden?: boolean;
   onLogoChange: (path: string | undefined) => void;
   onLogoPositionChange: (pos: Theme['logo_position']) => void;
   onLogoOpacityChange: (opacity: number) => void;
@@ -26,11 +30,18 @@ const POSITIONS: Array<{ value: Theme['logo_position']; labelKey: MessageKey }> 
   { value: 'bottom-right', labelKey: 'inspector.positionBottomRight' },
 ];
 
+function OverrideDot({ show, hint }: { show: boolean; hint: string }) {
+  if (!show) return null;
+  return <span title={hint} style={{ color: 'var(--accent)', fontSize: 8, lineHeight: 1 }}>●</span>;
+}
+
 export function LogoControls({
   logo, logoPosition, logoOpacity, header, footer, toc,
+  logoOverridden, headerOverridden, footerOverridden, tocOverridden,
   onLogoChange, onLogoPositionChange, onLogoOpacityChange, onHeaderChange, onFooterChange, onTocChange,
 }: Props) {
   const t = useT();
+  const overriddenHint = t('inspector.overriddenHint');
   const pickLogo = useCallback(async () => {
     const selected = await open({
       filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'svg', 'gif'] }],
@@ -46,7 +57,10 @@ export function LogoControls({
 
       {/* Logo */}
       <div>
-        <div style={{ fontSize: 11, color: 'var(--text-label)', marginBottom: 4 }}>{t('inspector.logoLabel')}</div>
+        <div style={{ fontSize: 11, color: 'var(--text-label)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+          {t('inspector.logoLabel')}
+          <OverrideDot show={Boolean(logoOverridden)} hint={overriddenHint} />
+        </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {logo && (
             <img src={logo} alt="logo preview"
@@ -119,8 +133,9 @@ export function LogoControls({
             onChange={(e) => onHeaderChange({ ...header, show: e.target.checked })}
             style={{ cursor: 'pointer' }}
           />
-          <label htmlFor="header-show" style={{ fontSize: 11, color: 'var(--text-label)', cursor: 'pointer' }}>
+          <label htmlFor="header-show" style={{ fontSize: 11, color: 'var(--text-label)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
             {t('inspector.showHeader')}
+            <OverrideDot show={Boolean(headerOverridden)} hint={overriddenHint} />
           </label>
         </div>
         {header.show && (
@@ -147,8 +162,9 @@ export function LogoControls({
             }}
             style={{ cursor: 'pointer' }}
           />
-          <label htmlFor="footer-show" style={{ fontSize: 11, color: 'var(--text-label)', cursor: 'pointer' }}>
+          <label htmlFor="footer-show" style={{ fontSize: 11, color: 'var(--text-label)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
             {t('inspector.showFooter')}
+            <OverrideDot show={Boolean(footerOverridden)} hint={overriddenHint} />
           </label>
         </div>
         {footer.show && (
@@ -178,7 +194,10 @@ export function LogoControls({
 
       {/* Table of contents */}
       <div>
-        <div style={{ fontSize: 11, color: 'var(--text-label)', marginBottom: 4 }}>{t('inspector.tocSectionLabel')}</div>
+        <div style={{ fontSize: 11, color: 'var(--text-label)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+          {t('inspector.tocSectionLabel')}
+          <OverrideDot show={Boolean(tocOverridden)} hint={overriddenHint} />
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <input
             id="toc-numbered"

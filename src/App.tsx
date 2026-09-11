@@ -2689,6 +2689,7 @@ export default function App() {
                 slideCount={slides.length}
                 frontmatter={frontmatter}
                 theme={activeTheme}
+                themeOverrides={themeOverrides}
                 allThemes={allThemes}
                 onThemeSelect={handleThemeSelect}
                 onThemeChange={handleThemeChange}
