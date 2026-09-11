@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { ThemeFonts } from '../../engine/theme';
-import { isFontAvailable } from '../../engine/fontDetect';
+import { isFontStackSatisfied, parseFontStack } from '../../engine/fontDetect';
 import { useT } from '../../i18n';
 
 interface Props {
@@ -178,10 +178,11 @@ export function FontControls({ fonts, onChange }: Props) {
         const curated = CURATED[key];
         const curatedValues = new Set(curated.map((o) => o.value));
         const current = fonts[key];
+        const primaryName = current ? (parseFontStack(current)[0] ?? current) : '';
         const isCustom = current && !curatedValues.has(current) && !systemFonts.includes(current);
 
         const groups: Group[] = [];
-        if (isCustom) groups.push({ label: 'Current', options: [{ label: current.split(',')[0].trim(), value: current }] });
+        if (isCustom) groups.push({ label: 'Current', options: [{ label: primaryName, value: current }] });
         groups.push({ label: 'Common', options: curated });
         if (systemFonts.length > 0) {
           groups.push({
@@ -190,21 +191,22 @@ export function FontControls({ fonts, onChange }: Props) {
           });
         }
 
-        // Curated entries list fonts by their full CSS fallback stack (e.g.
-        // "Helvetica Neue, Arial, sans-serif"), so a missing primary font
-        // still renders fine via its fallback — only warn when the *whole*
-        // family name as stored (which is what custom/system selections are)
-        // isn't actually available, since that's the case with no built-in
-        // fallback to catch it.
-        const primaryUnavailable = Boolean(current) && !curatedValues.has(current) && !isFontAvailable(current);
+        // Warn only when *nothing* in the stack resolves: no named family is
+        // installed (per the OS font list and a canvas/Font-Loading probe) and
+        // there's no generic family to fall back on. A hand-written stack like
+        // "'Clan Pro', Calibri, Arial, sans-serif" with any part available is
+        // fine and must not be flagged (issue #243).
+        const unresolved = Boolean(current)
+          && !curatedValues.has(current)
+          && !isFontStackSatisfied(current, systemFonts);
 
         return (
           <div key={key}>
             <label style={{ fontSize: 11, color: 'var(--text-label)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
               {t(labelKey)}
-              {primaryUnavailable && (
+              {unresolved && (
                 <span
-                  title={t('inspector.fontUnavailableWarning', { font: current.split(',')[0].trim() })}
+                  title={t('inspector.fontUnavailableWarning', { font: primaryName })}
                   style={{ color: 'var(--dirty-color)', cursor: 'help', fontSize: 12, lineHeight: 1 }}
                 >
                   ⚠
