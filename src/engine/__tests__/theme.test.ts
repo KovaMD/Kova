@@ -201,6 +201,17 @@ describe('sanitiseThemeOverrides', () => {
     expect(result.header?.text).toBeUndefined();
   });
 
+  // Issue #254 — a header/footer enabled in the theme can still be
+  // suppressed on just the title slide.
+  it('passes through header/footer hide_on_title', () => {
+    const result = sanitiseThemeOverrides({
+      header: { show: true, hide_on_title: true },
+      footer: { show: true, hide_on_title: false },
+    });
+    expect(result.header?.hide_on_title).toBe(true);
+    expect(result.footer?.hide_on_title).toBe(false);
+  });
+
   it('preserves footer/header text containing template variables', () => {
     const result = sanitiseThemeOverrides({
       footer: { text: '{date} | {title} | {slide_number} / {total}' },

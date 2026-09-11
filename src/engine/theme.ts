@@ -30,12 +30,16 @@ export interface RemoteFont {
 export interface ThemeHeader {
   show: boolean;
   text: string;              // supports {title}, {author}, {date}, {slide_number}, {total}
+  /** Suppress an otherwise-enabled header on the title slide only (issue #254). */
+  hide_on_title?: boolean;
 }
 
 export interface ThemeFooter {
   show: boolean;
   text: string;              // supports {title}, {author}, {date}, {slide_number}, {total}
   show_slide_number: boolean;
+  /** Suppress an otherwise-enabled footer on the title slide only (issue #254). */
+  hide_on_title?: boolean;
 }
 
 export interface ThemeToc {
@@ -588,6 +592,7 @@ export function sanitiseThemeOverrides(raw: Record<string, unknown>): ThemeOverr
     const header: Record<string, unknown> = {};
     if (typeof h.show === 'boolean') header.show = h.show;
     if (typeof h.text === 'string' && !h.text.includes(';')) header.text = h.text;
+    if (typeof h.hide_on_title === 'boolean') header.hide_on_title = h.hide_on_title;
     if (Object.keys(header).length > 0) result.header = header as unknown as ThemeHeader;
   }
   if (raw.footer && typeof raw.footer === 'object') {
@@ -596,6 +601,7 @@ export function sanitiseThemeOverrides(raw: Record<string, unknown>): ThemeOverr
     if (typeof f.show === 'boolean') footer.show = f.show;
     if (typeof f.text === 'string' && !f.text.includes(';')) footer.text = f.text;
     if (typeof f.show_slide_number === 'boolean') footer.show_slide_number = f.show_slide_number;
+    if (typeof f.hide_on_title === 'boolean') footer.hide_on_title = f.hide_on_title;
     if (Object.keys(footer).length > 0) result.footer = footer as unknown as ThemeFooter;
   }
   if (raw.toc && typeof raw.toc === 'object') {

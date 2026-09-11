@@ -139,13 +139,27 @@ export function LogoControls({
           </label>
         </div>
         {header.show && (
-          <input
-            type="text"
-            value={header.text}
-            placeholder={t('inspector.headerPlaceholder')}
-            onChange={(e) => onHeaderChange({ ...header, text: e.target.value })}
-            style={{ width: '100%', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-input)', borderRadius: 4, padding: '4px 7px', fontSize: 11 }}
-          />
+          <>
+            <input
+              type="text"
+              value={header.text}
+              placeholder={t('inspector.headerPlaceholder')}
+              onChange={(e) => onHeaderChange({ ...header, text: e.target.value })}
+              style={{ width: '100%', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-input)', borderRadius: 4, padding: '4px 7px', fontSize: 11, marginBottom: 4 }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                id="header-hide-on-title"
+                type="checkbox"
+                checked={Boolean(header.hide_on_title)}
+                onChange={(e) => onHeaderChange({ ...header, hide_on_title: e.target.checked })}
+                style={{ cursor: 'pointer' }}
+              />
+              <label htmlFor="header-hide-on-title" style={{ fontSize: 11, color: 'var(--text-label)', cursor: 'pointer' }}>
+                {t('inspector.hideHeaderOnTitle')}
+              </label>
+            </div>
+          </>
         )}
       </div>
 
@@ -186,6 +200,18 @@ export function LogoControls({
               />
               <label htmlFor="footer-slidenum" style={{ fontSize: 11, color: 'var(--text-label)', cursor: 'pointer' }}>
                 {t('inspector.slideNumberLabel')}
+              </label>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <input
+                id="footer-hide-on-title"
+                type="checkbox"
+                checked={Boolean(footer.hide_on_title)}
+                onChange={(e) => onFooterChange({ ...footer, hide_on_title: e.target.checked })}
+                style={{ cursor: 'pointer' }}
+              />
+              <label htmlFor="footer-hide-on-title" style={{ fontSize: 11, color: 'var(--text-label)', cursor: 'pointer' }}>
+                {t('inspector.hideFooterOnTitle')}
               </label>
             </div>
           </>

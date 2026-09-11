@@ -110,18 +110,25 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
     return () => clearTimeout(timer);
   }, [onAllDiagramsReady, mermaidCount, signalAllDiagramsReady]);
 
+  // A header/footer enabled in the theme can still be suppressed on just the
+  // title slide (issue #254) — computed once so the bars themselves, their
+  // template segments, and the floating-logo fallback below all agree.
+  const isTitleSlide = slide.layout === 'title';
+  const headerVisible = theme.header.show && !(theme.header.hide_on_title && isTitleSlide);
+  const footerVisible = theme.footer.show && !(theme.footer.hide_on_title && isTitleSlide);
+
   const templateVars = { title: docTitle, author: docAuthor, date: docDate, slideNumber, totalSlides };
-  const headerSegs = theme.header.show
+  const headerSegs = headerVisible
     ? theme.header.text.split('|').map((s) => resolveTemplate(s.trim(), templateVars))
     : null;
-  const footerSegs = theme.footer.show
+  const footerSegs = footerVisible
     ? theme.footer.text.split('|').map((s) => resolveTemplate(s.trim(), templateVars))
     : null;
 
   // Show the floating logo whenever its position doesn't match a visible bar —
   // e.g. logo_position='bottom-right' with only header.show=true still floats.
-  const logoInHeader = theme.header.show && theme.logo && ['top-left', 'top-right'].includes(theme.logo_position);
-  const logoInFooter = theme.footer.show && theme.logo && ['bottom-left', 'bottom-right'].includes(theme.logo_position);
+  const logoInHeader = headerVisible && theme.logo && ['top-left', 'top-right'].includes(theme.logo_position);
+  const logoInFooter = footerVisible && theme.logo && ['bottom-left', 'bottom-right'].includes(theme.logo_position);
   const showFloatingLogo = theme.logo && !logoInHeader && !logoInFooter;
 
   const isThumbnail = isThumbnailProp ?? scale !== 1;
@@ -186,7 +193,7 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
       onClick={handleContentClick}
     >
       {/* Header bar */}
-      {theme.header.show && (
+      {headerVisible && (
         <div className="sl-header-bar">
           {theme.logo && ['top-left', 'top-right'].includes(theme.logo_position) && (
             <img src={theme.logo} alt="Logo" className="sl-logo"
@@ -230,7 +237,7 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
       </div>
 
       {/* Footer bar */}
-      {theme.footer.show && (
+      {footerVisible && (
         <div className="sl-footer-bar">
           {theme.logo && ['bottom-left', 'bottom-right'].includes(theme.logo_position) && (
             <img src={theme.logo} alt="Logo" className="sl-logo-footer"

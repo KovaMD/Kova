@@ -619,8 +619,11 @@ function addSlide(
   s: PS, slide: Slide, t: Theme, meta: Meta, H: number, warnings: string[],
   logoDataUrl: string | null, logoAr: number | null, stepTargets: StepTarget[] = [],
 ) {
-  const hasHead = t.header.show;
-  const hasFoot = t.footer.show;
+  // Mirrors SlideRenderer's headerVisible/footerVisible: a header/footer
+  // enabled in the theme can still be suppressed on just the title slide.
+  const isTitleSlide = slide.layout === 'title';
+  const hasHead = t.header.show && !(t.header.hide_on_title && isTitleSlide);
+  const hasFoot = t.footer.show && !(t.footer.hide_on_title && isTitleSlide);
   const cy = M + (hasHead ? HEAD_H : 0);
   const ch = H - M - cy - (hasFoot ? FOOT_H : 0);
 
