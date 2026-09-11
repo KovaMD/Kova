@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractFrontmatter, patchFrontmatter } from '../parser/frontmatter';
+import { extractFrontmatter, patchFrontmatter, frontmatterBlockLength } from '../parser/frontmatter';
 
 describe('extractFrontmatter', () => {
   it('parses scalar frontmatter and returns the body', () => {
@@ -79,6 +79,40 @@ describe('extractFrontmatter', () => {
     expect(frontmatter.theme_overrides).toEqual({
       footer: { text: 'Page {title}', show_slide_number: true },
     });
+  });
+
+  it('does not treat a stray opening --- + a slide separator as frontmatter (issue #246)', () => {
+    // What's left after deleting the frontmatter's contents but not its closing
+    // fence: a dangling `---`, then the real closing `---` is actually slide 1's
+    // separator. The old regex captured "# My Presentation" as YAML and dropped
+    // it, deleting the title slide.
+    const input = '---\n\n# My Presentation\n\n---\n\n## First Slide\n';
+    const { frontmatter, body } = extractFrontmatter(input);
+    expect(frontmatter).toEqual({});
+    expect(body).toBe(input);
+    expect(body).toContain('# My Presentation');
+  });
+
+  it('ignores a comment-only / empty frontmatter block', () => {
+    const input = '---\n# just a comment\n---\n\n# Slide\n';
+    const { frontmatter, body } = extractFrontmatter(input);
+    expect(frontmatter).toEqual({});
+    expect(body).toBe(input);
+  });
+});
+
+describe('frontmatterBlockLength', () => {
+  it('is the length of a real frontmatter block', () => {
+    const input = '---\ntitle: X\n---\n# Slide\n';
+    expect(frontmatterBlockLength(input)).toBe('---\ntitle: X\n---\n'.length);
+  });
+
+  it('is 0 when there is no frontmatter', () => {
+    expect(frontmatterBlockLength('# Slide\n\n---\n\n# Two\n')).toBe(0);
+  });
+
+  it('is 0 for a dangling opening fence followed by a slide separator', () => {
+    expect(frontmatterBlockLength('---\n\n# One\n\n---\n\n# Two\n')).toBe(0);
   });
 });
 
@@ -168,5 +202,22 @@ describe('patchFrontmatter', () => {
     expect(out).toMatch(/author: "?Ada"?/);
     expect(out).toMatch(/date: 2024/);
     expect(out.endsWith('# Slide\n')).toBe(true);
+  });
+
+  it('drops the whole block (no empty "--- {} ---") when the merge empties it', () => {
+    const out = patchFrontmatter('---\ntheme_overrides:\n  colors:\n    primary: "#111"\n---\n\n# Slide\n', {
+      theme_overrides: null,
+    });
+    expect(out).toBe('\n# Slide\n');
+    expect(out).not.toContain('---');
+  });
+
+  it('does not resurrect deleted frontmatter or eat slide 1 (issue #246)', () => {
+    // User deleted the frontmatter body but left a stray `---`; save re-runs
+    // patchFrontmatter with nothing to add.
+    const mangled = '---\n\n# My Presentation\n\n---\n\n## First Slide\n';
+    const out = patchFrontmatter(mangled, { theme_overrides: null });
+    expect(out).toBe(mangled);
+    expect(out).toContain('# My Presentation');
   });
 });

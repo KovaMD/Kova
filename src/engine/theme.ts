@@ -70,6 +70,27 @@ export interface Theme {
   remoteFonts?: RemoteFont[];
 }
 
+/**
+ * A document's frontmatter `theme_overrides`, as applied on top of the active
+ * base theme. Like `Partial<Theme>` except `logo: null` is meaningful — it
+ * explicitly hides a logo the base theme provides, as opposed to the key being
+ * absent (inherit the base theme's logo).
+ */
+export type ThemeOverrides = Omit<Partial<Theme>, 'logo'> & { logo?: string | null };
+
+/** A single inspector edit to the theme overrides — colours/fonts arrive as
+ *  partial maps so one changed key never replaces the whole palette. */
+export interface ThemeOverridePatch {
+  colors?: Partial<ThemeColors>;
+  fonts?: Partial<ThemeFonts>;
+  logo?: string | null;
+  logo_position?: Theme['logo_position'];
+  logo_opacity?: number;
+  header?: ThemeHeader;
+  footer?: ThemeFooter;
+  toc?: ThemeToc;
+}
+
 // ── Built-in themes ───────────────────────────────────────────────────────────
 
 const CENTER_LAYOUT: ThemeLayout = { title_align: 'center', heading_align: 'left', decoration: 'none' };
@@ -505,8 +526,8 @@ export function resolveTemplate(
  * `normaliseTheme` for installed theme files, preventing a crafted .md file
  * from injecting raw CSS property values into slide styles.
  */
-export function sanitiseThemeOverrides(raw: Record<string, unknown>): Partial<Theme> {
-  const result: Partial<Theme> = {};
+export function sanitiseThemeOverrides(raw: Record<string, unknown>): ThemeOverrides {
+  const result: ThemeOverrides = {};
 
   // Colors: iterate only the keys actually present in the override so we never
   // flood-fill DEFAULT_THEME values for missing keys. sanitiseColors/sanitiseFonts
@@ -547,7 +568,10 @@ export function sanitiseThemeOverrides(raw: Record<string, unknown>): Partial<Th
   // normaliseTheme (for installed community themes) restricts to https/data only;
   // here we also accept local paths because users set their logo via the file
   // dialog and the path is resolved to a data URL via IPC before rendering.
-  if (typeof raw.logo === 'string' && /^(https?:|data:image\/|\/|[A-Za-z]:[/\\])/.test(raw.logo)) {
+  if (raw.logo === null) {
+    // Explicit "no logo" — overrides a logo the base theme would otherwise show.
+    result.logo = null;
+  } else if (typeof raw.logo === 'string' && /^(https?:|data:image\/|\/|[A-Za-z]:[/\\])/.test(raw.logo)) {
     result.logo = raw.logo;
   }
   const VALID_LOGO_POSITIONS: Set<string> = new Set(['top-left', 'top-right', 'bottom-left', 'bottom-right']);

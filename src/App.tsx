@@ -39,14 +39,14 @@ import { I18nProvider, useLocaleTranslator, formatFallbackDate } from './i18n';
 import { parseDocument, splitIntoRawSlides } from './engine/parser/markdownToSlides';
 import { collectDiagnostics, formatCheckReport } from './engine/parser/diagnostics';
 import { evaluateImportCheck } from './engine/cli/importCheckGate';
-import { extractFrontmatter, patchFrontmatter } from './engine/parser/frontmatter';
+import { extractFrontmatter, patchFrontmatter, frontmatterBlockLength } from './engine/parser/frontmatter';
 import { parseBgLine, formatBgLine } from './engine/parser/bgImage';
 import { fetchUpdate } from './engine/updater';
 import { exportToPptx } from './engine/export/exportPptx';
 import { exportToPdf, printPresentation } from './engine/export/exportPdf';
 import { exportPdfNative, buildInteractiveDocument, type PdfExportOpts } from './engine/export/exportPdfNative';
 import { SlideRenderer } from './components/preview/SlideRenderer';
-import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml, sanitiseThemeOverrides, type ThemeParseResult } from './engine/theme';
+import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml, sanitiseThemeOverrides, type ThemeParseResult, type ThemeOverridePatch } from './engine/theme';
 import { registerBundledFonts, registerCachedFont } from './engine/bundledFonts';
 import type { Slide, ListItem, Frontmatter } from './engine/types';
 import { parseAspectRatio } from './engine/types';
@@ -253,8 +253,7 @@ export function editSlideSegments(
   edit: (segments: string[]) => string[] | null,
   rejoin: 'trim' | 'preserve',
 ): string {
-  const fmMatch = prev.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
-  const fmBlock = fmMatch ? fmMatch[0] : '';
+  const fmBlock = prev.slice(0, frontmatterBlockLength(prev));
   const body = prev.slice(fmBlock.length);
   const segments = splitIntoRawSlides(body);
   const next = edit(segments);
@@ -345,14 +344,29 @@ export default function App() {
   const [fileDragOver, setFileDragOver]       = useState(false);
   const [dropConfirmPath, setDropConfirmPath] = useState<string | null>(null);
 
-  // Theme state: active theme id + per-session overrides
+  // Theme state: active theme id (base theme). The per-deck overrides on top of
+  // it are NOT state — they are derived from the document's own frontmatter
+  // (`theme_overrides:`) below, so the inspector and the editor's YAML can never
+  // drift apart.
   const [allThemes, setAllThemes]         = useState<Theme[]>(BUILT_IN_THEMES);
   const allThemesRef = useRef(BUILT_IN_THEMES as Theme[]);
   useEffect(() => { allThemesRef.current = allThemes; }, [allThemes]);
   const [activeThemeId, setActiveThemeId] = useState<string>(DEFAULT_THEME.id);
-  const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [missingThemeId, setMissingThemeId]   = useState<string | null>(null);
   const [resolvedLogoUrl, setResolvedLogoUrl] = useState<string | undefined>(undefined);
+
+  // Overrides come straight from the frontmatter. Re-derive only when their
+  // serialised form actually changes, so `activeTheme` (and every slide
+  // thumbnail that depends on it) doesn't churn on unrelated keystrokes.
+  const themeOverridesJson = useMemo(
+    () => JSON.stringify(extractFrontmatter(content).frontmatter.theme_overrides ?? null),
+    [content],
+  );
+  const themeOverrides = useMemo(() => {
+    const raw = extractFrontmatter(content).frontmatter.theme_overrides;
+    return sanitiseThemeOverrides((raw as Record<string, unknown>) ?? {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [themeOverridesJson]);
 
   const installedRemoteIds = useMemo(
     () => new Set(allThemes.filter((t) => !BUILT_IN_THEMES.some((b) => b.id === t.id)).map((t) => t.id)),
@@ -362,23 +376,23 @@ export default function App() {
   // Resolved theme = base theme merged with overrides
   const activeTheme = useMemo<Theme>(() => {
     const base = allThemes.find((t) => t.id === activeThemeId) ?? DEFAULT_THEME;
-    const merged: Theme = { ...base, ...themeOverrides,
+    return { ...base, ...themeOverrides,
+      // Swap in the pre-resolved data URL for the logo (see the effect below):
+      // the asset protocol cannot reliably serve absolute Windows paths outside
+      // the home directory, so we read the file via IPC and embed it as base64.
+      logo: resolvedLogoUrl,
       colors: { ...base.colors, ...(themeOverrides.colors ?? {}) },
       fonts:  { ...base.fonts,  ...(themeOverrides.fonts  ?? {}) },
       header: { ...base.header, ...(themeOverrides.header ?? {}) },
       footer: { ...base.footer, ...(themeOverrides.footer ?? {}) },
       toc: { ...base.toc, ...(themeOverrides.toc ?? {}) },
     };
-    // Swap in the pre-resolved data URL for the logo. The asset protocol cannot
-    // reliably serve absolute Windows paths outside the home directory, so we
-    // read the file via IPC (see the useEffect below) and embed it as base64.
-    return { ...merged, logo: resolvedLogoUrl };
   }, [allThemes, activeThemeId, themeOverrides, resolvedLogoUrl]);
 
-  // Effective raw logo: override wins; fall back to the base theme's logo when
-  // the user hasn't explicitly set or cleared it in this session.
+  // Effective raw logo: an explicit override (a path, or `null` to hide it)
+  // wins; otherwise fall back to the base theme's own logo.
   const rawLogoSrc = useMemo(() => {
-    if ('logo' in themeOverrides) return themeOverrides.logo;
+    if ('logo' in themeOverrides) return themeOverrides.logo ?? undefined;
     const base = allThemes.find((t) => t.id === activeThemeId) ?? DEFAULT_THEME;
     return base.logo;
   }, [themeOverrides, allThemes, activeThemeId]);
@@ -633,7 +647,6 @@ export default function App() {
   const handleMissingThemeInstalled = useCallback((themeId: string) => {
     reloadCustomThemes();
     setActiveThemeId(themeId);
-    setThemeOverrides({});
     setMissingThemeId(null);
   }, [reloadCustomThemes]);
 
@@ -647,10 +660,8 @@ export default function App() {
     if (!missingThemeId) return;
     const found = allThemes.find((t) => t.id === missingThemeId);
     if (!found) return;
-    const { frontmatter: fm } = extractFrontmatter(contentRef.current);
     setActiveThemeId(found.id);
     setMissingThemeId(null);
-    setThemeOverrides(sanitiseThemeOverrides(fm.theme_overrides as Record<string, unknown> ?? {}));
   }, [allThemes, missingThemeId]);
 
   // Load keybindings from the platform config dir on startup
@@ -757,7 +768,6 @@ export default function App() {
       setIsDirty(false);
       setCurrentSlideIndex(0);
       setActiveThemeId(settings.defaultThemeId);
-      setThemeOverrides({});
       setMissingThemeId(null);
     });
   }, [guardDirty, settings.defaultThemeId]);
@@ -1136,29 +1146,62 @@ export default function App() {
 
   const handleThemeSelect = useCallback((id: string) => {
     setActiveThemeId(id);
-    // Preserve user-configured values across theme switches: header/footer/toc
-    // content and any logo the user explicitly chose. Color/font overrides
-    // are cleared since they were customising the old theme's palette.
-    setThemeOverrides((prev) => {
-      const preserved: Partial<Theme> = {};
-      if (prev.header !== undefined) preserved.header = prev.header;
-      if (prev.footer !== undefined) preserved.footer = prev.footer;
-      if (prev.toc !== undefined) preserved.toc = prev.toc;
-      if ('logo' in prev) preserved.logo = prev.logo;
-      if (prev.logo_position !== undefined) preserved.logo_position = prev.logo_position;
-      if (prev.logo_opacity !== undefined) preserved.logo_opacity = prev.logo_opacity;
-      return preserved;
-    });
     setContent((prev) => {
-      const patched = patchFrontmatter(prev, { theme: id, theme_overrides: null });
+      // Preserve user-configured values across theme switches: header/footer/toc
+      // content and any logo the user explicitly chose. Colour/font overrides
+      // are cleared since they were customising the old theme's palette.
+      const cur = sanitiseThemeOverrides(
+        extractFrontmatter(prev).frontmatter.theme_overrides as Record<string, unknown> ?? {},
+      );
+      const kept: Record<string, unknown> = {};
+      if (cur.header !== undefined) kept.header = cur.header;
+      if (cur.footer !== undefined) kept.footer = cur.footer;
+      if (cur.toc !== undefined) kept.toc = cur.toc;
+      if ('logo' in cur) kept.logo = cur.logo ?? null;
+      if (cur.logo_position !== undefined) kept.logo_position = cur.logo_position;
+      if (cur.logo_opacity !== undefined) kept.logo_opacity = cur.logo_opacity;
+      const patched = patchFrontmatter(prev, {
+        theme: id,
+        theme_overrides: Object.keys(kept).length > 0 ? kept : null,
+      });
       if (patched !== prev) setIsDirty(true);
       return patched;
     });
   }, []);
 
-  const handleThemeChange = useCallback((patch: Partial<Theme>) => {
-    setThemeOverrides((prev) => ({ ...prev, ...patch }));
-    setIsDirty(true);
+  // Apply one inspector edit to the document's `theme_overrides`. Colours and
+  // fonts merge key-by-key (a single tweak never rewrites the whole palette);
+  // an `undefined` value clears that key. Writing straight to the frontmatter
+  // keeps the editor's YAML and the inspector in lock-step.
+  const handleThemeChange = useCallback((patch: ThemeOverridePatch) => {
+    setContent((prev) => {
+      const raw = extractFrontmatter(prev).frontmatter.theme_overrides;
+      const cur: Record<string, unknown> =
+        raw && typeof raw === 'object' && !Array.isArray(raw)
+          ? { ...(raw as Record<string, unknown>) }
+          : {};
+      for (const [key, value] of Object.entries(patch) as [keyof ThemeOverridePatch, unknown][]) {
+        if (key === 'colors' || key === 'fonts') {
+          const base = cur[key] && typeof cur[key] === 'object' ? cur[key] as Record<string, unknown> : {};
+          const next: Record<string, unknown> = { ...base, ...(value as Record<string, unknown>) };
+          for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k];
+          if (Object.keys(next).length > 0) cur[key] = next; else delete cur[key];
+        } else if (key === 'logo') {
+          // A `logo` key in the patch is always deliberate: a path sets it,
+          // anything else clears it (`null` = "hide the base theme's logo too").
+          cur.logo = typeof value === 'string' && value ? value : null;
+        } else if (value === undefined) {
+          delete cur[key];
+        } else {
+          cur[key] = value;
+        }
+      }
+      const patched = patchFrontmatter(prev, {
+        theme_overrides: Object.keys(cur).length > 0 ? cur : null,
+      });
+      if (patched !== prev) setIsDirty(true);
+      return patched;
+    });
   }, []);
 
   const handleMetaChange = useCallback((field: 'title' | 'author' | 'date', value: string) => {
@@ -1180,11 +1223,10 @@ export default function App() {
     });
   }, []);
 
-  // Restore theme + theme_overrides from a document's frontmatter. Overrides
-  // (footer/header/logo/etc.) apply on top of whichever theme is active and
-  // must be restored regardless of whether an explicit `theme:` key is
-  // present — discarding them here caused saved footer/header customisations
-  // on the default theme to silently revert on reopen (#55).
+  // Pick the base theme named by a document's frontmatter `theme:` key (the
+  // per-deck overrides ride along in `theme_overrides:` and are derived, not
+  // synced here). A `theme:` naming a theme not in the library flags the
+  // MissingThemeBanner instead.
   const syncThemeFromContent = useCallback((text: string) => {
     const { frontmatter: fm } = extractFrontmatter(text);
     if (typeof fm.theme === 'string') {
@@ -1194,14 +1236,11 @@ export default function App() {
         setMissingThemeId(null);
       } else {
         setMissingThemeId(fm.theme);
-        setThemeOverrides({});
-        return;
       }
     } else {
       setActiveThemeId(DEFAULT_THEME.id);
       setMissingThemeId(null);
     }
-    setThemeOverrides(sanitiseThemeOverrides(fm.theme_overrides as Record<string, unknown> ?? {}));
   }, []);
 
   // Shared post-load sequence: apply theme, content, and watcher for a file that
@@ -1287,18 +1326,13 @@ export default function App() {
         await invoke('stop_watching').catch(() => {});
         await applyFileContent(text, target);
         if (cliTheme) {
-          // --theme replaces the deck's *base* theme; frontmatter
-          // theme_overrides still apply on top. Set overrides explicitly:
-          // syncThemeFromContent (inside applyFileContent) skips them when
-          // the frontmatter theme is missing from the library, and that
-          // missing-theme state is irrelevant under a CLI override.
+          // --theme replaces the deck's *base* theme; the frontmatter
+          // theme_overrides still ride on top (they are derived from `content`).
           cliThemeRef.current = cliTheme;
           const id = cliTheme.id;
           setAllThemes((prev) => prev.some((t) => t.id === id) ? prev : [...prev, cliTheme]);
           setActiveThemeId(id);
           setMissingThemeId(null);
-          const { frontmatter: fm } = extractFrontmatter(text);
-          setThemeOverrides(sanitiseThemeOverrides(fm.theme_overrides as Record<string, unknown> ?? {}));
         }
         if (cli.export) setColdExport(cli.export);
       } catch {
@@ -1486,30 +1520,6 @@ export default function App() {
     } catch (err) { console.error('Open failed:', err); setWarnMessage(`Could not open file: ${err}`); }});
   }, [guardDirty, applyFileContent]);
 
-  const buildSaveContent = useCallback(() => {
-    const overridePatch: Record<string, unknown> = {};
-    if (themeOverrides.colors && Object.keys(themeOverrides.colors).length > 0)
-      overridePatch.colors = themeOverrides.colors;
-    if (themeOverrides.fonts && Object.keys(themeOverrides.fonts).length > 0)
-      overridePatch.fonts = themeOverrides.fonts;
-    if ('logo' in themeOverrides)
-      overridePatch.logo = themeOverrides.logo ?? null;
-    if (themeOverrides.logo_position !== undefined)
-      overridePatch.logo_position = themeOverrides.logo_position;
-    if (themeOverrides.logo_opacity !== undefined)
-      overridePatch.logo_opacity = themeOverrides.logo_opacity;
-    if (themeOverrides.header !== undefined)
-      overridePatch.header = themeOverrides.header;
-    if (themeOverrides.footer !== undefined)
-      overridePatch.footer = themeOverrides.footer;
-    if (themeOverrides.toc !== undefined)
-      overridePatch.toc = themeOverrides.toc;
-    const hasOverrides = Object.keys(overridePatch).length > 0;
-    return hasOverrides
-      ? patchFrontmatter(content, { theme_overrides: overridePatch })
-      : patchFrontmatter(content, { theme_overrides: null });
-  }, [content, themeOverrides]);
-
   const handleRenameCommit = useCallback(async () => {
     setIsRenaming(false);
     if (!filePath) return;
@@ -1541,7 +1551,9 @@ export default function App() {
     const savingPath = filePath;
     const contentAtSave = content;
     try {
-      const toWrite = buildSaveContent();
+      // The document is the single source of truth — theme overrides and every
+      // frontmatter edit are already in `content`, so write it verbatim.
+      const toWrite = contentAtSave;
       await invoke('write_file', { path: savingPath, content: toWrite });
       // The user may have opened a different document while the write was in
       // flight (isDirty was already cleared above, so guardDirty let them) —
@@ -1575,7 +1587,7 @@ export default function App() {
       setWarnMessage(`Save failed: ${err}`);
       return false;
     }
-  }, [filePath, content, buildSaveContent]);
+  }, [filePath, content]);
 
   const handleSaveAs = useCallback(async (): Promise<string | null> => {
     const startedFromPath = filePath;
@@ -1586,7 +1598,7 @@ export default function App() {
       });
       if (!target) return null;
       const contentAtSave = content;
-      const toWrite = buildSaveContent();
+      const toWrite = contentAtSave;
       await invoke('write_file', { path: target, content: toWrite });
       // The user may have switched to a different document while the native
       // save dialog was open or the write was in flight — don't adopt `target`
@@ -1605,7 +1617,7 @@ export default function App() {
       await invoke('start_watching', { path: target }).catch(console.error);
       return target;
     } catch (err) { console.error('Save As failed:', err); setWarnMessage(`Save failed: ${err}`); return null; }
-  }, [filePath, content, buildSaveContent]);
+  }, [filePath, content]);
 
   const handleExport = useCallback(async () => {
     if (visibleSlides.length === 0) return;
@@ -2104,10 +2116,10 @@ export default function App() {
     document.documentElement.style.setProperty('--ui-scale', String(settings.uiScale));
   }, [settings.uiScale]);
 
-  // handleSave gets a new identity on every keystroke (it depends on `content`
-  // via buildSaveContent). A ref lets the autosave timer below call the latest
-  // save logic without including that ever-changing identity in its own
-  // dependency array — see the effect's comment for why that matters.
+  // handleSave gets a new identity on every keystroke (it depends on `content`).
+  // A ref lets the autosave timer below call the latest save logic without
+  // including that ever-changing identity in its own dependency array — see the
+  // effect's comment for why that matters.
   const handleSaveRef = useRef(handleSave);
   handleSaveRef.current = handleSave;
 
