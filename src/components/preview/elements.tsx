@@ -309,7 +309,7 @@ export function VideoEmbed({ embed }: { embed: Extract<SlideElement, { type: 'vi
   return (
     // stopPropagation so the player's controls don't trigger slide navigation.
     <div className={`sl-video${gateClass ? ` ${gateClass}` : ''}`} data-step={embed.step} onClick={(e) => e.stopPropagation()}>
-      <video className="sl-video__player" src={embed.src} controls={!isThumbnail} preload="metadata" playsInline />
+      <video className="sl-video__player" src={embed.src} controls={!isThumbnail} preload="none" playsInline />
       {embed.label && <div className="sl-video__label">{embed.label}</div>}
     </div>
   );
