@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Theme } from '../../engine/theme';
+import type { Theme, ThemeOverridePatch } from '../../engine/theme';
 import { defaultChartPalette } from '../../engine/theme';
 import type { Frontmatter } from '../../engine/types';
 import { ThemePicker } from '../inspector/ThemePicker';
@@ -17,7 +17,7 @@ interface Props {
   theme: Theme;
   allThemes: Theme[];
   onThemeSelect: (id: string) => void;
-  onThemeChange: (patch: Partial<Theme>) => void | Promise<void>;
+  onThemeChange: (patch: ThemeOverridePatch) => void | Promise<void>;
   onMetaChange: (field: 'title' | 'author' | 'date', value: string) => void;
   onFormat: (cmd: FormatCmd) => void;
   onOpenLibrary: () => void;
@@ -135,21 +135,21 @@ export function InspectorPanel({
         <Accordion label={t('inspector.sectionColours')} open={open.has('colours')} onToggle={() => toggle('colours')}>
           <ColorControls
             colors={theme.colors}
-            onChange={(key, val) => onThemeChange({ colors: { ...theme.colors, [key]: val } })}
+            onChange={(key, val) => onThemeChange({ colors: { [key]: val } })}
             onChartColorChange={(index, val) => {
               const current = theme.colors.chart_colors ?? defaultChartPalette(theme.colors.accent, 8);
               const next = [...current];
               next[index] = val;
-              onThemeChange({ colors: { ...theme.colors, chart_colors: next } });
+              onThemeChange({ colors: { chart_colors: next } });
             }}
-            onChartPaletteReset={() => onThemeChange({ colors: { ...theme.colors, chart_colors: undefined } })}
+            onChartPaletteReset={() => onThemeChange({ colors: { chart_colors: undefined } })}
           />
         </Accordion>
 
         <Accordion label={t('inspector.sectionFonts')} open={open.has('fonts')} onToggle={() => toggle('fonts')}>
           <FontControls
             fonts={theme.fonts}
-            onChange={(key, val) => onThemeChange({ fonts: { ...theme.fonts, [key]: val } })}
+            onChange={(key, val) => onThemeChange({ fonts: { [key]: val } })}
           />
         </Accordion>
 
@@ -161,7 +161,7 @@ export function InspectorPanel({
             header={theme.header}
             footer={theme.footer}
             toc={theme.toc}
-            onLogoChange={(path) => onThemeChange({ logo: path })}
+            onLogoChange={(path) => onThemeChange({ logo: path ?? null })}
             onLogoPositionChange={(pos) => onThemeChange({ logo_position: pos })}
             onLogoOpacityChange={(opacity) => onThemeChange({ logo_opacity: opacity })}
             onHeaderChange={(header) => onThemeChange({ header })}
