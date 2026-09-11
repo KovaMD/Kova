@@ -662,6 +662,23 @@ export default function App() {
   // Load custom themes from the platform config dir on startup
   useEffect(() => { reloadCustomThemes(); }, [reloadCustomThemes]);
 
+  // Watch the themes directory for external changes (issue #252) — e.g. a
+  // theme .yaml edited in another app while Kova is open. Debounced since
+  // saving in some editors fires several filesystem events in quick
+  // succession; the watcher itself lives for the app's lifetime once started.
+  useEffect(() => {
+    invoke('start_watching_themes').catch(() => {});
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    const unlisten = listen<void>('theme-files-changed', () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(reloadCustomThemes, 300);
+    });
+    return () => {
+      if (debounce) clearTimeout(debounce);
+      unlisten.then((fn) => fn());
+    };
+  }, [reloadCustomThemes]);
+
   // Resolve a formerly-missing theme once custom themes finish loading.
   // Fixes a startup race: if the session file loads before load_custom_themes
   // returns, applyFileContent marks the theme missing even though it is installed.

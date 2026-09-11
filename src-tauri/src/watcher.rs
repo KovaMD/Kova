@@ -70,3 +70,37 @@ pub fn create(
     watcher.watch(&watch_path, RecursiveMode::NonRecursive)?;
     Ok(watcher)
 }
+
+/// Watches the custom-themes directory (flat, so non-recursive is enough) and
+/// emits "theme-files-changed" whenever a .yaml/.yml file in it is added,
+/// modified, or removed — e.g. from an external editor saving a theme file
+/// while Kova is open (issue #252). Unlike `create`, this has no per-file
+/// write-suppression window: Kova's own theme writes (save_theme/delete_theme)
+/// triggering an extra, harmless reload is preferable to the complexity of
+/// threading a suppression flag through those commands too.
+pub fn create_theme_dir_watcher(app: AppHandle, dir: PathBuf) -> notify::Result<RecommendedWatcher> {
+    let mut watcher = RecommendedWatcher::new(
+        move |res: notify::Result<Event>| {
+            if let Ok(event) = res {
+                // Same metadata-only filter as `create` — ignore sync-client
+                // timestamp/xattr touches that don't change file contents.
+                if matches!(event.kind, EventKind::Modify(ModifyKind::Metadata(_))) {
+                    return;
+                }
+                if !matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)) {
+                    return;
+                }
+                let is_theme_file = event.paths.iter().any(|p| {
+                    matches!(p.extension().and_then(|e| e.to_str()), Some("yaml") | Some("yml"))
+                });
+                if !is_theme_file {
+                    return;
+                }
+                let _ = app.emit("theme-files-changed", ());
+            }
+        },
+        Config::default(),
+    )?;
+    watcher.watch(&dir, RecursiveMode::NonRecursive)?;
+    Ok(watcher)
+}

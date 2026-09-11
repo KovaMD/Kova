@@ -1,5 +1,6 @@
+use super::AppState;
 use std::path::PathBuf;
-use tauri::AppHandle;
+use tauri::{AppHandle, State};
 
 const DEFAULT_KEYBINDINGS: &str = include_str!("../../resources/default_keybindings.yaml");
 
@@ -63,6 +64,27 @@ pub fn load_custom_themes(app: AppHandle) -> Result<(String, Vec<(String, String
     }
 
     Ok((dir_str, result))
+}
+
+/// Starts (or restarts) watching the custom-themes directory for external
+/// changes, so edits made in another editor while Kova is open can be picked
+/// up live (issue #252) — the frontend listens for "theme-files-changed" and
+/// reloads. Safe to call more than once: drops any previous watcher first,
+/// same pattern as start_watching for the open document. Called once by the
+/// frontend on startup; the watcher then lives for the app's lifetime.
+#[tauri::command]
+pub fn start_watching_themes(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    use tauri::Manager;
+    let themes_dir = app.path().config_dir().map_err(|e| e.to_string())?.join("kova").join("themes");
+    if !themes_dir.exists() {
+        std::fs::create_dir_all(&themes_dir).map_err(|e| e.to_string())?;
+    }
+
+    let mut guard = state.theme_watch.lock().unwrap_or_else(|e| e.into_inner());
+    *guard = None; // drop the previous watcher before creating the new one
+    let w = crate::watcher::create_theme_dir_watcher(app, themes_dir).map_err(|e| e.to_string())?;
+    *guard = Some(w);
+    Ok(())
 }
 
 /// Writes a theme YAML file to the platform config themes dir (remote install).

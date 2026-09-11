@@ -42,6 +42,7 @@ pub fn run() {
         )
         .manage(AppState {
             watch: Mutex::new(WatchState { current_file: None, watcher: None }),
+            theme_watch: Mutex::new(None),
             exit_confirmed: AtomicBool::new(false),
             // "Open With" on Linux/Windows (and now terminal launches on all
             // three platforms) passes file paths as CLI arguments; cli::startup
@@ -90,6 +91,7 @@ pub fn run() {
             commands::stop_watching,
             commands::load_keybindings,
             commands::load_custom_themes,
+            commands::start_watching_themes,
             commands::list_system_fonts,
             commands::write_file_bytes,
             commands::read_file_b64,

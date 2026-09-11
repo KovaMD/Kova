@@ -31,6 +31,10 @@ pub struct WatchState {
 
 pub struct AppState {
     pub watch: Mutex<WatchState>,
+    /// The themes-directory watcher (issue #252) — started once at app launch
+    /// and left running for the app's lifetime, unlike `watch` which is
+    /// re-pointed at a new file every time a document is opened.
+    pub theme_watch: Mutex<Option<notify::RecommendedWatcher>>,
     /// Set once the frontend has resolved the unsaved-changes prompt (or there
     /// was nothing to confirm) for an in-flight app-level quit. Checked by the
     /// `RunEvent::ExitRequested` handler in lib.rs so the retried `app.exit()`
