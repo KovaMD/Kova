@@ -8,12 +8,16 @@ export function getWordAtPos(view: EditorView, pos: number): { word: string; fro
   const doc = view.state.doc.toString();
   let from = pos;
   let to = pos;
-  while (from > 0 && /[a-zA-Z'-]/.test(doc[from - 1])) from--;
-  while (to < doc.length && /[a-zA-Z'-]/.test(doc[to])) to++;
-  while (from < to && /['"-]/.test(doc[from])) from++;
-  while (to > from && /['"-]/.test(doc[to - 1])) to--;
+  // ’ (curly apostrophe) is treated like the ASCII one so contractions typed
+  // with a typographic quote (macOS/iOS/Word/Google Docs default) are
+  // selected whole — see the matching fix in spellCheckExtension.ts.
+  while (from > 0 && /[a-zA-Z'’-]/.test(doc[from - 1])) from--;
+  while (to < doc.length && /[a-zA-Z'’-]/.test(doc[to])) to++;
+  while (from < to && /['’"-]/.test(doc[from])) from++;
+  while (to > from && /['’"-]/.test(doc[to - 1])) to--;
   if (to - from < 2) return null;
-  return { word: doc.slice(from, to), from, to };
+  // Dictionaries only spell contractions with the ASCII apostrophe.
+  return { word: doc.slice(from, to).replace(/’/g, "'"), from, to };
 }
 
 export function doCopy(view: EditorView): void {

@@ -36,13 +36,20 @@ export function extractWords(doc: string): WordRange[] {
     }
     skip.sort((a, b) => a[0] - b[0]);
 
-    const wordRe = /\p{L}[\p{L}'-]*/gu;
+    // ’ (’) is included alongside the ASCII apostrophe so contractions
+    // typed with a curly/typographic quote — the default on macOS, iOS, Word,
+    // Google Docs — stay one word (e.g. "doesn't") instead of splitting into
+    // "doesn" + "t", which flagged the first half as a false positive.
+    const wordRe = /\p{L}[\p{L}'’-]*/gu;
     let m;
     outer: while ((m = wordRe.exec(line)) !== null) {
       const rawFrom = m.index;
       let word = m[0];
-      while (word.endsWith("'") || word.endsWith('-')) word = word.slice(0, -1);
+      while (word.endsWith("'") || word.endsWith('’') || word.endsWith('-')) word = word.slice(0, -1);
       if (word.length < 2) continue;
+      // Dictionaries only spell contractions with the ASCII apostrophe, so
+      // normalise before the lookup in run() below.
+      word = word.replace(/’/g, "'");
 
       const rawTo = rawFrom + m[0].length;
       for (const [sf, st] of skip) {
