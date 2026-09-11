@@ -35,17 +35,28 @@ export function buildExportMermaidInit(t: Theme): string {
     cScale = buildCScalePalette(c.accent);
     xy = defaultChartPalette(c.accent).join(',');
   }
-  const secondary = diagramMutedSecondary(c.primary);
+  // diagram_colors (issue #245) overrides the flowchart/sequence colours that
+  // would otherwise always derive from primary/accent/code_bg/text — each
+  // field independent and optional; `border` defaults to the (possibly
+  // overridden) primary, matching the existing default of border == fill.
+  const dc = c.diagram_colors;
+  const diagramPrimary = dc?.primary ?? c.primary;
+  const diagramBorder = dc?.border ?? diagramPrimary;
+  const diagramLine = dc?.line ?? c.accent;
+  const diagramCluster = dc?.cluster ?? c.code_bg;
+  const diagramText = dc?.text ?? c.text;
+
+  const secondary = diagramMutedSecondary(diagramPrimary);
   const tertiaryBg = c.code_bg;
   const vars = {
     fontFamily,
-    primaryColor: c.primary, primaryTextColor: diagramContrastText(c.primary),
-    primaryBorderColor: c.primary, lineColor: c.accent,
+    primaryColor: diagramPrimary, primaryTextColor: diagramContrastText(diagramPrimary),
+    primaryBorderColor: diagramBorder, lineColor: diagramLine,
     secondaryColor: secondary, secondaryTextColor: diagramContrastText(secondary),
     tertiaryColor: tertiaryBg, tertiaryTextColor: diagramContrastText(tertiaryBg),
-    background: c.background, mainBkg: c.primary, nodeBorder: c.primary,
-    clusterBkg: tertiaryBg, titleColor: c.text, edgeLabelBackground: c.background,
-    labelTextColor: c.text, signalColor: c.text, signalTextColor: c.text,
+    background: c.background, mainBkg: diagramPrimary, nodeBorder: diagramBorder,
+    clusterBkg: diagramCluster, titleColor: diagramText, edgeLabelBackground: c.background,
+    labelTextColor: diagramText, signalColor: diagramText, signalTextColor: diagramText,
     ...cScale, ...pie,
     pieTitleTextColor: c.text, pieSectionTextColor: c.title_text,
     pieLegendTextColor: c.text, pieStrokeColor: c.background,

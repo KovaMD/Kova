@@ -1,5 +1,21 @@
 import yaml from 'js-yaml';
 
+/**
+ * Overrides for Mermaid flowchart/sequence-diagram colours (issue #245) —
+ * these otherwise derive entirely from `primary`/`accent`/`code_bg`/`text`,
+ * with no way to set them directly. Each field is independent and optional;
+ * an unset field keeps deriving from the theme colours as before. `border`
+ * falls back to the (possibly-overridden) `primary` when unset, matching the
+ * existing default where a node's border always matches its fill.
+ */
+export interface DiagramColors {
+  primary?: string; // node/flowchart fill
+  border?: string;  // node/flowchart border — defaults to `primary` when unset
+  line?: string;    // connecting lines/edges
+  cluster?: string; // subgraph/cluster background
+  text?: string;    // node/edge/sequence label text
+}
+
 export interface ThemeColors {
   primary: string;       // title slide background, strong accents
   accent: string;        // links, highlights, decorative elements
@@ -11,6 +27,7 @@ export interface ThemeColors {
   chart_colors?: string[]; // optional palette override for diagrams (pie, xychart, timeline…)
   heading?: string;       // content-slide heading colour (falls back to `text` when unset)
   bold?: string;          // inline **bold**/<strong> colour (falls back to `text` when unset)
+  diagram_colors?: DiagramColors; // Mermaid flowchart/sequence colour overrides
 }
 
 export interface ThemeFonts {
@@ -546,6 +563,9 @@ export function sanitiseThemeOverrides(raw: Record<string, unknown>): ThemeOverr
         sanitised.chart_colors = (v as unknown[]).filter(
           (x): x is string => typeof x === 'string' && !/[;{}]/.test(x),
         );
+      } else if (key === 'diagram_colors') {
+        const diagramColors = sanitiseDiagramColors(v, undefined);
+        if (diagramColors) sanitised.diagram_colors = diagramColors;
       } else if (typeof v === 'string' && !/[;{}]/.test(v.trim())) {
         (sanitised as Record<string, string>)[key as string] = v.trim();
       }
@@ -715,6 +735,22 @@ function sanitiseCssString(v: unknown, fallback: string): string {
   return /[;{}]/.test(s) ? fallback : s;
 }
 
+const DIAGRAM_COLOR_KEYS: Array<keyof DiagramColors> = ['primary', 'border', 'line', 'cluster', 'text'];
+
+/** Merges a raw `diagram_colors` object onto the base theme's, validating
+ *  each field individually — same CSS-injection check as every other colour. */
+function sanitiseDiagramColors(raw: unknown, base: DiagramColors | undefined): DiagramColors | undefined {
+  const merged: DiagramColors = { ...base };
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const r = raw as Record<string, unknown>;
+    for (const key of DIAGRAM_COLOR_KEYS) {
+      const v = r[key];
+      if (typeof v === 'string' && !/[;{}]/.test(v.trim())) merged[key] = v.trim();
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
 function sanitiseColors(c: Partial<ThemeColors>, base: ThemeColors): ThemeColors {
   const s = (v: unknown, fb: string) => sanitiseCssString(v, fb);
   const result: ThemeColors = {
@@ -733,6 +769,8 @@ function sanitiseColors(c: Partial<ThemeColors>, base: ThemeColors): ThemeColors
   }
   if (typeof c.heading === 'string' && !/[;{}]/.test(c.heading.trim())) result.heading = c.heading.trim();
   if (typeof c.bold === 'string' && !/[;{}]/.test(c.bold.trim())) result.bold = c.bold.trim();
+  const diagramColors = sanitiseDiagramColors(c.diagram_colors, base.diagram_colors);
+  if (diagramColors) result.diagram_colors = diagramColors;
   return result;
 }
 

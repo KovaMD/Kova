@@ -26,6 +26,16 @@ colors:
   # bold:     "#B91C1C"   # inline **bold**/<strong> colour
   section_bg: "#E8F0FE"   # section divider background
   code_bg:    "#F5F7FA"   # code block background
+  # By default, Mermaid flowchart/sequence-diagram colours derive from
+  # primary/accent/code_bg/text above. diagram_colors overrides them
+  # directly instead — every field is optional; border defaults to
+  # diagram_colors.primary (or primary) when left unset.
+  # diagram_colors:
+  #   primary: "#1B3A5C"   # node/flowchart fill
+  #   border:  "#0F2A45"   # node/flowchart border
+  #   line:    "#2563EB"   # connecting lines/edges
+  #   cluster: "#F5F7FA"   # subgraph/cluster background
+  #   text:    "#1a1a1a"   # node/edge/sequence label text
 
 fonts:
   title: "Inter, 'Helvetica Neue', Arial, sans-serif"

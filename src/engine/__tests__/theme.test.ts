@@ -266,6 +266,29 @@ describe('sanitiseThemeOverrides', () => {
     expect(result.colors?.heading).toBeUndefined();
     expect(result.colors?.bold).toBeUndefined();
   });
+
+  // Issue #245 — Mermaid flowchart/sequence colours, settable directly
+  // instead of only ever deriving from primary/accent/code_bg/text.
+  it('passes through diagram_colors overrides', () => {
+    const result = sanitiseThemeOverrides({
+      colors: { diagram_colors: { primary: '#111111', line: '#222222' } },
+    });
+    expect(result.colors?.diagram_colors).toEqual({ primary: '#111111', line: '#222222' });
+  });
+
+  it('drops CSS injection attempts and non-string values in diagram_colors', () => {
+    const result = sanitiseThemeOverrides({
+      colors: { diagram_colors: { primary: '#fff; background: red', line: 42, cluster: '#000{}' } },
+    });
+    expect(result.colors?.diagram_colors).toBeUndefined();
+  });
+
+  it('ignores unknown diagram_colors keys and keeps the valid ones', () => {
+    const result = sanitiseThemeOverrides({
+      colors: { diagram_colors: { primary: '#111111', notAField: '#222222' } },
+    });
+    expect(result.colors?.diagram_colors).toEqual({ primary: '#111111' });
+  });
 });
 
 // ── resolveTemplate ───────────────────────────────────────────────────────────
@@ -350,6 +373,14 @@ colors:
     if (!result.ok) return;
     expect(result.theme.colors.heading).toBe('#FF00FF');
     expect(result.theme.colors.bold).toBe('#00FFAA');
+  });
+
+  it('accepts a diagram_colors block in a theme file (issue #245)', () => {
+    const yaml = 'name: Diagram\ncolors:\n  diagram_colors:\n    primary: "#111111"\n    line: "#222222"\n';
+    const result = parseThemeYaml('diagram', yaml);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.theme.colors.diagram_colors).toEqual({ primary: '#111111', line: '#222222' });
   });
 
   it('leaves heading/bold undefined (falls back to text) when not specified', () => {

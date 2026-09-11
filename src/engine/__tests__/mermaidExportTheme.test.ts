@@ -48,4 +48,64 @@ describe('buildExportMermaidInit', () => {
     expect(init).toContain('#222222');
     expect(init).toContain('#333333');
   });
+
+  // Issue #245 — flowchart/sequence colours can be set directly via
+  // diagram_colors instead of always deriving from primary/accent/code_bg/text.
+  describe('diagram_colors', () => {
+    function withDiagramColors(diagram_colors: Record<string, string>) {
+      return {
+        ...DEFAULT_THEME,
+        colors: { ...DEFAULT_THEME.colors, diagram_colors },
+      };
+    }
+
+    it('uses diagram_colors.primary for primaryColor and mainBkg', () => {
+      const config = parseInit(buildExportMermaidInit(withDiagramColors({ primary: '#123456' })));
+      expect(config.themeVariables.primaryColor).toBe('#123456');
+      expect(config.themeVariables.mainBkg).toBe('#123456');
+    });
+
+    it('uses diagram_colors.line for lineColor without touching the theme accent', () => {
+      const config = parseInit(buildExportMermaidInit(withDiagramColors({ line: '#00FF00' })));
+      expect(config.themeVariables.lineColor).toBe('#00FF00');
+    });
+
+    it('uses diagram_colors.cluster for clusterBkg', () => {
+      const config = parseInit(buildExportMermaidInit(withDiagramColors({ cluster: '#ABCDEF' })));
+      expect(config.themeVariables.clusterBkg).toBe('#ABCDEF');
+    });
+
+    it('uses diagram_colors.text for titleColor/labelTextColor/signalColor but not pieSectionTextColor', () => {
+      const config = parseInit(buildExportMermaidInit(withDiagramColors({ text: '#FEDCBA' })));
+      expect(config.themeVariables.titleColor).toBe('#FEDCBA');
+      expect(config.themeVariables.labelTextColor).toBe('#FEDCBA');
+      expect(config.themeVariables.signalColor).toBe('#FEDCBA');
+      // pieSectionTextColor must stay tied to title_text for contrast on
+      // coloured pie slices — diagram_colors.text must not leak into it.
+      expect(config.themeVariables.pieSectionTextColor).toBe(DEFAULT_THEME.colors.title_text);
+    });
+
+    it('border defaults to the overridden primary when border itself is unset', () => {
+      const config = parseInit(buildExportMermaidInit(withDiagramColors({ primary: '#123456' })));
+      expect(config.themeVariables.primaryBorderColor).toBe('#123456');
+      expect(config.themeVariables.nodeBorder).toBe('#123456');
+    });
+
+    it('an explicit border overrides the primary-derived default', () => {
+      const config = parseInit(buildExportMermaidInit(withDiagramColors({ primary: '#123456', border: '#654321' })));
+      expect(config.themeVariables.primaryBorderColor).toBe('#654321');
+      expect(config.themeVariables.nodeBorder).toBe('#654321');
+    });
+
+    it('falls back to the theme-derived values when diagram_colors is unset', () => {
+      const config = parseInit(buildExportMermaidInit(DEFAULT_THEME));
+      expect(config.themeVariables.primaryColor).toBe(DEFAULT_THEME.colors.primary);
+      expect(config.themeVariables.lineColor).toBe(DEFAULT_THEME.colors.accent);
+    });
+  });
 });
+
+function parseInit(init: string): { themeVariables: Record<string, string> } {
+  const jsonStr = init.replace(/^%%\{init:\s*/, '').replace(/\}%%\n?$/, '');
+  return JSON.parse(jsonStr) as { themeVariables: Record<string, string> };
+}
