@@ -607,11 +607,16 @@ export function sanitiseThemeOverrides(raw: Record<string, unknown>): ThemeOverr
 
 export type ThemeParseResult = { ok: true; theme: Theme } | { ok: false; error: string };
 
-/** Parse a custom theme from YAML content (uses the same js-yaml already installed). */
-export function parseThemeYaml(id: string, content: string): ThemeParseResult {
+/**
+ * Parse a custom theme from YAML content (uses the same js-yaml already
+ * installed). `baseDir`, when given, is the theme file's own directory —
+ * used to resolve a relative `logo:` path (issue #250) so a self-contained
+ * theme folder (theme.yaml + logo.png) keeps working if the folder is moved.
+ */
+export function parseThemeYaml(id: string, content: string, baseDir?: string): ThemeParseResult {
   try {
     const raw = yaml.load(content, { schema: yaml.CORE_SCHEMA, json: true }) as Record<string, unknown>;
-    return { ok: true, theme: normaliseTheme(id, raw) };
+    return { ok: true, theme: normaliseTheme(id, raw, baseDir) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
@@ -656,7 +661,30 @@ function sanitiseFonts(f: Partial<ThemeFonts>, base: ThemeFonts): ThemeFonts {
   };
 }
 
-function normaliseTheme(id: string, raw: Record<string, unknown>): Theme {
+const ABSOLUTE_OR_URL_LOGO_RE = /^(https?:|data:image\/|\/|[A-Za-z]:[/\\])/;
+// Anything with a `scheme:` prefix before the first path separator — reject
+// outright rather than resolve it as a filename. Catches things like
+// `javascript:alert(1)`; Windows drive letters (`C:\...`) are already
+// accepted above, so this only ever matches something we don't recognise.
+const SCHEME_PREFIX_RE = /^[A-Za-z][A-Za-z0-9+.-]*:/;
+
+/**
+ * A theme file's `logo:` value, as either an already-absolute path/URL/data
+ * URI (passed through) or a path relative to the theme file's own directory
+ * (`baseDir`), resolved to an absolute path. Falls back to dropping the logo
+ * entirely when it's relative but no `baseDir` is known (e.g. a theme loaded
+ * from raw YAML text with no file backing it).
+ */
+function resolveThemeLogo(rawLogo: unknown, baseDir?: string): string | undefined {
+  if (typeof rawLogo !== 'string' || !rawLogo) return undefined;
+  if (ABSOLUTE_OR_URL_LOGO_RE.test(rawLogo)) return rawLogo;
+  if (!baseDir || SCHEME_PREFIX_RE.test(rawLogo)) return undefined;
+  const trimmedBase = baseDir.replace(/[/\\]+$/, '');
+  const cleanRelative = rawLogo.replace(/\\/g, '/').replace(/^\/+/, '');
+  return `${trimmedBase}/${cleanRelative}`;
+}
+
+function normaliseTheme(id: string, raw: Record<string, unknown>, baseDir?: string): Theme {
   const base = DEFAULT_THEME;
   const colors = (raw.colors as Partial<ThemeColors>) ?? {};
   const fonts = (raw.fonts as Partial<ThemeFonts>) ?? {};
@@ -664,8 +692,7 @@ function normaliseTheme(id: string, raw: Record<string, unknown>): Theme {
   const header = (raw.header as Partial<ThemeHeader>) ?? {};
   const footer = (raw.footer as Partial<ThemeFooter>) ?? {};
   const toc = (raw.toc as Partial<ThemeToc>) ?? {};
-  const rawLogo = raw.logo as string | undefined;
-  const logo = rawLogo && /^(https?:|data:image\/|\/|[A-Za-z]:[/\\])/.test(rawLogo) ? rawLogo : undefined;
+  const logo = resolveThemeLogo(raw.logo, baseDir);
   const bundledFonts = Array.isArray(raw.bundledFonts)
     ? (raw.bundledFonts as unknown[]).filter((f): f is string => typeof f === 'string')
     : undefined;

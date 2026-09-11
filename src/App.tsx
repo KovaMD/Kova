@@ -116,18 +116,21 @@ async function resolveCliTheme(arg: CliThemeArg): Promise<Theme | null> {
     } catch {
       return fail(`cannot read theme '${arg.path}'`);
     }
-    const base = arg.path.replace(/\\/g, '/').split('/').pop() ?? arg.path;
-    const parsed = parseThemeYaml(`cli:${base.replace(/\.ya?ml$/i, '')}`, text);
+    const normalisedPath = arg.path.replace(/\\/g, '/');
+    const lastSlash = normalisedPath.lastIndexOf('/');
+    const base = lastSlash === -1 ? normalisedPath : normalisedPath.slice(lastSlash + 1);
+    const dir = lastSlash === -1 ? undefined : normalisedPath.slice(0, lastSlash);
+    const parsed = parseThemeYaml(`cli:${base.replace(/\.ya?ml$/i, '')}`, text, dir);
     if (!parsed.ok) return fail(`invalid theme '${arg.path}': ${parsed.error}`);
     return parsed.theme;
   }
   const builtIn = BUILT_IN_THEMES.find((t) => t.id === arg.name);
   if (builtIn) return builtIn;
   try {
-    const [, entries] = await invoke<[string, Array<[string, string]>]>('load_custom_themes');
+    const [dir, entries] = await invoke<[string, Array<[string, string]>]>('load_custom_themes');
     for (const [id, yaml] of entries) {
       if (id !== arg.name) continue;
-      const parsed = parseThemeYaml(id, yaml);
+      const parsed = parseThemeYaml(id, yaml, dir);
       if (parsed.ok) return parsed.theme;
       return fail(`invalid theme '${arg.name}': ${parsed.error}`);
     }
@@ -628,8 +631,8 @@ export default function App() {
 
   const reloadCustomThemes = useCallback(() => {
     invoke<[string, Array<[string, string]>]>('load_custom_themes')
-      .then(([, entries]) => {
-        const results: ThemeParseResult[] = entries.map(([id, yaml]) => parseThemeYaml(id, yaml));
+      .then(([dir, entries]) => {
+        const results: ThemeParseResult[] = entries.map(([id, yaml]) => parseThemeYaml(id, yaml, dir));
         const custom = results.filter((r): r is Extract<ThemeParseResult, { ok: true }> => r.ok).map((r) => r.theme);
         const errors = results.filter((r): r is Extract<ThemeParseResult, { ok: false }> => !r.ok).map((r) => r.error);
         setAllThemes(() => {

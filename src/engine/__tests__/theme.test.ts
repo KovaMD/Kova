@@ -412,6 +412,44 @@ footer:
     if (!result.ok) return;
     expect(result.theme.colors.chart_colors).toEqual(['#FF0000', '#00FF00', '#0000FF']);
   });
+
+  // Issue #250 — a theme's logo path may be relative to the theme file's own
+  // directory, so a self-contained theme folder (theme.yaml + logo.png)
+  // keeps working if the folder is moved or renamed.
+  it('resolves a relative logo path against the given base directory', () => {
+    const result = parseThemeYaml('logo-theme', 'name: Logo\nlogo: logo.png\n', '/home/me/.config/kova/themes');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.theme.logo).toBe('/home/me/.config/kova/themes/logo.png');
+  });
+
+  it('resolves a subdirectory-relative logo path against the base directory', () => {
+    const result = parseThemeYaml('logo-theme', 'name: Logo\nlogo: assets/logo.png\n', '/home/me/themes');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.theme.logo).toBe('/home/me/themes/assets/logo.png');
+  });
+
+  it('drops a relative logo path when no base directory is known', () => {
+    const result = parseThemeYaml('logo-theme', 'name: Logo\nlogo: logo.png\n');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.theme.logo).toBeUndefined();
+  });
+
+  it('still accepts an absolute logo path unchanged when a base directory is given', () => {
+    const result = parseThemeYaml('logo-theme', 'name: Logo\nlogo: /Users/me/logo.png\n', '/home/me/themes');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.theme.logo).toBe('/Users/me/logo.png');
+  });
+
+  it('rejects a scheme-prefixed logo value even with a base directory', () => {
+    const result = parseThemeYaml('logo-theme', 'name: Logo\nlogo: "javascript:alert(1)"\n', '/home/me/themes');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.theme.logo).toBeUndefined();
+  });
 });
 
 // ── Built-in themes integrity ─────────────────────────────────────────────────
