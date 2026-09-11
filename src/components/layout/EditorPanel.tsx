@@ -10,6 +10,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { focusModeCompartment, focusModeExtension } from '../editor/focusMode';
 import { slideDivider } from '../editor/slideDivider';
 import { stepMarkerDecoration } from '../editor/stepMarkerDecoration';
+import { urlLinkDecoration } from '../editor/urlLinkDecoration';
 import { EditorContextMenu } from '../editor/EditorContextMenu';
 import {
   slideNav,
@@ -344,6 +345,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
         updateListener,
         slideDivider,
         stepMarkerDecoration,
+        urlLinkDecoration,
         focusModeCompartment.of([]),
         spellCheckCompartment.of([]),
       ],
