@@ -13,6 +13,10 @@ on:
         description: 'SignPath signing policy to submit to'
         required: true
         default: 'release-signing'
+      artifact-configuration-slug:
+        description: 'SignPath artifact-configuration-slug (leave empty to use the project default instead of Windows_Executable_Samples)'
+        required: false
+        default: ''
 
 jobs:
   windows-test-build:
@@ -83,7 +87,7 @@ jobs:
           organization-id: 6aea854d-5015-451b-80a3-a1031e70eb9e
           project-slug: kova
           signing-policy-slug: ${{ inputs.signing-policy-slug }}
-          artifact-configuration-slug: Windows_Executable_Samples
+          artifact-configuration-slug: ${{ inputs.artifact-configuration-slug }}
           github-artifact-id: ${{ steps.upload-unsigned-windows.outputs.artifact-id }}
           wait-for-completion: true
           output-artifact-directory: ${{ runner.temp }}/signpath-signed
