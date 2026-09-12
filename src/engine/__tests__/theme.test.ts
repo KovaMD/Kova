@@ -480,6 +480,13 @@ footer:
     expect(result.theme.logo).toBeUndefined();
   });
 
+  it('collapses ../ segments in a relative logo path (matches media path resolution)', () => {
+    const result = parseThemeYaml('logo-theme', 'name: Logo\nlogo: ../shared/logo.png\n', '/home/me/.config/kova/themes');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.theme.logo).toBe('/home/me/.config/kova/shared/logo.png');
+  });
+
   it('still accepts an absolute logo path unchanged when a base directory is given', () => {
     const result = parseThemeYaml('logo-theme', 'name: Logo\nlogo: /Users/me/logo.png\n', '/home/me/themes');
     expect(result.ok).toBe(true);
@@ -505,6 +512,35 @@ footer:
 
   it('falls back to the light theme when extends names an unknown theme', () => {
     const result = parseThemeYaml('my-theme', 'name: My Theme\nextends: does-not-exist\n');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.theme.colors.primary).toBe(DEFAULT_THEME.colors.primary);
+  });
+
+  // A single file parsed in isolation (e.g. the CLI's `--theme <path>`) can
+  // still extend an installed custom theme, not just a built-in, when the
+  // caller passes the installed library alongside it.
+  it('inherits from an installed custom theme named by extends, given a library', () => {
+    const result = parseThemeYaml(
+      'cli:my-theme',
+      'name: My Theme\nextends: brand\n',
+      undefined,
+      undefined,
+      { entries: [['brand', 'name: Brand\ncolors:\n  primary: "#ABCDEF"\n']] },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.theme.colors.primary).toBe('#ABCDEF');
+  });
+
+  it('falls back to the default theme when extends names a theme absent from the given library', () => {
+    const result = parseThemeYaml(
+      'cli:my-theme',
+      'name: My Theme\nextends: not-installed\n',
+      undefined,
+      undefined,
+      { entries: [['brand', 'name: Brand\ncolors:\n  primary: "#ABCDEF"\n']] },
+    );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.theme.colors.primary).toBe(DEFAULT_THEME.colors.primary);
@@ -535,6 +571,32 @@ describe('resolveCustomThemeLibrary', () => {
     expect(child.ok).toBe(true);
     if (!child.ok) return;
     expect(child.theme.colors.primary).toBe('#ABCDEF');
+  });
+
+  it('inherits logo and logo_opacity from the extends base', () => {
+    const { results, warnings } = resolveCustomThemeLibrary([
+      ['base-theme', 'name: Base\nlogo: brand-logo.png\nlogo_opacity: 0.4\n'],
+      ['child-theme', 'name: Child\nextends: base-theme\n'],
+    ], '/home/me/.config/kova/themes');
+    expect(warnings).toEqual([]);
+    const child = results[1];
+    expect(child.ok).toBe(true);
+    if (!child.ok) return;
+    expect(child.theme.logo).toBe('/home/me/.config/kova/themes/brand-logo.png');
+    expect(child.theme.logo_opacity).toBe(0.4);
+  });
+
+  it('lets a child theme override the inherited logo and logo_opacity', () => {
+    const { results, warnings } = resolveCustomThemeLibrary([
+      ['base-theme', 'name: Base\nlogo: brand-logo.png\nlogo_opacity: 0.4\n'],
+      ['child-theme', 'name: Child\nextends: base-theme\nlogo: child-logo.png\nlogo_opacity: 0.9\n'],
+    ], '/home/me/.config/kova/themes');
+    expect(warnings).toEqual([]);
+    const child = results[1];
+    expect(child.ok).toBe(true);
+    if (!child.ok) return;
+    expect(child.theme.logo).toBe('/home/me/.config/kova/themes/child-logo.png');
+    expect(child.theme.logo_opacity).toBe(0.9);
   });
 
   it('resolves a transitive extends chain (child -> middle -> built-in)', () => {

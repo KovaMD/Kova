@@ -1,4 +1,5 @@
 import yaml from 'js-yaml';
+import { normalizePath } from './resolvePath';
 
 /**
  * Overrides for Mermaid flowchart/sequence-diagram colours (issue #245) —
@@ -643,14 +644,32 @@ function parseThemeRaw(content: string): { ok: true; raw: Record<string, unknown
   }
 }
 
-/** A raw `extends:` value resolved against the built-in themes only (a single
- *  theme parsed in isolation has no other custom themes to extend from). */
-function resolveExtendsBase(rawExtends: unknown): Theme {
-  if (typeof rawExtends === 'string') {
-    const found = BUILT_IN_THEMES.find((t) => t.id === rawExtends);
-    if (found) return found;
+/**
+ * A raw `extends:` value resolved against the built-in themes and, if given, a
+ * batch of other installed custom themes too — a single theme file parsed in
+ * isolation (e.g. the CLI's `--theme <path>`) otherwise has no way to extend
+ * an installed theme rather than just a built-in (issue #249).
+ */
+function resolveExtendsBase(rawExtends: unknown, library?: ThemeLibrary): Theme {
+  if (typeof rawExtends !== 'string') return DEFAULT_THEME;
+  const builtIn = BUILT_IN_THEMES.find((t) => t.id === rawExtends);
+  if (builtIn) return builtIn;
+  if (library) {
+    const idx = library.entries.findIndex(([id]) => id === rawExtends);
+    if (idx !== -1) {
+      const { results } = resolveCustomThemeLibrary(library.entries, library.dir);
+      const result = results[idx];
+      if (result.ok) return result.theme;
+    }
   }
   return DEFAULT_THEME;
+}
+
+/** A batch of other installed custom themes an isolated `parseThemeYaml` call
+ *  can resolve its own `extends:` against, in addition to the built-ins. */
+export interface ThemeLibrary {
+  entries: Array<[string, string]>;
+  dir?: string;
 }
 
 /**
@@ -660,12 +679,13 @@ function resolveExtendsBase(rawExtends: unknown): Theme {
  * theme folder (theme.yaml + logo.png) keeps working if the folder is moved.
  * `base`, when given, overrides the theme's own `extends:` — used by
  * `resolveCustomThemeLibrary` to resolve `extends:` against a whole batch of
- * themes rather than just the built-ins.
+ * themes rather than just the built-ins. `library`, when given (and `base` is
+ * not), lets `extends:` also target one of those other installed themes.
  */
-export function parseThemeYaml(id: string, content: string, baseDir?: string, base?: Theme): ThemeParseResult {
+export function parseThemeYaml(id: string, content: string, baseDir?: string, base?: Theme, library?: ThemeLibrary): ThemeParseResult {
   const parsed = parseThemeRaw(content);
   if (!parsed.ok) return parsed;
-  return { ok: true, theme: normaliseTheme(id, parsed.raw, baseDir, base ?? resolveExtendsBase(parsed.raw.extends)) };
+  return { ok: true, theme: normaliseTheme(id, parsed.raw, baseDir, base ?? resolveExtendsBase(parsed.raw.extends, library)) };
 }
 
 /**
@@ -801,9 +821,7 @@ function resolveThemeLogo(rawLogo: unknown, baseDir?: string): string | undefine
   if (typeof rawLogo !== 'string' || !rawLogo) return undefined;
   if (ABSOLUTE_OR_URL_LOGO_RE.test(rawLogo)) return rawLogo;
   if (!baseDir || SCHEME_PREFIX_RE.test(rawLogo)) return undefined;
-  const trimmedBase = baseDir.replace(/[/\\]+$/, '');
-  const cleanRelative = rawLogo.replace(/\\/g, '/').replace(/^\/+/, '');
-  return `${trimmedBase}/${cleanRelative}`;
+  return normalizePath(baseDir, rawLogo);
 }
 
 function normaliseTheme(id: string, raw: Record<string, unknown>, baseDir: string | undefined, base: Theme): Theme {
@@ -813,7 +831,7 @@ function normaliseTheme(id: string, raw: Record<string, unknown>, baseDir: strin
   const header = (raw.header as Partial<ThemeHeader>) ?? {};
   const footer = (raw.footer as Partial<ThemeFooter>) ?? {};
   const toc = (raw.toc as Partial<ThemeToc>) ?? {};
-  const logo = resolveThemeLogo(raw.logo, baseDir);
+  const logo = resolveThemeLogo(raw.logo, baseDir) ?? base.logo;
   const bundledFonts = Array.isArray(raw.bundledFonts)
     ? (raw.bundledFonts as unknown[]).filter((f): f is string => typeof f === 'string')
     : undefined;
@@ -846,7 +864,7 @@ function normaliseTheme(id: string, raw: Record<string, unknown>, baseDir: strin
     layout: { ...base.layout, ...layout },
     logo,
     logo_position: ((raw.logo_position as Theme['logo_position']) ?? base.logo_position),
-    logo_opacity: typeof raw.logo_opacity === 'number' ? Math.min(1, Math.max(0, raw.logo_opacity)) : 0.85,
+    logo_opacity: typeof raw.logo_opacity === 'number' ? Math.min(1, Math.max(0, raw.logo_opacity)) : base.logo_opacity,
     header: { ...base.header, ...header },
     footer: { ...base.footer, ...footer },
     toc: { ...base.toc, ...toc },

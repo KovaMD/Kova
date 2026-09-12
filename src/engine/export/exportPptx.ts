@@ -684,7 +684,14 @@ function addSlide(
 
   if (hasHead) addHeaderBar(s, t, meta);
   if (hasFoot) addFooterBar(s, t, meta, H);
-  if (logoDataUrl) addLogo(s, logoDataUrl, logoAr, t.logo_position, t.logo_opacity, H);
+  // Mirrors SlideRenderer: only suppress the logo when it belongs to a bar
+  // that's specifically hidden on this slide (hide_on_title) — otherwise it
+  // keeps showing at its corner even without a matching bar, same as before.
+  const logoBelongsInHeader = ['top-left', 'top-right'].includes(t.logo_position);
+  const logoBelongsInFooter = ['bottom-left', 'bottom-right'].includes(t.logo_position);
+  const suppressLogo = (t.header.show && logoBelongsInHeader && !hasHead)
+    || (t.footer.show && logoBelongsInFooter && !hasFoot);
+  if (logoDataUrl && !suppressLogo) addLogo(s, logoDataUrl, logoAr, t.logo_position, t.logo_opacity, H);
   if (slide.references.length > 0) addReferences(s, slide.references, t, H, hasFoot, slideTextColor);
   if (slide.speakerNotes) s.addNotes(slide.speakerNotes);
 }

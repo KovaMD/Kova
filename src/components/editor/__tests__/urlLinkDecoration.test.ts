@@ -7,6 +7,7 @@ const openUrlMock = vi.fn(() => Promise.resolve());
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: (...args: unknown[]) => openUrlMock(...args) }));
 
 const { urlLinkDecoration, urlAt, handleUrlMousedown } = await import('../urlLinkDecoration');
+const { isMac } = await import('../../../engine/keybindings');
 
 function linkTexts(doc: string): string[] {
   const view = new EditorView({ state: EditorState.create({ doc, extensions: urlLinkDecoration }) });
@@ -51,6 +52,24 @@ describe('urlLinkDecoration', () => {
 
   it('drops a closing paren that is just surrounding prose, not part of the URL', () => {
     expect(linkTexts('(see https://example.com/page)')).toEqual(['https://example.com/page']);
+  });
+
+  it('decorates a URL wrapped in markdown italics', () => {
+    expect(linkTexts('_https://example.com/page_')).toEqual(['https://example.com/page']);
+  });
+
+  it('decorates a URL wrapped in markdown bold without swallowing the asterisks', () => {
+    expect(linkTexts('**https://example.com/page**')).toEqual(['https://example.com/page']);
+  });
+
+  it('decorates a URL wrapped in an inline code span without swallowing the backticks', () => {
+    expect(linkTexts('`https://example.com/page`')).toEqual(['https://example.com/page']);
+  });
+
+  it('keeps a legitimate underscore inside the URL itself', () => {
+    expect(linkTexts('See https://en.wikipedia.org/wiki/Some_Article')).toEqual([
+      'https://en.wikipedia.org/wiki/Some_Article',
+    ]);
   });
 
   it('decorates multiple URLs independently', () => {
@@ -101,6 +120,17 @@ describe('urlLinkDecoration', () => {
     const handled = handleUrlMousedown(event, view);
     expect(handled).toBe(false);
     expect(openUrlMock).not.toHaveBeenCalled();
+    view.destroy();
+  });
+
+  it('clears the stuck modifier-hover class on window blur', () => {
+    const view = makeView('Visit https://example.com/page today');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: isMac ? 'Meta' : 'Control' }));
+    expect(view.dom.classList.contains('cm-mod-active')).toBe(true);
+    // Simulates an OS shortcut (e.g. Cmd+Tab) consuming the keyup before the
+    // webview sees it — only a blur remains to signal the modifier let go.
+    window.dispatchEvent(new Event('blur'));
+    expect(view.dom.classList.contains('cm-mod-active')).toBe(false);
     view.destroy();
   });
 

@@ -46,7 +46,7 @@ import { exportToPptx } from './engine/export/exportPptx';
 import { exportToPdf, printPresentation } from './engine/export/exportPdf';
 import { exportPdfNative, buildInteractiveDocument, type PdfExportOpts } from './engine/export/exportPdfNative';
 import { SlideRenderer } from './components/preview/SlideRenderer';
-import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml, resolveCustomThemeLibrary, sanitiseThemeOverrides, type ThemeParseResult, type ThemeOverridePatch } from './engine/theme';
+import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml, resolveCustomThemeLibrary, sanitiseThemeOverrides, type ThemeParseResult, type ThemeOverridePatch, type ThemeLibrary } from './engine/theme';
 import { registerBundledFonts, registerCachedFont } from './engine/bundledFonts';
 import type { Slide, ListItem, Frontmatter } from './engine/types';
 import { parseAspectRatio } from './engine/types';
@@ -120,7 +120,15 @@ async function resolveCliTheme(arg: CliThemeArg): Promise<Theme | null> {
     const lastSlash = normalisedPath.lastIndexOf('/');
     const base = lastSlash === -1 ? normalisedPath : normalisedPath.slice(lastSlash + 1);
     const dir = lastSlash === -1 ? undefined : normalisedPath.slice(0, lastSlash);
-    const parsed = parseThemeYaml(`cli:${base.replace(/\.ya?ml$/i, '')}`, text, dir);
+    // Load the installed library too so this file's own `extends:` can name
+    // an installed custom theme, not just a built-in (issue #249) — matching
+    // the `arg.type === 'name'` path below.
+    let library: ThemeLibrary | undefined;
+    try {
+      const [libDir, entries] = await invoke<[string, Array<[string, string]>]>('load_custom_themes');
+      library = { entries, dir: libDir };
+    } catch { /* no installed themes available — extends still falls back to built-ins */ }
+    const parsed = parseThemeYaml(`cli:${base.replace(/\.ya?ml$/i, '')}`, text, dir, undefined, library);
     if (!parsed.ok) return fail(`invalid theme '${arg.path}': ${parsed.error}`);
     return parsed.theme;
   }
@@ -361,15 +369,21 @@ export default function App() {
   const [missingThemeId, setMissingThemeId]   = useState<string | null>(null);
   const [resolvedLogoUrl, setResolvedLogoUrl] = useState<string | undefined>(undefined);
 
+  // A single parse of the raw frontmatter block, shared below instead of
+  // each derived value re-running extractFrontmatter's YAML parse on its own
+  // — this is on the hot path (every keystroke re-renders App with a new
+  // `content`).
+  const parsedFrontmatter = useMemo(() => extractFrontmatter(content), [content]);
+
   // Overrides come straight from the frontmatter. Re-derive only when their
   // serialised form actually changes, so `activeTheme` (and every slide
   // thumbnail that depends on it) doesn't churn on unrelated keystrokes.
   const themeOverridesJson = useMemo(
-    () => JSON.stringify(extractFrontmatter(content).frontmatter.theme_overrides ?? null),
-    [content],
+    () => JSON.stringify(parsedFrontmatter.frontmatter.theme_overrides ?? null),
+    [parsedFrontmatter],
   );
   const themeOverrides = useMemo(() => {
-    const raw = extractFrontmatter(content).frontmatter.theme_overrides;
+    const raw = parsedFrontmatter.frontmatter.theme_overrides;
     return sanitiseThemeOverrides((raw as Record<string, unknown>) ?? {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [themeOverridesJson]);
@@ -379,9 +393,19 @@ export default function App() {
     [allThemes],
   );
 
+  // The selected theme before this document's own theme_overrides are
+  // applied — InspectorPanel needs it to tell whether an override actually
+  // differs from the theme's default (e.g. a header field toggled back to
+  // its original value) rather than merely being present as a key, since
+  // onHeaderChange/onFooterChange/onTocChange always write a whole object.
+  const baseTheme = useMemo<Theme>(
+    () => allThemes.find((t) => t.id === activeThemeId) ?? DEFAULT_THEME,
+    [allThemes, activeThemeId],
+  );
+
   // Resolved theme = base theme merged with overrides
   const activeTheme = useMemo<Theme>(() => {
-    const base = allThemes.find((t) => t.id === activeThemeId) ?? DEFAULT_THEME;
+    const base = baseTheme;
     return { ...base, ...themeOverrides,
       // Swap in the pre-resolved data URL for the logo (see the effect below):
       // the asset protocol cannot reliably serve absolute Windows paths outside
@@ -393,7 +417,7 @@ export default function App() {
       footer: { ...base.footer, ...(themeOverrides.footer ?? {}) },
       toc: { ...base.toc, ...(themeOverrides.toc ?? {}) },
     };
-  }, [allThemes, activeThemeId, themeOverrides, resolvedLogoUrl]);
+  }, [baseTheme, themeOverrides, resolvedLogoUrl]);
 
   // Effective raw logo: an explicit override (a path, or `null` to hide it)
   // wins; otherwise fall back to the base theme's own logo.
@@ -501,7 +525,7 @@ export default function App() {
   }, [content]);
 
   // Body-only view for the editor — frontmatter is managed by the inspector.
-  const editorBody = useMemo(() => extractFrontmatter(content).body, [content]);
+  const editorBody = parsedFrontmatter.body;
 
   // When showFrontmatter is on, the editor receives the full document.
   // Ref is updated synchronously during render so handleContentChange (called
@@ -2715,6 +2739,7 @@ export default function App() {
                 slideCount={slides.length}
                 frontmatter={frontmatter}
                 theme={activeTheme}
+                baseTheme={baseTheme}
                 themeOverrides={themeOverrides}
                 allThemes={allThemes}
                 onThemeSelect={handleThemeSelect}

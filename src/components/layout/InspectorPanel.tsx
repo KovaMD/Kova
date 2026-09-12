@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import type { Theme, ThemeOverridePatch, ThemeOverrides } from '../../engine/theme';
 import { defaultChartPalette } from '../../engine/theme';
 import type { Frontmatter } from '../../engine/types';
@@ -15,6 +15,13 @@ interface Props {
   slideCount: number;
   frontmatter: Frontmatter;
   theme: Theme;
+  /** The selected theme before this document's own overrides are applied —
+   *  lets the "overridden" indicators reflect an actual difference from the
+   *  theme's default rather than just "this key is present in the override
+   *  object" (onHeaderChange/onFooterChange/onTocChange always write a whole
+   *  object, so that key stays set even after every field is toggled back to
+   *  its original value). */
+  baseTheme: Theme;
   themeOverrides: ThemeOverrides;
   allThemes: Theme[];
   onThemeSelect: (id: string) => void;
@@ -27,9 +34,21 @@ interface Props {
 type Section = 'format' | 'theme' | 'colours' | 'fonts' | 'document';
 const ALL_SECTIONS: Section[] = ['format', 'theme', 'colours', 'fonts', 'document'];
 
+// True when any field of `a` differs from `b` — used to tell whether an
+// override object (always written whole by onHeaderChange/onFooterChange/
+// onTocChange) actually changes anything versus the theme's default.
+function shallowDiffers<T extends object>(a: T, b: T): boolean {
+  const ar = a as Record<string, unknown>;
+  const br = b as Record<string, unknown>;
+  for (const k of new Set([...Object.keys(ar), ...Object.keys(br)])) {
+    if (ar[k] !== br[k]) return true;
+  }
+  return false;
+}
+
 export function InspectorPanel({
   filePath, slideCount, frontmatter,
-  theme, themeOverrides, allThemes, onThemeSelect, onThemeChange, onMetaChange, onFormat, onOpenLibrary,
+  theme, baseTheme, themeOverrides, allThemes, onThemeSelect, onThemeChange, onMetaChange, onFormat, onOpenLibrary,
 }: Props) {
   const t = useT();
   const [open, setOpen] = useState<Set<Section>>(new Set(['format']));
@@ -37,8 +56,8 @@ export function InspectorPanel({
   const [localAuthor, setLocalAuthor] = useState(frontmatter.author ?? '');
   const [localDate,   setLocalDate]   = useState(frontmatter.date   != null ? String(frontmatter.date) : '');
   const focusedFieldRef = useRef<'title' | 'author' | 'date' | null>(null);
-  const colorOverrideKeys = new Set(Object.keys(themeOverrides.colors ?? {}));
-  const fontOverrideKeys = new Set(Object.keys(themeOverrides.fonts ?? {}));
+  const colorOverrideKeys = useMemo(() => new Set(Object.keys(themeOverrides.colors ?? {})), [themeOverrides.colors]);
+  const fontOverrideKeys = useMemo(() => new Set(Object.keys(themeOverrides.fonts ?? {})), [themeOverrides.fonts]);
 
   // Guard against overwriting a field the user is actively editing.
   useEffect(() => { if (focusedFieldRef.current !== 'title')  setLocalTitle(frontmatter.title ?? ''); },  [frontmatter.title]);
@@ -166,10 +185,10 @@ export function InspectorPanel({
             header={theme.header}
             footer={theme.footer}
             toc={theme.toc}
-            logoOverridden={'logo' in themeOverrides}
-            headerOverridden={themeOverrides.header !== undefined}
-            footerOverridden={themeOverrides.footer !== undefined}
-            tocOverridden={themeOverrides.toc !== undefined}
+            logoOverridden={'logo' in themeOverrides && (themeOverrides.logo ?? undefined) !== baseTheme.logo}
+            headerOverridden={themeOverrides.header !== undefined && shallowDiffers(theme.header, baseTheme.header)}
+            footerOverridden={themeOverrides.footer !== undefined && shallowDiffers(theme.footer, baseTheme.footer)}
+            tocOverridden={themeOverrides.toc !== undefined && shallowDiffers(theme.toc, baseTheme.toc)}
             onLogoChange={(path) => onThemeChange({ logo: path ?? null })}
             onLogoPositionChange={(pos) => onThemeChange({ logo_position: pos })}
             onLogoOpacityChange={(opacity) => onThemeChange({ logo_opacity: opacity })}

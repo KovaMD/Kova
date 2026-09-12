@@ -125,11 +125,18 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
     ? theme.footer.text.split('|').map((s) => resolveTemplate(s.trim(), templateVars))
     : null;
 
-  // Show the floating logo whenever its position doesn't match a visible bar —
-  // e.g. logo_position='bottom-right' with only header.show=true still floats.
-  const logoInHeader = headerVisible && theme.logo && ['top-left', 'top-right'].includes(theme.logo_position);
-  const logoInFooter = footerVisible && theme.logo && ['bottom-left', 'bottom-right'].includes(theme.logo_position);
-  const showFloatingLogo = theme.logo && !logoInHeader && !logoInFooter;
+  // Show the floating logo whenever its position doesn't belong to a bar the
+  // theme has at all — e.g. logo_position='bottom-right' with only
+  // header.show=true still floats. "Belongs to" ignores hide_on_title
+  // deliberately: a bar merely hidden on *this* slide should take its logo
+  // down with it, not spawn a floating duplicate in its place.
+  const logoBelongsInHeader = ['top-left', 'top-right'].includes(theme.logo_position);
+  const logoBelongsInFooter = ['bottom-left', 'bottom-right'].includes(theme.logo_position);
+  const logoHasHeaderHome = theme.header.show && logoBelongsInHeader;
+  const logoHasFooterHome = theme.footer.show && logoBelongsInFooter;
+  const logoInHeader = headerVisible && theme.logo && logoBelongsInHeader;
+  const logoInFooter = footerVisible && theme.logo && logoBelongsInFooter;
+  const showFloatingLogo = theme.logo && !logoHasHeaderHome && !logoHasFooterHome;
 
   const isThumbnail = isThumbnailProp ?? scale !== 1;
 
@@ -195,7 +202,7 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
       {/* Header bar */}
       {headerVisible && (
         <div className="sl-header-bar">
-          {theme.logo && ['top-left', 'top-right'].includes(theme.logo_position) && (
+          {logoInHeader && (
             <img src={theme.logo} alt="Logo" className="sl-logo"
               style={{
                 opacity: theme.logo_opacity,
@@ -239,7 +246,7 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
       {/* Footer bar */}
       {footerVisible && (
         <div className="sl-footer-bar">
-          {theme.logo && ['bottom-left', 'bottom-right'].includes(theme.logo_position) && (
+          {logoInFooter && (
             <img src={theme.logo} alt="Logo" className="sl-logo-footer"
               style={{
                 opacity: theme.logo_opacity,

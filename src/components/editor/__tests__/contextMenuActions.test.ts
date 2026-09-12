@@ -2,11 +2,37 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { doToggleLineStepMarker, hasLineStepMarker } from '../contextMenuActions';
+import { doToggleLineStepMarker, hasLineStepMarker, getWordAtPos } from '../contextMenuActions';
 
 function makeView(doc: string): EditorView {
   return new EditorView({ state: EditorState.create({ doc }) });
 }
+
+describe('getWordAtPos', () => {
+  it('selects the whole word for a non-ASCII letter (matches spellcheck\'s Unicode word regex)', () => {
+    const doc = 'a café here';
+    const view = makeView(doc);
+    const result = getWordAtPos(view, doc.indexOf('café') + 1);
+    expect(result?.word).toBe('café');
+    view.destroy();
+  });
+
+  it('selects a plain ASCII word', () => {
+    const doc = 'hello world';
+    const view = makeView(doc);
+    const result = getWordAtPos(view, 2);
+    expect(result?.word).toBe('hello');
+    view.destroy();
+  });
+
+  it('normalises a curly apostrophe to ASCII for dictionary lookup', () => {
+    const doc = "don’t stop";
+    const view = makeView(doc);
+    const result = getWordAtPos(view, 2);
+    expect(result?.word).toBe("don't");
+    view.destroy();
+  });
+});
 
 describe('doToggleLineStepMarker / hasLineStepMarker', () => {
   it('appends a trailing marker to a plain bullet line', () => {

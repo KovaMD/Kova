@@ -45,6 +45,12 @@ describe('collectDiagnostics', () => {
     ]);
   });
 
+  it('does not treat a fenced YAML array as frontmatter (matches frontmatter.ts)', async () => {
+    const doc = `---\n- one\n- two\n---\n\n# Slide\n`;
+    const diags = await collectDiagnostics(doc, ctx());
+    expect(diags).toEqual([]);
+  });
+
   it('warns on an unknown theme, errors nothing else', async () => {
     const doc = `---\ntheme: nonexistent\n---\n\n# Slide\n`;
     const diags = await collectDiagnostics(doc, ctx());

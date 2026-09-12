@@ -35,6 +35,13 @@ pub struct AppState {
     /// and left running for the app's lifetime, unlike `watch` which is
     /// re-pointed at a new file every time a document is opened.
     pub theme_watch: Mutex<Option<notify::RecommendedWatcher>>,
+    /// Serializes the themes-directory bootstrap (create dir + write
+    /// example.yaml on first run) between `load_custom_themes` and
+    /// `start_watching_themes`, which the frontend fires from two separate
+    /// mount effects with no ordering guarantee across the IPC boundary —
+    /// without this, whichever creates the (empty) directory first causes the
+    /// other to skip the bootstrap, silently dropping the example template.
+    pub themes_dir_init: Mutex<()>,
     /// Set once the frontend has resolved the unsaved-changes prompt (or there
     /// was nothing to confirm) for an in-flight app-level quit. Checked by the
     /// `RunEvent::ExitRequested` handler in lib.rs so the retried `app.exit()`

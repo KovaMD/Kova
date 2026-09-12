@@ -3,6 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import type { Theme } from '../../engine/theme';
 import { useT } from '../../i18n';
 import type { MessageKey } from '../../i18n';
+import { OverrideDot } from './OverrideDot';
 
 interface Props {
   logo: string | undefined;
@@ -29,11 +30,6 @@ const POSITIONS: Array<{ value: Theme['logo_position']; labelKey: MessageKey }> 
   { value: 'bottom-left',  labelKey: 'inspector.positionBottomLeft' },
   { value: 'bottom-right', labelKey: 'inspector.positionBottomRight' },
 ];
-
-function OverrideDot({ show, hint }: { show: boolean; hint: string }) {
-  if (!show) return null;
-  return <span title={hint} style={{ color: 'var(--accent)', fontSize: 8, lineHeight: 1 }}>●</span>;
-}
 
 export function LogoControls({
   logo, logoPosition, logoOpacity, header, footer, toc,

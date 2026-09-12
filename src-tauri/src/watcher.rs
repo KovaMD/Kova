@@ -12,6 +12,15 @@ struct LastSeen {
     size: Option<u64>,
 }
 
+/// True for pure metadata events — on Linux these are inotify IN_ATTRIB
+/// events emitted by sync clients (OneDrive, Dropbox) touching timestamps or
+/// xattrs without changing the file's bytes. Shared by both watchers below so
+/// a future adjustment to this filter (e.g. another spurious event kind seen
+/// on some platform/sync-client) can't update one and silently miss the other.
+fn is_metadata_only(kind: &EventKind) -> bool {
+    matches!(kind, EventKind::Modify(ModifyKind::Metadata(_)))
+}
+
 pub fn create(
     app: AppHandle,
     path: PathBuf,
@@ -23,10 +32,7 @@ pub fn create(
     let mut watcher = RecommendedWatcher::new(
         move |res: notify::Result<Event>| {
             if let Ok(event) = res {
-                // Drop pure metadata events — on Linux these are inotify IN_ATTRIB
-                // events emitted by sync clients (OneDrive, Dropbox) touching
-                // timestamps or xattrs without changing the file's bytes.
-                if matches!(event.kind, EventKind::Modify(ModifyKind::Metadata(_))) {
+                if is_metadata_only(&event.kind) {
                     return;
                 }
 
@@ -82,9 +88,7 @@ pub fn create_theme_dir_watcher(app: AppHandle, dir: PathBuf) -> notify::Result<
     let mut watcher = RecommendedWatcher::new(
         move |res: notify::Result<Event>| {
             if let Ok(event) = res {
-                // Same metadata-only filter as `create` — ignore sync-client
-                // timestamp/xattr touches that don't change file contents.
-                if matches!(event.kind, EventKind::Modify(ModifyKind::Metadata(_))) {
+                if is_metadata_only(&event.kind) {
                     return;
                 }
                 if !matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)) {

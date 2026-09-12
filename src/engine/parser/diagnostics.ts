@@ -100,7 +100,12 @@ export async function collectDiagnostics(content: string, ctx: CheckContext): Pr
   if (fmMatch) {
     try {
       const parsed = yaml.load(fmMatch[1], { schema: yaml.CORE_SCHEMA });
-      if (parsed && typeof parsed === 'object') fm = parsed as Record<string, unknown>;
+      // Must match frontmatter.ts's parseBlock: a YAML array parses fine but
+      // isn't a mapping, so it isn't frontmatter either — without this check
+      // a fenced array is treated as frontmatter here while the renderer
+      // treats the same block as plain slide body, producing diagnostics for
+      // "keys" (numeric indices) that don't correspond to anything real.
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) fm = parsed as Record<string, unknown>;
     } catch (e) {
       const mark = (e as { mark?: { line?: number } }).mark;
       // mark.line is 0-based within the YAML block; document line 1 is `---`.

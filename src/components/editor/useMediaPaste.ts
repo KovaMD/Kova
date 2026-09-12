@@ -6,6 +6,7 @@ import type { EditorView } from '@codemirror/view';
 import type { Translator } from '../../i18n';
 import { isMac } from '../../engine/keybindings';
 import { encodeMarkdownPath } from './mediaSnippet';
+import { trimTrailingPunctuation } from './urlLinkDecoration';
 
 // A whole-string URL match (not "contains a URL somewhere") — pasting text
 // that merely mentions a URL alongside other words should still just replace
@@ -15,10 +16,17 @@ import { encodeMarkdownPath } from './mediaSnippet';
 const BARE_URL_RE = /^https?:\/\/\S+$/;
 
 /** Exported for testing — the rest of this file is DOM/CodeMirror plumbing
- *  around this one decision (linkify vs. plain-replace). */
+ *  around this one decision (linkify vs. plain-replace). Trailing sentence
+ *  punctuation is trimmed the same way as the click-to-open decoration
+ *  (urlLinkDecoration.ts) — a URL copied out of prose or a citation often
+ *  carries a stray trailing `.`/`)` that isn't part of the address, and
+ *  leaving it in would embed it inside the generated `[text](url)`,
+ *  producing a malformed link. */
 export function pastedUrl(text: string): string | null {
   const trimmed = text.trim();
-  return BARE_URL_RE.test(trimmed) ? trimmed : null;
+  if (!BARE_URL_RE.test(trimmed)) return null;
+  const url = trimTrailingPunctuation(trimmed);
+  return BARE_URL_RE.test(url) ? url : null;
 }
 
 interface UseMediaPasteParams {
@@ -200,8 +208,15 @@ export function useMediaPaste({ containerRef, viewRef, filePathRef, onWarnRef, t
         }
 
         // No image — fall back to the plain text captured synchronously
-        // from the paste event.
+        // from the paste event. The document may have changed while the
+        // native clipboard-image checks above were in flight (a real IPC
+        // round-trip), so the selection captured before those awaits could
+        // now point past the end of the document — dispatching against it
+        // unchanged would throw a RangeError inside this untracked async
+        // callback. Bail out rather than edit a range that may no longer
+        // mean what it did when the paste started.
         if (!view || !selection || !text) return;
+        if (selection.to > view.state.doc.length) return;
         // CodeMirror normalises \r\n → \n internally, so the inserted length
         // may be shorter than text.length. Use the normalised form to compute
         // the correct cursor position; otherwise the dispatch is silently

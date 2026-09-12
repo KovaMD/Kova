@@ -212,6 +212,16 @@ describe('patchFrontmatter', () => {
     expect(out).not.toContain('---');
   });
 
+  it('replaces a real fence whose YAML has a genuine syntax error, without stacking a duplicate block', () => {
+    const input = '---\n: bad: yaml:\n---\n\n# Slide\n';
+    const out = patchFrontmatter(input, { title: 'New Title' });
+    expect(out).toMatch(/title: "?New Title"?/);
+    expect(out).toContain('# Slide');
+    // Exactly one frontmatter fence pair — not the old block stacked in front.
+    expect(out.match(/^---$/gm)?.length).toBe(2);
+    expect(out).not.toContain('bad: yaml');
+  });
+
   it('does not resurrect deleted frontmatter or eat slide 1 (issue #246)', () => {
     // User deleted the frontmatter body but left a stray `---`; save re-runs
     // patchFrontmatter with nothing to add.

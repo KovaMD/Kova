@@ -10,9 +10,13 @@ export function getWordAtPos(view: EditorView, pos: number): { word: string; fro
   let to = pos;
   // ’ (curly apostrophe) is treated like the ASCII one so contractions typed
   // with a typographic quote (macOS/iOS/Word/Google Docs default) are
-  // selected whole — see the matching fix in spellCheckExtension.ts.
-  while (from > 0 && /[a-zA-Z'’-]/.test(doc[from - 1])) from--;
-  while (to < doc.length && /[a-zA-Z'’-]/.test(doc[to])) to++;
+  // selected whole — see the matching fix in spellCheckExtension.ts. \p{L}
+  // (not a-zA-Z) so this also selects the whole word for non-ASCII letters
+  // (e.g. "café"), matching extractWords's word regex in that same file —
+  // otherwise a right-click there selects a truncated substring that "Add to
+  // Dictionary"/"Ignore" then whitelist instead of the actual flagged word.
+  while (from > 0 && /[\p{L}'’-]/u.test(doc[from - 1])) from--;
+  while (to < doc.length && /[\p{L}'’-]/u.test(doc[to])) to++;
   while (from < to && /['’"-]/.test(doc[from])) from++;
   while (to > from && /['’"-]/.test(doc[to - 1])) to--;
   if (to - from < 2) return null;

@@ -32,4 +32,15 @@ describe('pastedUrl', () => {
   it('rejects a URL containing internal whitespace', () => {
     expect(pastedUrl('https://example.com/a page')).toBeNull();
   });
+
+  it('trims trailing sentence punctuation, matching the click-to-open decoration', () => {
+    expect(pastedUrl('https://example.com/page.')).toBe('https://example.com/page');
+    expect(pastedUrl('https://example.com/page).')).toBe('https://example.com/page');
+  });
+
+  it('keeps a closing paren that balances one earlier in the URL', () => {
+    expect(pastedUrl('https://en.wikipedia.org/wiki/Cat_(disambiguation)')).toBe(
+      'https://en.wikipedia.org/wiki/Cat_(disambiguation)',
+    );
+  });
 });

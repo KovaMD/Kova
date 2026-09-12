@@ -5,14 +5,23 @@ import { isMac } from '../../engine/keybindings';
 
 // Bare http(s) URLs typed or pasted directly into the source — not
 // [text](url) markdown links, which already render clickable in the live
-// preview via SlideRenderer's own <a> handling.
-const URL_RE = /\bhttps?:\/\/[^\s<>"']+/g;
+// preview via SlideRenderer's own <a> handling. A lookbehind (not `\b`) guards
+// the start: `\b` treats `_` as a word character, so it fails to match a URL
+// wrapped in markdown italics (`_https://x.com_`) since there's no boundary
+// between the `_` and `h`. Requiring the preceding character to not be
+// alphanumeric still blocks matching "https" mid-token (e.g. "xhttps://")
+// while allowing any punctuation — including markdown emphasis — before it.
+const URL_RE = /(?<![A-Za-z0-9])https?:\/\/[^\s<>"']+/g;
 
 // A URL ending in sentence punctuation almost always has that punctuation as
 // prose, not part of the address ("see https://x.com."); a closing paren or
 // bracket is kept when it balances one earlier in the URL itself (e.g. a
-// Wikipedia link with a parenthetical disambiguator).
-function trimTrailingPunctuation(url: string): string {
+// Wikipedia link with a parenthetical disambiguator). Markdown emphasis/code
+// wrappers (`**bold**`, `_italic_`, `` `code` ``) aren't excluded from the
+// match itself — they're valid-ish URL characters — so trailing ones are
+// trimmed here the same way, on the same "almost always prose, not the URL"
+// reasoning.
+export function trimTrailingPunctuation(url: string): string {
   let end = url.length;
   while (end > 0) {
     const ch = url[end - 1];
@@ -23,7 +32,7 @@ function trimTrailingPunctuation(url: string): string {
       if (closes > opens) { end--; continue; }
       break;
     }
-    if ('.,;:!?'.includes(ch)) { end--; continue; }
+    if ('.,;:!?*_`'.includes(ch)) { end--; continue; }
     break;
   }
   return url.slice(0, end);
@@ -63,11 +72,18 @@ class UrlLinkPluginValue {
     if (!isModKey) return;
     this.view.dom.classList.toggle('cm-mod-active', e.type === 'keydown');
   };
+  // An OS-level shortcut built on the modifier (e.g. Cmd+Tab to switch apps)
+  // can consume the keydown without the webview ever seeing a matching keyup
+  // — clear the class whenever the window loses focus so the hover styling
+  // doesn't stay stuck on until some unrelated keypress happens to fire one.
+  private onBlur = () => this.view.dom.classList.remove('cm-mod-active');
 
   constructor(private view: EditorView) {
     this.decorations = build(view);
     document.addEventListener('keydown', this.onKeyChange);
     document.addEventListener('keyup', this.onKeyChange);
+    window.addEventListener('blur', this.onBlur);
+    document.addEventListener('visibilitychange', this.onBlur);
   }
 
   update(u: ViewUpdate) {
@@ -77,6 +93,8 @@ class UrlLinkPluginValue {
   destroy() {
     document.removeEventListener('keydown', this.onKeyChange);
     document.removeEventListener('keyup', this.onKeyChange);
+    window.removeEventListener('blur', this.onBlur);
+    document.removeEventListener('visibilitychange', this.onBlur);
     this.view.dom.classList.remove('cm-mod-active');
   }
 }

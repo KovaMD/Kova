@@ -3,6 +3,7 @@ import type { ThemeColors } from '../../engine/theme';
 import { defaultChartPalette } from '../../engine/theme';
 import { useT } from '../../i18n';
 import type { MessageKey } from '../../i18n';
+import { OverrideDot } from './OverrideDot';
 
 interface Props {
   colors: ThemeColors;
@@ -62,9 +63,7 @@ export function ColorControls({ colors, overriddenKeys, onChange, onChartColorCh
               style={{ fontSize: 11, color: 'var(--text-label)', flex: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
             >
               {t(labelKey)}
-              {isOverridden && (
-                <span title={t('inspector.overriddenHint')} style={{ color: 'var(--accent)', fontSize: 8, lineHeight: 1 }}>●</span>
-              )}
+              <OverrideDot show={isOverridden} hint={t('inspector.overriddenHint')} />
             </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <input

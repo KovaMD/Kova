@@ -25,22 +25,29 @@ pub fn load_keybindings(app: AppHandle) -> Result<(String, String), String> {
 
 const EXAMPLE_THEME: &str = include_str!("../../resources/example_theme.yaml");
 
-/// Returns (themes_dir_path, entries) where each entry is
-/// (filename_without_extension, yaml_content).
-/// Creates the platform config themes dir and an example file on first run.
-#[tauri::command]
-pub fn load_custom_themes(app: AppHandle) -> Result<(String, Vec<(String, String)>), String> {
+/// Returns the platform config themes dir, creating it (and writing the
+/// example theme template) on first run. Guarded by `state.themes_dir_init`
+/// so `load_custom_themes` and `start_watching_themes` — invoked from two
+/// separate frontend mount effects with no ordering guarantee across the IPC
+/// boundary — can't race each other into skipping the bootstrap.
+fn ensure_themes_dir(app: &AppHandle, state: &AppState) -> Result<PathBuf, String> {
     use tauri::Manager;
-    let config_dir = app.path().config_dir().map_err(|e| e.to_string())?.join("kova");
-    let themes_dir = config_dir.join("themes");
-    let dir_str = themes_dir.to_string_lossy().into_owned();
-
+    let _guard = state.themes_dir_init.lock().unwrap_or_else(|e| e.into_inner());
+    let themes_dir = app.path().config_dir().map_err(|e| e.to_string())?.join("kova").join("themes");
     if !themes_dir.exists() {
         std::fs::create_dir_all(&themes_dir).map_err(|e| e.to_string())?;
         std::fs::write(themes_dir.join("example.yaml"), EXAMPLE_THEME)
             .map_err(|e| e.to_string())?;
-        return Ok((dir_str, vec![]));
     }
+    Ok(themes_dir)
+}
+
+/// Returns (themes_dir_path, entries) where each entry is
+/// (filename_without_extension, yaml_content).
+#[tauri::command]
+pub fn load_custom_themes(app: AppHandle, state: State<'_, AppState>) -> Result<(String, Vec<(String, String)>), String> {
+    let themes_dir = ensure_themes_dir(&app, &state)?;
+    let dir_str = themes_dir.to_string_lossy().into_owned();
 
     let mut result = Vec::new();
     let entries = std::fs::read_dir(&themes_dir).map_err(|e| e.to_string())?;
@@ -74,11 +81,7 @@ pub fn load_custom_themes(app: AppHandle) -> Result<(String, Vec<(String, String
 /// frontend on startup; the watcher then lives for the app's lifetime.
 #[tauri::command]
 pub fn start_watching_themes(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    use tauri::Manager;
-    let themes_dir = app.path().config_dir().map_err(|e| e.to_string())?.join("kova").join("themes");
-    if !themes_dir.exists() {
-        std::fs::create_dir_all(&themes_dir).map_err(|e| e.to_string())?;
-    }
+    let themes_dir = ensure_themes_dir(&app, &state)?;
 
     let mut guard = state.theme_watch.lock().unwrap_or_else(|e| e.into_inner());
     *guard = None; // drop the previous watcher before creating the new one

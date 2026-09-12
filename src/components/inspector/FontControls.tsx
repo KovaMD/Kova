@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { ThemeFonts } from '../../engine/theme';
 import { isFontStackSatisfied, parseFontStack } from '../../engine/fontDetect';
 import { useT } from '../../i18n';
+import { OverrideDot } from './OverrideDot';
 
 interface Props {
   fonts: ThemeFonts;
@@ -60,7 +61,7 @@ function FontSelect({ value, groups, onChange }: {
   const ref = useRef<HTMLDivElement>(null);
 
   const allOptions = groups.flatMap((g) => g.options);
-  const display = allOptions.find((o) => o.value === value)?.label ?? value.split(',')[0].trim();
+  const display = allOptions.find((o) => o.value === value)?.label ?? parseFontStack(value)[0] ?? value;
 
   useEffect(() => {
     if (!open) return;
@@ -206,9 +207,7 @@ export function FontControls({ fonts, overriddenKeys, onChange }: Props) {
           <div key={key}>
             <label style={{ fontSize: 11, color: 'var(--text-label)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
               {t(labelKey)}
-              {isOverridden && (
-                <span title={t('inspector.overriddenHint')} style={{ color: 'var(--accent)', fontSize: 8, lineHeight: 1 }}>●</span>
-              )}
+              <OverrideDot show={isOverridden} hint={t('inspector.overriddenHint')} />
               {unresolved && (
                 <span
                   title={t('inspector.fontUnavailableWarning', { font: primaryName })}
