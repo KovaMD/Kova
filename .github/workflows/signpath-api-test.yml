@@ -1,0 +1,54 @@
+name: SignPath REST API Direct Test
+
+# Manually-triggered, no build involved. Submits a throwaway dummy file
+# straight to SignPath's core REST API (SubmitWithArtifact), bypassing the
+# GitHub Actions connector entirely — the same connector every
+# windows-test-build.yml / release.yml Windows-signing run goes through and
+# 400s on with an empty logs/validationResult body. If this direct call
+# behaves differently (succeeds, or returns a real structured error), that
+# isolates the fault to the connector rather than the release-signing
+# policy/certificate itself.
+on:
+  workflow_dispatch:
+    inputs:
+      signing-policy-slug:
+        description: 'SignPath signing policy to submit to'
+        required: true
+        default: 'release-signing'
+      artifact-configuration-slug:
+        description: 'SignPath artifact-configuration-slug (leave empty for project default)'
+        required: false
+        default: ''
+
+jobs:
+  direct-api-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit dummy artifact directly to SignPath REST API
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          ORG_ID: 6aea854d-5015-451b-80a3-a1031e70eb9e
+          POLICY: ${{ inputs.signing-policy-slug }}
+          ARTIFACT_CONFIG: ${{ inputs.artifact-configuration-slug }}
+        run: |
+          set -euo pipefail
+          echo "dummy artifact for SignPath core API test $(date -u)" > dummy.txt
+
+          ARGS=(-sS -H "Authorization: Bearer ${SIGNPATH_API_TOKEN}"
+                -F "projectSlug=kova"
+                -F "signingPolicySlug=${POLICY}"
+                -F "artifact=@dummy.txt"
+                -F "description=Direct REST API diagnostic test (bypassing GitHub connector)")
+          if [ -n "${ARTIFACT_CONFIG}" ]; then
+            ARGS+=(-F "artifactConfigurationSlug=${ARTIFACT_CONFIG}")
+          fi
+
+          echo "Submitting to SignPath core API (policy: ${POLICY}, artifact config: ${ARTIFACT_CONFIG:-<default>})..."
+          HTTP_STATUS=$(curl "${ARGS[@]}" \
+            -o /tmp/response.json -w "%{http_code}" \
+            "https://app.signpath.io/Api/v1/${ORG_ID}/SigningRequests/SubmitWithArtifact")
+
+          echo "HTTP status: ${HTTP_STATUS}"
+          echo "Response body:"
+          cat /tmp/response.json
+          echo
