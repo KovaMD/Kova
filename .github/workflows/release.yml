@@ -29,16 +29,22 @@ jobs:
           ## What's new
 
           ### New features
-          - **`kova --export html`** now writes a self-contained interactive HTML deck straight from the command line, alongside the existing `pptx` and `pdf` export formats (requested by @Ayush7614, #220, #242).
-          - **Progress bars work inside tables.** A `!progress[label](value)` directive can now sit in a Markdown table cell, including a computed `!sheet` cell driven by a formula such as `!progress[Done](=sum(total))` (contributed by @florian-hubertSE, #240).
+          - **URLs in the editor are now clickable.** A bare `http(s)` link typed or pasted into the source can be opened directly with Cmd/Ctrl+click, matching how it already renders in the live preview (requested by @sschuberth, #248).
+          - **Paste a URL over selected text to link it.** Selecting text and pasting a bare URL now wraps the selection into a `[text](url)` markdown link instead of overwriting it, matching GitHub's own paste-to-linkify behaviour (requested by @sschuberth, #247).
+          - **Custom themes can now `extends:` another theme.** Pick a different base than the built-in light theme to inherit unset properties from — another built-in, or another installed custom theme (requested by @sschuberth, #249).
+          - **Mermaid diagram colours are now themeable.** `colors.diagram_colors` sets flowchart/sequence node fill, border, line, cluster, and text colours directly, instead of only deriving them from a theme's other colours (requested by @datenimperator, #245).
+          - **Theme logos can use a relative path.** A `logo:` path relative to the theme file's own folder now resolves correctly, so a self-contained theme folder keeps working after being moved or renamed (requested by @sschuberth, #250).
+          - **Header and footer can be hidden on just the title slide**, via `header.hide_on_title` / `footer.hide_on_title`, instead of an all-or-nothing choice (requested by @sschuberth, #254).
+          - **The custom themes folder is now watched live** — editing a theme `.yaml` in another editor while Kova is open reloads it immediately, instead of requiring a restart (requested by @sschuberth, #252).
+          - **The Inspector now marks overridden theme properties.** Colour, font, logo, header, footer, and table-of-contents controls show a small dot when the current value comes from this document's own overrides rather than the active theme (requested by @sschuberth, #251).
 
           ### Bug fixes
-          - **Fixed** Gantt charts still collapsing to an unreadable sliver when every task sits in the past or future. Mermaid draws its "today" marker at the real current date, far off-canvas, and the viewBox auto-fit was pulling it into frame (reported by @a1880, #195).
-          - **Fixed** the Nix flake building a broken package that opened to a blank window reading "Could not connect to localhost" (contributed by @vadika, reported by @felix-seifert, #233, #237).
-          - **Fixed** `kova --export pdf` on Windows dropping images and diagrams that use a relative path (contributed by @florian-hubertSE, #235).
-          - **Fixed** a full-slide `![bg]` background image being painted over, and hidden, on a bare title or section slide (contributed by @florian-hubertSE, #236).
-          - **Fixed** dense tables overrunning the bottom of the slide when exported to PPTX; they now scale down to fit their area the way the live preview does (#238).
-          - **Fixed** the editor's cursor-to-slide tracking drifting out of alignment when a `---` line appears inside a fenced code block, such as a Mermaid config block (contributed by @florian-hubertSE, #239).
+          - **Fixed** code and Mermaid diagram slide titles ignoring the theme's heading colour and always rendering in the body-text colour instead (reported by @datenimperator, #255).
+          - **Fixed** Kova crashing when pasting a video, on systems missing a GStreamer audio-sink plugin (reported by @Testorakel, #253).
+          - **Fixed** a correctly installed, quoted font (e.g. `'Clan Pro', Arial`) still triggering a "font not found" warning, because only the first family in the stack was ever checked (reported by @datenimperator, #243).
+          - **Fixed** Inspector edits to theme properties not appearing in the source view until save, and a stray leading `---` being misread as frontmatter and silently swallowing the title slide with no way to undo it (reported by @datenimperator, #246).
+          - **Fixed** section dividers ignoring a theme's `section_bg` colour and always using the primary colour instead (reported by @datenimperator, #244).
+          - **Fixed** the spellchecker and its right-click "Add to Dictionary" lookup disagreeing on word boundaries — a contraction typed with a curly apostrophe (e.g. "doesn't") could be flagged as misspelled, and adding a non-ASCII word (e.g. "café") to the dictionary would only whitelist its truncated, ASCII portion.
 
           ### Known issues
           - **Windows Defender may flag Kova as `Trojan:Win32/Wacatac.C!ml`** during install or update — this is a false positive from Microsoft's heuristic/ML detection, not an actual threat (reported in #224). It's tied to Windows builds still being **test-signed** rather than production-signed; we're in the process of moving to full production signing via [SignPath](https://signpath.io). We'll drop this note once production signing is live.
