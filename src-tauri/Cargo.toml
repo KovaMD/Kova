@@ -3,6 +3,7 @@ name = "kova"
 version = "0.7.11"
 description = "Markdown presentation authoring tool"
 authors = ["Kova contributors"]
+license = "GPL-3.0-only"
 edition = "2021"
 
 [lib]
