@@ -510,6 +510,65 @@ describe('inline HTML generation', () => {
   });
 });
 
+// ── Icon shortcodes (`:name:`, issue #263) ────────────────────────────────────
+
+describe('icon shortcodes', () => {
+  it('renders a known name as an icon span with its codepoint', () => {
+    const { slides } = parseDocument(doc('## Slide\n\nShip it :rocket:!\n'));
+    const para = slides[0].elements.find((e) => e.type === 'paragraph');
+    expect(para?.type === 'paragraph' && para.html).toContain('<span class="sl-icon">&#xf135;</span>');
+  });
+
+  it('leaves an unrecognised name as literal text', () => {
+    const { slides } = parseDocument(doc('## Slide\n\nNot an icon :not-a-real-icon:.\n'));
+    const para = slides[0].elements.find((e) => e.type === 'paragraph');
+    expect(para?.type === 'paragraph' && para.html).toContain(':not-a-real-icon:');
+    expect(para?.type === 'paragraph' && para.html).not.toContain('sl-icon');
+  });
+
+  it('substitutes mid-sentence, not just at line start/end', () => {
+    const { slides } = parseDocument(doc('## Slide\n\nBefore :star: after.\n'));
+    const para = slides[0].elements.find((e) => e.type === 'paragraph');
+    const html = para?.type === 'paragraph' ? para.html : '';
+    expect(html).toContain('Before ');
+    expect(html).toContain('<span class="sl-icon">&#xf005;</span>');
+    expect(html).toContain(' after.');
+  });
+
+  it('substitutes inside list items', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n- :check: Done\n'));
+    const list = slides[0].elements.find((e) => e.type === 'list');
+    expect(list?.type === 'list' && list.items[0].html).toContain('<span class="sl-icon">&#xf00c;</span>');
+  });
+
+  it('substitutes inside bold/italic text', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n**:warning: Careful**\n'));
+    const para = slides[0].elements.find((e) => e.type === 'paragraph');
+    expect(para?.type === 'paragraph' && para.html).toContain('<strong><span class="sl-icon">&#xf071;</span>');
+  });
+
+  it('does not substitute inside inline code', () => {
+    const { slides } = parseDocument(doc('## Slide\n\nUse `:rocket:` literally.\n'));
+    const para = slides[0].elements.find((e) => e.type === 'paragraph');
+    expect(para?.type === 'paragraph' && para.html).toContain('<code>:rocket:</code>');
+  });
+
+  it('does not substitute inside a fenced code block', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n```\n:rocket:\n```\n'));
+    const code = slides[0].elements.find((e) => e.type === 'code');
+    expect(code?.type === 'code' && code.value).toBe(':rocket:');
+  });
+
+  it('handles multiple shortcodes in one line', () => {
+    const { slides } = parseDocument(doc('## Slide\n\n:check: :x: :warning:\n'));
+    const para = slides[0].elements.find((e) => e.type === 'paragraph');
+    const html = para?.type === 'paragraph' ? para.html : '';
+    expect(html).toContain('&#xf00c;');
+    expect(html).toContain('&#xf00d;');
+    expect(html).toContain('&#xf071;');
+  });
+});
+
 // ── Math (KaTeX / remark-math) ────────────────────────────────────────────────
 
 describe('math parsing', () => {

@@ -435,17 +435,19 @@ footer:
   });
 
   it('parses bundledFonts list', () => {
+    // Additive with the base theme's own bundledFonts (every built-in theme
+    // declares 'Kova Icons') rather than replacing it — see normaliseTheme.
     const result = parseThemeYaml('fonts-theme', 'name: Fonts\nbundledFonts:\n  - Montserrat\n');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.theme.bundledFonts).toEqual(['Montserrat']);
+    expect(result.theme.bundledFonts).toEqual(['Kova Icons', 'Montserrat']);
   });
 
   it('filters non-string entries out of bundledFonts', () => {
     const result = parseThemeYaml('fonts-theme', 'name: Fonts\nbundledFonts:\n  - Montserrat\n  - 42\n');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.theme.bundledFonts).toEqual(['Montserrat']);
+    expect(result.theme.bundledFonts).toEqual(['Kova Icons', 'Montserrat']);
   });
 
   it('round-trips a chart_colors array through YAML parse', () => {

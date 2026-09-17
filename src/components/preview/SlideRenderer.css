@@ -12,6 +12,7 @@
   --sl-font-title:  Inter, 'Helvetica Neue', Arial, sans-serif;
   --sl-font-body:   Inter, 'Helvetica Neue', Arial, sans-serif;
   --sl-font-code:   'JetBrains Mono', 'Fira Code', monospace;
+  --sl-font-icon:   Kova Icons;
 }
 
 /* ── Slide frame ─────────────────────────────────────────────────────────── */
@@ -813,6 +814,17 @@
   font-size: clamp(5px, 1.05cqi, 9px);
   color: color-mix(in srgb, var(--sl-text) 60%, var(--sl-bg));
   line-height: 1.3;
+}
+
+/* ── Icon shortcodes (`:name:`) ──────────────────────────────────────────── */
+
+.sl-icon {
+  font-family: var(--sl-font-icon);
+  font-style: normal;    /* never italicise glyphs, even inside *emphasis* */
+  font-weight: normal;   /* or bold inside **strong** */
+  display: inline-block;
+  line-height: 1;
+  vertical-align: -0.1em;
 }
 
 /* ── Overflow badge ──────────────────────────────────────────────────────── */

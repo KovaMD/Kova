@@ -40,6 +40,9 @@ const CURATED: Record<keyof ThemeFonts, FontOption[]> = {
   title: [...SANS, ...SERIF],
   body:  [...SANS, ...SERIF],
   code:  MONO,
+  // No inspector row for `icon` yet (see engine/icons.ts) — kept here only so
+  // this stays a valid Record<keyof ThemeFonts, ...> as new roles are added.
+  icon: [],
 };
 
 const FONT_FIELDS: Array<{ key: keyof ThemeFonts; labelKey: 'inspector.fontFieldTitle' | 'inspector.fontFieldBody' | 'inspector.fontFieldCode' }> = [

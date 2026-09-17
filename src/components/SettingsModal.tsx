@@ -26,6 +26,7 @@ const THIRD_PARTY_LICENSES: { name: string; license: string; copyright: string }
   { name: 'jsPDF',                   license: 'MIT',                        copyright: '© 2010 James Hall and contributors'       },
   { name: 'JSZip',                   license: 'MIT / GPL-3.0',              copyright: '© 2009 Stuart Knightley and contributors' },
   { name: 'KaTeX',                   license: 'MIT',                        copyright: '© 2013 Khan Academy and contributors'     },
+  { name: 'Kova Icons (Nerd Fonts)', license: 'MIT',                        copyright: '© 2014 Ryan L McIntyre and contributors'  },
   { name: 'Mermaid',                 license: 'MIT',                        copyright: '© 2014 Knut Sveidqvist and contributors'  },
   { name: 'Montserrat',              license: 'SIL Open Font License 1.1', copyright: '© 2011 The Montserrat Project Authors'    },
   { name: 'PptxGenJS',               license: 'MIT',                        copyright: '© 2015 Brent Ely'                        },

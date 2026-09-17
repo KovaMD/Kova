@@ -41,6 +41,12 @@ fonts:
   title: "Inter, 'Helvetica Neue', Arial, sans-serif"
   body:  "Inter, 'Helvetica Neue', Arial, sans-serif"
   code:  "'JetBrains Mono', 'Fira Code', monospace"
+  # icon renders `:name:` shortcodes (see the icon reference in the docs).
+  # Omit it to inherit Kova's bundled icon font — only set this if you want to
+  # point at a different Nerd-Fonts-patched font you already have installed.
+  # Non-Nerd-Fonts icon fonts (e.g. plain Font Awesome) will likely show wrong
+  # or missing glyphs: Kova's shortcode table uses Nerd Fonts' own codepoints.
+  # icon: "Kova Icons"
 
 layout:
   title_align:   center      # center | left | bottom-left

@@ -17,6 +17,7 @@ import { collectConstants } from '../sheet/constants';
 import { evaluateSheet, isFooterRow, parseSheetDirective, type SheetOpts } from '../sheet/sheet';
 import type { Value } from '../sheet/evaluate';
 import { matchStepMarker, createStepAssigner, STEP_MARKER_PATTERN, type StepAssigner } from './stepMarkers';
+import { ICONS, ICON_SHORTCODE_RE } from '../icons';
 
 const processor = unified().use(remarkParse).use(remarkGfm).use(remarkMath);
 
@@ -839,7 +840,7 @@ function isAutolink(node: { url: string; children: unknown[] }): boolean {
 function inlineToHtml(children: Node[]): string {
   return (children as any[]).map((node) => {
     switch (node.type) {
-      case 'text':        return escHtml(node.value as string).replace(/\n/g, '<br>');
+      case 'text':        return substituteIconShortcodes(escHtml(node.value as string)).replace(/\n/g, '<br>');
       case 'strong':      return `<strong>${inlineToHtml(node.children)}</strong>`;
       case 'emphasis':    return `<em>${inlineToHtml(node.children)}</em>`;
       case 'delete':      return `<del>${inlineToHtml(node.children)}</del>`;
@@ -883,6 +884,18 @@ function tableCellHtml(raw: string, children: Node[]): string {
 // inject arbitrary HTML/attributes.
 function escHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// `:name:` icon shortcodes (issue #263) — inline, so this runs on every text
+// node rather than as a preprocess()-style line directive; unlike `!ref`/`!toc`
+// etc. these need to work mid-sentence, inside list items, bold text, etc.
+// An unrecognised name is left as literal text — `:` shows up too often in
+// ordinary prose (times, emoticons) to safely warn on every non-match.
+function substituteIconShortcodes(s: string): string {
+  return s.replace(ICON_SHORTCODE_RE, (match, name: string) => {
+    const codepoint = ICONS[name];
+    return codepoint ? `<span class="sl-icon">&#x${codepoint};</span>` : match;
+  });
 }
 
 // !ref[...] is a bracket-captured raw string that never goes through remark,

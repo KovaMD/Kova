@@ -32,7 +32,7 @@ afterEach(() => {
 describe('BUNDLED_FONT_NAMES', () => {
   it('lists the bundled font families available to themes', async () => {
     const { mod } = await freshModule();
-    expect(mod.BUNDLED_FONT_NAMES).toEqual(['Montserrat']);
+    expect(mod.BUNDLED_FONT_NAMES).toEqual(['Montserrat', 'Kova Icons']);
   });
 });
 

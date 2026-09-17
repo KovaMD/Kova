@@ -30,6 +30,17 @@ const REGISTRY: Record<string, BundledFontDef> = {
       },
     ],
   },
+  'Kova Icons': {
+    // Nerd Fonts "Symbols Only" (proportional build) — icon glyphs used by
+    // the `:name:` shortcode (see engine/icons.ts).
+    faces: [
+      {
+        path: '/fonts/kova-icons.woff2',
+        weight: '400',
+        style: 'normal',
+      },
+    ],
+  },
 };
 
 /** Font families available for use in theme `bundledFonts` declarations. */

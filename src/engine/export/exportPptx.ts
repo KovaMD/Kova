@@ -1164,7 +1164,7 @@ function addReferences(s: PS, refs: string[], t: Theme, H: number, hasFoot: bool
   const codeFont = firstFont(t.fonts.code);
   const accentColor = hex(t.colors.accent);
   const runs = refs.flatMap((ref, i) => {
-    const refRuns = htmlToInlineRuns(ref, color, codeFont, accentColor, color);
+    const refRuns = htmlToInlineRuns(ref, color, codeFont, accentColor, firstFont(t.fonts.icon), color);
     return refRuns.map((run, ri) => ({
       text: run.text,
       options: { fontSize: 7, ...run.options, color, breakLine: ri === refRuns.length - 1 && i < refs.length - 1 },
@@ -1330,6 +1330,7 @@ interface RunFormatting {
   bold: boolean;
   italic: boolean;
   isCode: boolean;
+  isIcon: boolean;
   strike: boolean;
   underline: boolean;
   color: string;
@@ -1354,6 +1355,7 @@ function htmlToInlineRuns(
   defaultColor: string,
   codeFont: string,
   accentColor: string,
+  iconFont: string,
   boldColor: string = defaultColor,
 ): PptxRun[] {
   const div = document.createElement('div');
@@ -1369,7 +1371,12 @@ function htmlToInlineRuns(
         options: {
           ...baseRunOptions(f),
           ...(f.italic ? { italic: true }        : {}),
-          ...(f.isCode ? { fontFace: codeFont }  : {}),
+          // Icon glyphs always need their own font regardless of surrounding
+          // code/bold/italic formatting — checked first so an icon inside a
+          // stray `isCode` context (shouldn't happen, but not load-bearing on
+          // the parser never producing one) still gets the right glyph.
+          ...(f.isIcon ? { fontFace: iconFont }
+            : f.isCode ? { fontFace: codeFont } : {}),
         },
       });
     } else if (node.nodeType === Node.ELEMENT_NODE) {
@@ -1398,6 +1405,7 @@ function htmlToInlineRuns(
           bold: f.bold || isBold,
           italic: f.italic || tag === 'em' || tag === 'i',
           isCode: f.isCode || tag === 'code',
+          isIcon: f.isIcon || (tag === 'span' && el.classList?.contains('sl-icon')),
           strike: f.strike || tag === 'del' || tag === 's',
           underline: f.underline || tag === 'u',
           // Link colour wins over bold colour when both apply (e.g. a bolded
@@ -1415,7 +1423,7 @@ function htmlToInlineRuns(
 
   for (const child of div.childNodes) {
     walk(child, {
-      bold: false, italic: false, isCode: false, strike: false, underline: false,
+      bold: false, italic: false, isCode: false, isIcon: false, strike: false, underline: false,
       color: defaultColor, href: null,
     });
   }
@@ -1697,7 +1705,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
       case 'paragraph':
         if (el.text.trim()) {
           startParagraph(el.step);
-          const paraRuns = htmlToInlineRuns(el.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), boldColor);
+          const paraRuns = htmlToInlineRuns(el.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), firstFont(t.fonts.icon), boldColor);
           paraRuns.forEach((run, ri) => {
             runs.push({ text: run.text, options: { fontSize: 18, ...run.options, breakLine: ri === paraRuns.length - 1 } });
           });
@@ -1712,7 +1720,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
             fontSize: 18,
             paraSpaceAfter: 4,
           };
-          const itemRuns = htmlToInlineRuns(item.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), boldColor);
+          const itemRuns = htmlToInlineRuns(item.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), firstFont(t.fonts.icon), boldColor);
           runs.push({ text: itemRuns[0].text, options: { ...itemRuns[0].options, ...bulletBase } });
           for (let ri = 1; ri < itemRuns.length; ri++) {
             runs.push({ text: itemRuns[ri].text, options: { fontSize: 18, ...itemRuns[ri].options } });
@@ -1720,7 +1728,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
           for (const child of item.children) {
             startParagraph(el.step ?? child.step);
             const childBase = { bullet: true as const, indentLevel: 1, fontSize: 16, paraSpaceAfter: 3 };
-            const childRuns = htmlToInlineRuns(child.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), boldColor);
+            const childRuns = htmlToInlineRuns(child.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), firstFont(t.fonts.icon), boldColor);
             runs.push({ text: childRuns[0].text, options: { ...childRuns[0].options, ...childBase } });
             for (let ri = 1; ri < childRuns.length; ri++) {
               runs.push({ text: childRuns[ri].text, options: { fontSize: 16, ...childRuns[ri].options } });

@@ -35,6 +35,8 @@ export interface ThemeFonts {
   title: string;
   body: string;
   code: string;
+  /** Font used to render `:name:` icon shortcodes (see engine/icons.ts). */
+  icon: string;
 }
 
 export interface RemoteFont {
@@ -134,7 +136,9 @@ export const BUILT_IN_THEMES: Theme[] = [
       title: 'Inter, Helvetica Neue, Arial, sans-serif',
       body: 'Inter, Helvetica Neue, Arial, sans-serif',
       code: 'JetBrains Mono, Fira Code, Cascadia Code, monospace',
+      icon: 'Kova Icons',
     },
+    bundledFonts: ['Kova Icons'],
     layout: CENTER_LAYOUT,
     logo_position: 'top-right',
     logo_opacity: 0.85,
@@ -158,7 +162,9 @@ export const BUILT_IN_THEMES: Theme[] = [
       title: 'Inter, Helvetica Neue, Arial, sans-serif',
       body: 'Inter, Helvetica Neue, Arial, sans-serif',
       code: 'JetBrains Mono, Fira Code, Cascadia Code, monospace',
+      icon: 'Kova Icons',
     },
+    bundledFonts: ['Kova Icons'],
     layout: CENTER_LAYOUT,
     logo_position: 'top-right',
     logo_opacity: 0.85,
@@ -182,7 +188,9 @@ export const BUILT_IN_THEMES: Theme[] = [
       title: 'Georgia, Times New Roman, serif',
       body: 'Arial, Helvetica, sans-serif',
       code: 'Courier New, Courier, monospace',
+      icon: 'Kova Icons',
     },
+    bundledFonts: ['Kova Icons'],
     layout: CENTER_LAYOUT,
     logo_position: 'top-right',
     logo_opacity: 0.85,
@@ -206,7 +214,9 @@ export const BUILT_IN_THEMES: Theme[] = [
       title: 'Georgia, Times New Roman, serif',
       body: 'Georgia, Times New Roman, serif',
       code: 'Menlo, Monaco, Consolas, monospace',
+      icon: 'Kova Icons',
     },
+    bundledFonts: ['Kova Icons'],
     layout: CENTER_LAYOUT,
     logo_position: 'bottom-right',
     logo_opacity: 0.85,
@@ -230,7 +240,9 @@ export const BUILT_IN_THEMES: Theme[] = [
       title: 'Georgia, Times New Roman, serif',
       body: 'Georgia, Charter, serif',
       code: 'Menlo, Monaco, monospace',
+      icon: 'Kova Icons',
     },
+    bundledFonts: ['Kova Icons'],
     layout: CENTER_LAYOUT,
     logo_position: 'top-right',
     logo_opacity: 0.85,
@@ -254,7 +266,9 @@ export const BUILT_IN_THEMES: Theme[] = [
       title: 'Inter, Helvetica Neue, Arial, sans-serif',
       body: 'Inter, Helvetica Neue, Arial, sans-serif',
       code: 'JetBrains Mono, Fira Code, monospace',
+      icon: 'Kova Icons',
     },
+    bundledFonts: ['Kova Icons'],
     layout: { title_align: 'left', heading_align: 'left', decoration: 'none' },
     logo_position: 'top-left',
     logo_opacity: 0.85,
@@ -278,7 +292,9 @@ export const BUILT_IN_THEMES: Theme[] = [
       title: 'Inter, Helvetica Neue, Arial, sans-serif',
       body: 'Inter, Helvetica Neue, Arial, sans-serif',
       code: 'JetBrains Mono, Fira Code, monospace',
+      icon: 'Kova Icons',
     },
+    bundledFonts: ['Kova Icons'],
     layout: { title_align: 'bottom-left', heading_align: 'left', decoration: 'none' },
     logo_position: 'top-left',
     logo_opacity: 0.85,
@@ -302,7 +318,9 @@ export const BUILT_IN_THEMES: Theme[] = [
       title: 'Inter, Helvetica Neue, Arial, sans-serif',
       body: 'Inter, Helvetica Neue, Arial, sans-serif',
       code: 'JetBrains Mono, Fira Code, monospace',
+      icon: 'Kova Icons',
     },
+    bundledFonts: ['Kova Icons'],
     layout: { title_align: 'center', heading_align: 'left', decoration: 'dots' },
     logo_position: 'top-right',
     logo_opacity: 0.85,
@@ -326,7 +344,9 @@ export const BUILT_IN_THEMES: Theme[] = [
       title: 'Inter, Helvetica Neue, Arial, sans-serif',
       body: 'Inter, Helvetica Neue, Arial, sans-serif',
       code: 'JetBrains Mono, Fira Code, monospace',
+      icon: 'Kova Icons',
     },
+    bundledFonts: ['Kova Icons'],
     layout: { title_align: 'bottom-left', heading_align: 'left', decoration: 'grid' },
     logo_position: 'top-left',
     logo_opacity: 0.85,
@@ -350,7 +370,9 @@ export const BUILT_IN_THEMES: Theme[] = [
       title: 'Georgia, Times New Roman, serif',
       body: 'Georgia, Times New Roman, serif',
       code: 'JetBrains Mono, Fira Code, monospace',
+      icon: 'Kova Icons',
     },
+    bundledFonts: ['Kova Icons'],
     layout: { title_align: 'left', heading_align: 'left', decoration: 'diagonal' },
     logo_position: 'top-left',
     logo_opacity: 0.85,
@@ -374,7 +396,9 @@ export const BUILT_IN_THEMES: Theme[] = [
       title: 'Inter, Helvetica Neue, Arial, sans-serif',
       body: 'Inter, Helvetica Neue, Arial, sans-serif',
       code: 'JetBrains Mono, Fira Code, monospace',
+      icon: 'Kova Icons',
     },
+    bundledFonts: ['Kova Icons'],
     layout: { title_align: 'left', heading_align: 'left', decoration: 'bar-left' },
     logo_position: 'top-left',
     logo_opacity: 0.85,
@@ -523,6 +547,7 @@ export function themeToVars(
     '--sl-font-title':   theme.fonts.title,
     '--sl-font-body':    theme.fonts.body,
     '--sl-font-code':    theme.fonts.code,
+    '--sl-font-icon':    theme.fonts.icon,
     '--sl-heading-ta':   theme.layout.heading_align,
     ...titleAlignVars(theme.layout.title_align),
     ...decorationVars(theme.layout.decoration),
@@ -580,7 +605,7 @@ export function sanitiseThemeOverrides(raw: Record<string, unknown>): ThemeOverr
   if (raw.fonts && typeof raw.fonts === 'object') {
     const rawFonts = raw.fonts as Record<string, unknown>;
     const sanitised: Partial<ThemeFonts> = {};
-    for (const key of ['title', 'body', 'code'] as (keyof ThemeFonts)[]) {
+    for (const key of ['title', 'body', 'code', 'icon'] as (keyof ThemeFonts)[]) {
       const v = rawFonts[key as string];
       if (typeof v === 'string' && !/[;{}]/.test(v.trim())) {
         sanitised[key] = v.trim();
@@ -800,6 +825,7 @@ function sanitiseFonts(f: Partial<ThemeFonts>, base: ThemeFonts): ThemeFonts {
     title: s(f.title, base.title),
     body:  s(f.body,  base.body),
     code:  s(f.code,  base.code),
+    icon:  s(f.icon,  base.icon),
   };
 }
 
@@ -832,9 +858,14 @@ function normaliseTheme(id: string, raw: Record<string, unknown>, baseDir: strin
   const footer = (raw.footer as Partial<ThemeFooter>) ?? {};
   const toc = (raw.toc as Partial<ThemeToc>) ?? {};
   const logo = resolveThemeLogo(raw.logo, baseDir) ?? base.logo;
-  const bundledFonts = Array.isArray(raw.bundledFonts)
+  // Additive, not replacing: a custom theme that doesn't mention bundledFonts
+  // at all must still inherit whatever its base theme needs (e.g. the 'Kova
+  // Icons' font every built-in theme now declares) rather than silently
+  // losing it the moment the theme has its own fonts/colors/etc. overrides.
+  const declaredBundledFonts = Array.isArray(raw.bundledFonts)
     ? (raw.bundledFonts as unknown[]).filter((f): f is string => typeof f === 'string')
-    : undefined;
+    : [];
+  const bundledFonts = Array.from(new Set([...(base.bundledFonts ?? []), ...declaredBundledFonts]));
 
   const remoteFonts = Array.isArray(raw.remoteFonts)
     ? (raw.remoteFonts as unknown[]).flatMap((f) => {
@@ -868,7 +899,7 @@ function normaliseTheme(id: string, raw: Record<string, unknown>, baseDir: strin
     header: { ...base.header, ...header },
     footer: { ...base.footer, ...footer },
     toc: { ...base.toc, ...toc },
-    ...(bundledFonts && bundledFonts.length > 0 ? { bundledFonts } : {}),
+    ...(bundledFonts.length > 0 ? { bundledFonts } : {}),
     ...(remoteFonts  && remoteFonts.length  > 0 ? { remoteFonts  } : {}),
   };
 }
