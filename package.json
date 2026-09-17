@@ -2,6 +2,8 @@
   "name": "tauri-app",
   "private": true,
   "version": "0.7.11",
+  "homepage": "https://kova.md/",
+  "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",

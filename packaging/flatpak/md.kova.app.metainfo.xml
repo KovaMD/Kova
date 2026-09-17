@@ -2,7 +2,7 @@
 <component type="desktop-application">
   <id>md.kova.app</id>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>GPL-3.0-or-later</project_license>
+  <project_license>GPL-3.0-only</project_license>
   <name>Kova</name>
   <summary>Markdown presentation authoring tool</summary>
   <description>
