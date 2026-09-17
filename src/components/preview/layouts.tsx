@@ -205,7 +205,12 @@ function TitleLayout({ slide }: { slide: Slide }) {
         <div className="sl-title__subtitles">
           {subtitles.map((el, i) => (
             <StepGate key={i} step={el.step}>
-              <p className="sl-title__subtitle" dangerouslySetInnerHTML={{ __html: el.html }} />
+              {/* div, not p: el.html can be a block-level <h2>-<h4> (a secondary
+                  heading on this slide, see markdownToSlides.ts) — nested inside
+                  a <p> the browser would auto-close it and the heading would pop
+                  out as an unstyled sibling, losing .sl-title__subtitle h2/h3/h4
+                  entirely and falling back to the slide's plain body-text color. */}
+              <div className="sl-title__subtitle" dangerouslySetInnerHTML={{ __html: el.html }} />
             </StepGate>
           ))}
         </div>

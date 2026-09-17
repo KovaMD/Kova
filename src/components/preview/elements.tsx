@@ -122,7 +122,10 @@ const CALLOUT_ICONS: Record<string, React.ReactNode> = {
 function ElementNode({ el }: { el: SlideElement }) {
   switch (el.type) {
     case 'paragraph':
-      return <p className="sl-para" dangerouslySetInnerHTML={{ __html: el.html }} />;
+      // div, not p: el.html can be a block-level <h2>-<h4> (a secondary heading
+      // on this slide, see markdownToSlides.ts) — nested inside a <p> the browser
+      // would auto-close it and the heading would pop out as an unstyled sibling.
+      return <div className="sl-para" dangerouslySetInnerHTML={{ __html: el.html }} />;
 
     case 'list':
       return el.ordered
