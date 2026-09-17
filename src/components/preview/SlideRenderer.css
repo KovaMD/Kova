@@ -134,15 +134,18 @@
   min-height: 0;
   flex: 1;
 }
-/* Vertical centering for a "centered" pane (bsp's non-text pane, split's text
-   pane) has to target sl-pane-zoom, not the outer pane wrapper: sl-pane-inner
-   and sl-pane-zoom above are both flex:1, so each always stretches to fill
-   100% of its parent's height regardless of content size — justify-content
-   set on the outer pane has no leftover space left to center within. Content
-   only gets real leftover space one level down, in sl-pane-zoom's own
-   (unflexed) children, which is why the toggle lives here instead. */
-.sl-bsp__pane:not(.sl-bsp__pane--text) > .sl-pane-inner > .sl-pane-zoom,
-.sl-bsp__subpane:not(.sl-bsp__pane--text) > .sl-pane-inner > .sl-pane-zoom,
+/* Vertical centering (bsp panes/subpanes, split's text pane) has to target
+   sl-pane-zoom, not the outer pane wrapper: sl-pane-inner and sl-pane-zoom
+   above are both flex:1, so each always stretches to fill 100% of its
+   parent's height regardless of content size — justify-content set on the
+   outer pane has no leftover space left to center within. Content only gets
+   real leftover space one level down, in sl-pane-zoom's own (unflexed)
+   children, which is why the toggle lives here instead. bsp centers both
+   panes unconditionally (rather than top-aligning a pure-text pane) so the
+   two sides of the divider stay balanced against each other regardless of
+   which side holds text vs. a diagram/code/table. */
+.sl-bsp__pane > .sl-pane-inner > .sl-pane-zoom,
+.sl-bsp__subpane > .sl-pane-inner > .sl-pane-zoom,
 .sl-split__right > .sl-pane-inner > .sl-pane-zoom {
   justify-content: center;
 }
