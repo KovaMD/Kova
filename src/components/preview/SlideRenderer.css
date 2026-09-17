@@ -134,6 +134,18 @@
   min-height: 0;
   flex: 1;
 }
+/* Vertical centering for a "centered" pane (bsp's non-text pane, split's text
+   pane) has to target sl-pane-zoom, not the outer pane wrapper: sl-pane-inner
+   and sl-pane-zoom above are both flex:1, so each always stretches to fill
+   100% of its parent's height regardless of content size — justify-content
+   set on the outer pane has no leftover space left to center within. Content
+   only gets real leftover space one level down, in sl-pane-zoom's own
+   (unflexed) children, which is why the toggle lives here instead. */
+.sl-bsp__pane:not(.sl-bsp__pane--text) > .sl-pane-inner > .sl-pane-zoom,
+.sl-bsp__subpane:not(.sl-bsp__pane--text) > .sl-pane-inner > .sl-pane-zoom,
+.sl-split__right > .sl-pane-inner > .sl-pane-zoom {
+  justify-content: center;
+}
 
 /* ── Shared typography ───────────────────────────────────────────────────── */
 
@@ -456,7 +468,7 @@
 .sl-split__left { flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; }
 .sl-split__img-inner { display: flex; flex-direction: column; align-items: center; height: 100%; max-width: 100%; min-height: 0; }
 .sl-split__img-inner .sl-img-fill { flex: 1; min-height: 0; }
-.sl-split__right { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 0 2% 0; min-width: 0; position: relative; container-type: inline-size; }
+.sl-split__right { flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 0 2% 0; min-width: 0; position: relative; container-type: inline-size; }
 /* The cqi-based font-size lives on the inner pane wrapper, not the container
    itself — container query units used directly on the query container fall
    back to the next ancestor container (here .slide-frame, the full slide
@@ -551,7 +563,6 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   /* 3% here + sl-bsp__body's 4% = 7%, matching sl-heading's left padding
      (see sl-two-col__col, which uses the same 3%+4% split) — issue #140. */
   padding: 0 3%;
@@ -583,16 +594,11 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   padding: 0 3%;
   min-height: 0;
   position: relative;
   container-type: inline-size;
 }
-/* Text-only panes top-align to match sl-body/sl-two-col__col. sl-split__right
-   is excluded — it centers to stay visually balanced against its paired
-   image/chart pane, which is always centered. */
-.sl-bsp__pane--text { justify-content: flex-start; }
 /* ── Grid ────────────────────────────────────────────────────────────────── */
 
 .sl-grid { height: 100%; display: flex; flex-direction: column; }
