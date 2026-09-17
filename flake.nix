@@ -32,7 +32,7 @@
           pname = "kova-frontend";
           inherit version;
           src = ./.;
-          npmDepsHash = "sha256-eUOXZRMX9pUgUc46grccOTJMR76ToEFgs/WhTEqUnmY=";
+          npmDepsHash = "sha256-uOClay8dKxbvtiwGjBwre67MmbxNFWJ5gQjDle3ALXw=";
           installPhase = ''
             runHook preInstall
             cp -r dist "$out"
