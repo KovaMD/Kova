@@ -859,6 +859,10 @@
 
 .sl-code { height: 100%; display: flex; flex-direction: column; background: var(--sl-bg); }
 .sl-code__title { color: var(--sl-heading-text) !important; }
+/* OverflowPane wrapper around the blocks below — shrinks long code/diagrams
+   to fit instead of leaving them to .sl-code__block's own overflow:auto,
+   which just clips a slide's fixed frame (no one scrolls during a talk). */
+.sl-code__body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; position: relative; }
 .sl-code__block { flex: 1; padding: 2% 4%; overflow: auto; display: flex; flex-direction: column; }
 .sl-code__block pre { margin: 0; flex: 1; overflow: hidden; white-space: pre-wrap; background: var(--sl-code-bg); border-radius: 6px; padding: 2% 4%; }
 .sl-code__block code { font-family: var(--sl-font-code); font-size: clamp(8px, 1.8cqi, 16px); color: var(--sl-code-text); white-space: pre-wrap; overflow-wrap: break-word; display: block; }

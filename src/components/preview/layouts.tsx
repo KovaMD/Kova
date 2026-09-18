@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Slide, SlideElement } from '../../engine/types';
 import { autoSplitElements, explodeListItems, groupProgressRuns, splitByColumnBreaks } from '../../engine/layout/elementGrouping';
 import { useT } from '../../i18n';
@@ -30,7 +30,7 @@ import { Elements, StepGate, stepGateClassName, CodeBlock, MermaidDiagram, Youtu
 // lightly filled column shrinks in lockstep with a heavily overflowing
 // sibling instead of sitting at full size with empty space below it — see
 // issue #145.
-export function OverflowPane({ className, elements, minScale, onNaturalScale }: { className: string; elements: SlideElement[]; minScale?: number; onNaturalScale?: (scale: number) => void }) {
+export function OverflowPane({ className, elements, children, minScale, onNaturalScale }: { className: string; elements?: SlideElement[]; children?: ReactNode; minScale?: number; onNaturalScale?: (scale: number) => void }) {
   const t = useT();
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -139,7 +139,7 @@ export function OverflowPane({ className, elements, minScale, onNaturalScale }: 
   useLayoutEffect(() => {
     lastRef.current = { c: -1, a: -1 };
     remeasure();
-  }, [elements, remeasure]);
+  }, [elements, children, remeasure]);
 
   // Report this pane's natural scale up so a parent can compute the shared
   // minScale across sibling panes. useLayoutEffect (not useEffect) so the
@@ -161,7 +161,7 @@ export function OverflowPane({ className, elements, minScale, onNaturalScale }: 
     <div ref={outerRef} className={className}>
       <div ref={innerRef} className="sl-pane-inner">
         <div ref={zoomRef} className="sl-pane-zoom">
-          <Elements elements={elements} />
+          {children ?? <Elements elements={elements ?? []} />}
         </div>
       </div>
       {appliedScale < 0.99 && !isThumbnail && !hideOverflowBadge && <div className="sl-overflow-badge">{t('preview.rescaledToFit')}</div>}
@@ -474,23 +474,25 @@ function CodeLayout({ slide }: { slide: Slide }) {
   return (
     <div className="sl-code">
       {slide.title && <div className="sl-heading sl-code__title">{slide.title}</div>}
-      {codeEls.map((codeEl, i) => (
-        <div
-          key={i}
-          className={withStepGateClass('sl-code__block', stepGateClassName(codeEl.step, revealThreshold, enteringStep))}
-          data-step={codeEl.step}
-        >
-          {codeEl.type === 'code' && (
-            <>
-              {codeEl.lang && <div className="sl-code__lang">{codeEl.lang}</div>}
-              <CodeBlock lang={codeEl.lang} value={codeEl.value} />
-            </>
-          )}
-          {codeEl.type === 'mermaid' && (
-            <MermaidDiagram value={codeEl.value} caption={codeEl.caption} />
-          )}
-        </div>
-      ))}
+      <OverflowPane className="sl-code__body">
+        {codeEls.map((codeEl, i) => (
+          <div
+            key={i}
+            className={withStepGateClass('sl-code__block', stepGateClassName(codeEl.step, revealThreshold, enteringStep))}
+            data-step={codeEl.step}
+          >
+            {codeEl.type === 'code' && (
+              <>
+                {codeEl.lang && <div className="sl-code__lang">{codeEl.lang}</div>}
+                <CodeBlock lang={codeEl.lang} value={codeEl.value} />
+              </>
+            )}
+            {codeEl.type === 'mermaid' && (
+              <MermaidDiagram value={codeEl.value} caption={codeEl.caption} />
+            )}
+          </div>
+        ))}
+      </OverflowPane>
     </div>
   );
 }
