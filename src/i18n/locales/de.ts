@@ -95,8 +95,10 @@ const de: DeepPartial<Messages> = {
     opacityLabel: 'Deckkraft', // Opacity
     showHeader: 'Kopfzeile anzeigen', // Show header
     headerPlaceholder: 'Kopfzeilentext ({title}, {date})', // Header text ({title}, {date})
+    hideHeaderOnTitle: 'Auf Titel-Folie nicht anzeigen', // Hide on title slide
     showFooter: 'Fußzeile anzeigen', // Show footer
     footerPlaceholder: 'Fußzeilentext ({title}, {date})', // Footer text ({title}, {date})
+    hideFooterOnTitle: 'Auf Titel-Folie nicht anzeigen', // Hide on title slide
     slideNumberLabel: 'Foliennummer', // Slide number
     tocSectionLabel: 'Inhaltsverzeichnis', // Table of contents
     tocNumberedLabel: 'Nummeriertes Verzeichnis', // Numbered list
@@ -104,6 +106,7 @@ const de: DeepPartial<Messages> = {
     fontFieldBody: 'Fließtext', // Body
     fontFieldCode: 'Code', // Code
     fontUnavailableWarning: '"{{font}}" ist auf diesem Computer nicht installiert. Kova verwendet hier ersatzweise eine andere Schriftart — und dieselbe Ersetzung kann auf einem anderen Betriebssystem anders (oder gar nicht) ausfallen, sodass diese Präsentation an anderer Stelle abweichend aussehen kann.', // "{{font}}" isn't installed on this computer. Kova is falling back to a substitute font here — and the same substitution may happen differently (or not at all) on another OS, so this deck may look different when opened elsewhere.
+    overriddenHint: 'Überschrieben — unterscheidet sich vom Standard-Design', // Overridden — differs from the theme default
     themeLibraryTitle: 'Weitere Designs', // More Themes
     themeLibraryLoading: 'Wird geladen…', // Loading…
     themeLibraryError: 'themes.kova.md konnte nicht erreicht werden', // Could not reach themes.kova.md
@@ -379,9 +382,9 @@ const de: DeepPartial<Messages> = {
     wordWrap: 'Zeilenumbruch', // Word wrap
     wordWrapDescription: 'Bricht lange Zeilen im Editor um. Wenn deaktiviert, erscheint für Zeilen, die breiter als das Panel sind, ein horizontaler Bildlaufbalken.', // Wrap long lines in the editor. When off, a horizontal scrollbar appears for lines wider than the panel.
     contentWidth: 'Breite des Inhalts', // Content width
-    contentWidthDescription: 'Fixiert hält die Zeilen bei einer ansprechenden Breite. Voll streckt den Editierbereich während du den Trenner verschiebst.', // Fixed keeps editor lines at a comfortable reading width. Full stretches the editor to fill the panel as you resize the split.
+    contentWidthDescription: 'Fixiert hält die Zeilen bei einer ansprechenden Breite. Aufgefüllt streckt den Editierbereich während du den Trenner verschiebst.', // Fixed keeps editor lines at a comfortable reading width. Full stretches the editor to fill the panel as you resize the split.
     contentWidthFixed: 'Fixiert', // Fixed
-    contentWidthFull: 'Voll', // Full
+    contentWidthFull: 'Aufgefüllt', // Full
     defaultTheme: 'Standard-Präsentations-Design', // Default presentation theme
     defaultThemeDescription: 'Wird beim Erstellen einer neuen Präsentation angewendet.', // Applied when creating a new presentation.
     sectionLanguageSpelling: 'Sprache & Rechtschreibung', // Language & Spelling
