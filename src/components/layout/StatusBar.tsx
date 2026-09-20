@@ -6,6 +6,8 @@ const WPM = 110;
 interface Props {
   currentSlide: number;
   totalSlides: number;
+  layoutName?: string;
+  layoutOverridden?: boolean;
   wordCount: number;
   isDirty: boolean;
   filePath: string | null;
@@ -17,7 +19,7 @@ interface Props {
   locale: string;
 }
 
-export function StatusBar({ currentSlide, totalSlides, wordCount, isDirty, filePath, externalImageCount, aspectRatioLabel, onAspectRatioCycle, availableUpdate, onVersionClick, locale }: Props) {
+export function StatusBar({ currentSlide, totalSlides, layoutName, layoutOverridden, wordCount, isDirty, filePath, externalImageCount, aspectRatioLabel, onAspectRatioCycle, availableUpdate, onVersionClick, locale }: Props) {
   const t = useT();
   const minutes = Math.ceil(wordCount / WPM);
   // Mirrors handleAspectRatioCycle's cycle order in App.tsx (4:3 -> 16:10 ->
@@ -44,6 +46,14 @@ export function StatusBar({ currentSlide, totalSlides, wordCount, isDirty, fileP
       <Cell>
         {totalSlides > 0 ? t('layout.slideCountStatus', { current: currentSlide, total: totalSlides }) : t('layout.noSlides')}
       </Cell>
+      {layoutName && (
+        <>
+          <Divider />
+          <Cell title={layoutOverridden ? t('layout.layoutTooltipOverridden', { name: layoutName }) : t('layout.layoutTooltipAuto')}>
+            {layoutOverridden ? t('layout.layoutStatusOverridden', { name: layoutName }) : t('layout.layoutStatus', { name: layoutName })}
+          </Cell>
+        </>
+      )}
       <Divider />
       <Cell>{t('layout.estimatedMinutes', { count: minutes })}</Cell>
       <Divider />

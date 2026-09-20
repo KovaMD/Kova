@@ -135,6 +135,10 @@ const en = {
     estimatedMinutes: { zero: 'Est. {{count}} min', one: 'Est. {{count}} min', other: 'Est. {{count}} mins' },
     wordCount: '{{formatted}} words',
     aspectRatioTooltip: 'Aspect ratio: {{current}} — click for {{next}}',
+    layoutStatus: 'Layout: {{name}}',
+    layoutStatusOverridden: 'Layout: {{name}} (override)',
+    layoutTooltipAuto: 'Auto-detected layout. Pin one with <!-- layout: name -->',
+    layoutTooltipOverridden: 'Set by <!-- layout: {{name}} -->',
     externalImageWarning: {
       one: '{{count}} image is outside this file\'s folder — it won\'t appear if the file is moved',
       other: '{{count}} images are outside this file\'s folder — they won\'t appear if the file is moved',

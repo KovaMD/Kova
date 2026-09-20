@@ -2756,6 +2756,8 @@ export default function App() {
       <StatusBar
         currentSlide={safeSlideIndex + 1}
         totalSlides={slides.length}
+        layoutName={slides[safeSlideIndex]?.layout}
+        layoutOverridden={slides[safeSlideIndex]?.layoutOverride !== undefined}
         wordCount={wordCount}
         isDirty={isDirty}
         filePath={filePath}
