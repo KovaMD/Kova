@@ -29,24 +29,20 @@ jobs:
           ## What's new
 
           ### New features
-          - **URLs in the editor are now clickable.** A bare `http(s)` link typed or pasted into the source can be opened directly with Cmd/Ctrl+click, matching how it already renders in the live preview (requested by @sschuberth, #248).
-          - **Paste a URL over selected text to link it.** Selecting text and pasting a bare URL now wraps the selection into a `[text](url)` markdown link instead of overwriting it, matching GitHub's own paste-to-linkify behaviour (requested by @sschuberth, #247).
-          - **Custom themes can now `extends:` another theme.** Pick a different base than the built-in light theme to inherit unset properties from — another built-in, or another installed custom theme (requested by @sschuberth, #249).
-          - **Mermaid diagram colours are now themeable.** `colors.diagram_colors` sets flowchart/sequence node fill, border, line, cluster, and text colours directly, instead of only deriving them from a theme's other colours (requested by @datenimperator, #245).
-          - **Theme logos can use a relative path.** A `logo:` path relative to the theme file's own folder now resolves correctly, so a self-contained theme folder keeps working after being moved or renamed (requested by @sschuberth, #250).
-          - **Header and footer can be hidden on just the title slide**, via `header.hide_on_title` / `footer.hide_on_title`, instead of an all-or-nothing choice (requested by @sschuberth, #254).
-          - **The custom themes folder is now watched live** — editing a theme `.yaml` in another editor while Kova is open reloads it immediately, instead of requiring a restart (requested by @sschuberth, #252).
-          - **The Inspector now marks overridden theme properties.** Colour, font, logo, header, footer, and table-of-contents controls show a small dot when the current value comes from this document's own overrides rather than the active theme (requested by @sschuberth, #251).
+          - **Icon shortcodes.** Write `:rocket:` or `:git-branch:` inline to drop an icon into a slide. Icons come from a bundled Nerd Fonts symbols set, so there's nothing to install, and a new `icon` font role in `theme.yaml` lets a theme swap in a local icon font instead (requested by @StefanZander, #263).
+          - **The status bar now shows each slide's layout**, such as `split` or `code`, marked "(override)" when the slide pins one with `<!-- layout: ... -->`, so you can see what Kova auto-detected without checking the layout rules (requested by @sschuberth, #260).
+          - **Links in speaker notes are now clickable** in both the presentation and presenter views. Bare `http(s)` URLs, `mailto:` addresses and `[label](url)` links open in your default browser or mail app (requested by @sschuberth, #265).
+          - **Updated German translation**, now covering the header/footer "hide on title slide" options and the theme-override hint (contributed by @a1880, #267).
 
           ### Bug fixes
-          - **Fixed** code and Mermaid diagram slide titles ignoring the theme's heading colour and always rendering in the body-text colour instead (reported by @datenimperator, #255).
-          - **Fixed** Kova crashing when pasting a video, on systems missing a GStreamer audio-sink plugin (reported by @Testorakel, #253).
-          - **Fixed** a correctly installed, quoted font (e.g. `'Clan Pro', Arial`) still triggering a "font not found" warning, because only the first family in the stack was ever checked (reported by @datenimperator, #243).
-          - **Fixed** Inspector edits to theme properties not appearing in the source view until save, and a stray leading `---` being misread as frontmatter and silently swallowing the title slide with no way to undo it (reported by @datenimperator, #246).
-          - **Fixed** section dividers ignoring a theme's `section_bg` colour and always using the primary colour instead (reported by @datenimperator, #244).
-          - **Fixed** the spellchecker and its right-click "Add to Dictionary" lookup disagreeing on word boundaries — a contraction typed with a curly apostrophe (e.g. "doesn't") could be flagged as misspelled, and adding a non-ASCII word (e.g. "café") to the dictionary would only whitelist its truncated, ASCII portion.
+          - **Fixed** oversized, uneven padding around code blocks on the code layout: short snippets always showed a gap at the top, and how much space was left at the bottom varied with the block's length (reported by @sschuberth, #261).
+          - **Fixed** long code blocks and Mermaid diagrams on the code layout being cut off at the bottom of the slide with no sign anything was missing. They now shrink to fit, like every other layout.
+          - **Fixed** a second heading on a slide (for example a `##` under a title) losing its colour on title and section slides, which made it hard to read on dark backgrounds.
+          - **Fixed** code, table and chart panes in the BSP and split layouts sitting at the top of their pane instead of being vertically centred. BSP text panes now centre too, so both sides stay balanced.
+          - **Fixed** the Flatpak metainfo declaring the licence as GPL-3.0-or-later when Kova is GPL-3.0-only, and the npm and Cargo package metadata now declare the licence and homepage (contributed by @sschuberth, #264).
 
           ### Known issues
+          - **Icons in exported PPTX files may not display.** They use the `Kova Icons` font, which isn't embedded in the file, so PowerPoint and Keynote only show them on machines where that font is installed.
           - **Windows Defender may flag Kova as `Trojan:Win32/Wacatac.C!ml`** during install or update — this is a false positive from Microsoft's heuristic/ML detection, not an actual threat (reported in #224). It's tied to Windows builds still being **test-signed** rather than production-signed; we're in the process of moving to full production signing via [SignPath](https://signpath.io). We'll drop this note once production signing is live.
 
           ---
