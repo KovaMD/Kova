@@ -2,7 +2,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { formatTime, usePresentationNav, type UsePresentationNavOpts } from '../presentationShared';
+import { formatTime, usePresentationNav, NotesText, splitNotesLinks, type UsePresentationNavOpts } from '../presentationShared';
+
+const openUrlMock = vi.fn((_url: string) => Promise.resolve());
+vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: (url: string) => openUrlMock(url) }));
 
 // No @testing-library/react in this project, which normally sets this flag —
 // silences "not configured to support act()" noise from the manual harness below.
@@ -221,5 +224,93 @@ describe('usePresentationNav', () => {
     });
     expect(onNavigate).not.toHaveBeenCalled();
     input.remove();
+  });
+});
+
+describe('splitNotesLinks', () => {
+  it('returns a single plain segment when there are no links', () => {
+    expect(splitNotesLinks('Just a note.\nSecond line.')).toEqual([{ text: 'Just a note.\nSecond line.' }]);
+    expect(splitNotesLinks('')).toEqual([]);
+  });
+
+  it('linkifies a bare URL and leaves trailing sentence punctuation outside it', () => {
+    expect(splitNotesLinks('Demo at https://example.com/demo.')).toEqual([
+      { text: 'Demo at ' },
+      { text: 'https://example.com/demo', href: 'https://example.com/demo' },
+      { text: '.' },
+    ]);
+  });
+
+  it('linkifies markdown [label](url) links using the label as the text', () => {
+    expect(splitNotesLinks('Open [the demo](http://intranet/demo) now')).toEqual([
+      { text: 'Open ' },
+      { text: 'the demo', href: 'http://intranet/demo' },
+      { text: ' now' },
+    ]);
+  });
+
+  it('keeps balanced parens inside a URL but drops an unbalanced closing one', () => {
+    const wiki = 'https://en.wikipedia.org/wiki/Kova_(disambiguation)';
+    expect(splitNotesLinks(wiki)).toEqual([{ text: wiki, href: wiki }]);
+    expect(splitNotesLinks('(see https://example.com/a)')).toEqual([
+      { text: '(see ' },
+      { text: 'https://example.com/a', href: 'https://example.com/a' },
+      { text: ')' },
+    ]);
+  });
+
+  it('linkifies mailto: and several links in one string', () => {
+    const hrefs = splitNotesLinks('mail mailto:a@b.co or https://x.io').filter((s) => s.href).map((s) => s.href);
+    expect(hrefs).toEqual(['mailto:a@b.co', 'https://x.io']);
+  });
+
+  it('never linkifies other schemes', () => {
+    for (const s of ['javascript:alert(1)', 'file:///etc/passwd', '[x](javascript:alert(1))', 'ftp://host/file']) {
+      expect(splitNotesLinks(s).some((seg) => seg.href !== undefined)).toBe(false);
+    }
+  });
+
+  it('does not link a bare scheme left over after trimming punctuation', () => {
+    expect(splitNotesLinks('see https://.')).toEqual([{ text: 'see https://.' }]);
+  });
+});
+
+describe('NotesText', () => {
+  let host: HTMLDivElement;
+  let notesRoot: Root;
+
+  beforeEach(() => {
+    openUrlMock.mockClear();
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    act(() => { notesRoot = createRoot(host); });
+  });
+
+  afterEach(() => {
+    act(() => { notesRoot.unmount(); });
+    host.remove();
+  });
+
+  it('renders links as anchors, opens them via the opener plugin, and does not bubble the click', () => {
+    const parentClick = vi.fn();
+    act(() => {
+      notesRoot.render(createElement('div', { onClick: parentClick },
+        createElement(NotesText, { text: 'Demo: https://example.com/demo ok' })));
+    });
+    const a = host.querySelector('a');
+    expect(a?.getAttribute('href')).toBe('https://example.com/demo');
+    expect(host.textContent).toBe('Demo: https://example.com/demo ok');
+
+    const ev = new MouseEvent('click', { bubbles: true, cancelable: true });
+    act(() => { a?.dispatchEvent(ev); });
+    expect(openUrlMock).toHaveBeenCalledWith('https://example.com/demo');
+    expect(ev.defaultPrevented).toBe(true);
+    expect(parentClick).not.toHaveBeenCalled();
+  });
+
+  it('renders notes without links as plain text', () => {
+    act(() => { notesRoot.render(createElement(NotesText, { text: 'No links here' })); });
+    expect(host.querySelector('a')).toBeNull();
+    expect(host.textContent).toBe('No links here');
   });
 });

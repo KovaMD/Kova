@@ -64,6 +64,8 @@
   color: #ccc;
   white-space: pre-wrap;
 }
+.pres-notes__text a { color: #6cb2ff; text-decoration: underline; cursor: pointer; }
+.pres-notes__text a:hover { color: #9ccbff; }
 
 /* ── HUD bar ─────────────────────────────────────────────────────────────── */
 

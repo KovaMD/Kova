@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { openUrl } from '@tauri-apps/plugin-opener';
 
 // Virtual slide width every overlay scales from (matches ThumbnailPanel).
 export const SLIDE_W = 960;
@@ -33,6 +34,68 @@ export function LaserDot({ x, y, color }: { x: number; y: number; color: string 
         boxShadow: `0 0 6px 2px ${color}b3, 0 0 16px 5px ${color}4d`,
       }}
     />
+  );
+}
+
+export interface NotesSegment {
+  text: string;
+  href?: string;
+}
+
+// Only http(s) and mailto are linkified, so notes text can never become a javascript:/file: link.
+const NOTES_LINK_RE = /\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:)[^\s)]+)\)|((?:https?:\/\/|mailto:)[^\s<>]+)/gi;
+const BARE_SCHEME_RE = /^(?:https?:\/\/|mailto:)$/i;
+
+function countChar(s: string, ch: string): number {
+  return s.split(ch).length - 1;
+}
+
+// Splits speaker-notes text into plain runs and links: `[label](url)` or a bare URL.
+export function splitNotesLinks(text: string): NotesSegment[] {
+  const out: NotesSegment[] = [];
+  let last = 0;
+  const pushText = (end: number) => { if (end > last) out.push({ text: text.slice(last, end) }); };
+  for (const m of text.matchAll(NOTES_LINK_RE)) {
+    const start = m.index ?? 0;
+    if (m[1] !== undefined) {
+      pushText(start);
+      out.push({ text: m[1], href: m[2] });
+      last = start + m[0].length;
+      continue;
+    }
+    // Sentence punctuation glued to a bare URL isn't part of it; a `)` only is if unbalanced.
+    let url = m[3];
+    while (/[.,;:!?'"]$/.test(url) || (url.endsWith(')') && countChar(url, ')') > countChar(url, '('))) {
+      url = url.slice(0, -1);
+    }
+    if (BARE_SCHEME_RE.test(url)) continue;
+    pushText(start);
+    out.push({ text: url, href: url });
+    last = start + url.length;
+  }
+  pushText(text.length);
+  return out;
+}
+
+// Speaker notes with links clickable. Opens via the opener plugin (never navigates
+// the webview) and stops propagation so the click doesn't also advance the slide.
+export function NotesText({ text }: { text: string }) {
+  return (
+    <>
+      {splitNotesLinks(text).map((seg, i) => {
+        const { href } = seg;
+        if (href === undefined) return <Fragment key={i}>{seg.text}</Fragment>;
+        return (
+          <a
+            key={i}
+            href={href}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openUrl(href).catch(() => {}); }}
+          >
+            {seg.text}
+          </a>
+        );
+      })}
+    </>
   );
 }
 

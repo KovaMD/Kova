@@ -3,7 +3,7 @@ import type { Slide, AspectRatio } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import { SlideRenderer } from '../preview/SlideRenderer';
 import { getSlideStepCount } from '../../engine/layout/steps';
-import { SLIDE_W, formatTime, ScaledSlideBox, LaserDot, usePresentationNav } from './presentationShared';
+import { SLIDE_W, formatTime, ScaledSlideBox, LaserDot, NotesText, usePresentationNav } from './presentationShared';
 import { useT } from '../../i18n';
 import './PresentationOverlay.css';
 
@@ -192,7 +192,7 @@ export function PresentationOverlay({
       {showNotes && slide.speakerNotes && (
         <div className="pres-notes">
           <span className="pres-notes__label">{t('presentation.speakerNotes')}</span>
-          <p className="pres-notes__text">{slide.speakerNotes}</p>
+          <p className="pres-notes__text"><NotesText text={slide.speakerNotes} /></p>
         </div>
       )}
 

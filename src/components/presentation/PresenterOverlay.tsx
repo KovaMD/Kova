@@ -5,7 +5,7 @@ import type { Theme } from '../../engine/theme';
 import type { NotesFontSize } from '../../store/settings';
 import { SlideRenderer } from '../preview/SlideRenderer';
 import { getSlideStepCount } from '../../engine/layout/steps';
-import { SLIDE_W, formatTime, ScaledSlideBox, LaserDot, usePresentationNav } from './presentationShared';
+import { SLIDE_W, formatTime, ScaledSlideBox, LaserDot, NotesText, usePresentationNav } from './presentationShared';
 import { useT } from '../../i18n';
 import './PresenterOverlay.css';
 
@@ -274,7 +274,7 @@ export function PresenterOverlay({
             </div>
             {showNotes && (slide.speakerNotes ? (
               <p className={`pres-presenter__notes-text pres-presenter__notes-text--${notesFontSize}`}>
-                {slide.speakerNotes}
+                <NotesText text={slide.speakerNotes} />
               </p>
             ) : (
               <span className="pres-presenter__notes-empty">{t('presentation.noNotesForSlide')}</span>
