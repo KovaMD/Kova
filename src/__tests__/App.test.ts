@@ -80,6 +80,71 @@ describe('editSlideSegments', () => {
       expect(result).toBe(prev);
     });
 
+    it('deletes multiple segments at once (mirrors handleDeleteMultiple)', () => {
+      const prev = doc('title: X', ['A', 'B', 'C', 'D']);
+      const result = editSlideSegments(prev, (segments) => {
+        const toRemove = new Set([0, 2]);
+        if (toRemove.size >= segments.length) return null;
+        return segments.filter((_, i) => !toRemove.has(i));
+      }, 'trim');
+      const body = result.split('---\n').slice(2).join('---\n');
+      expect(body.split(/\n\n---\n\n/).map((s) => s.trim())).toEqual(['B', 'D']);
+    });
+
+    it('refuses to delete every slide via a multi-delete', () => {
+      const prev = doc('title: X', ['A', 'B']);
+      const result = editSlideSegments(prev, (segments) => {
+        const toRemove = new Set([0, 1]);
+        if (toRemove.size >= segments.length) return null;
+        return segments.filter((_, i) => !toRemove.has(i));
+      }, 'trim');
+      expect(result).toBe(prev);
+    });
+
+    it('reorders a block of segments as a unit, dragging down (mirrors handleReorderMultiple)', () => {
+      // Select [A, B] (indices 0,1), drag block via anchor=0 to drop onto D (index 3).
+      const prev = doc('title: X', ['A', 'B', 'C', 'D']);
+      const fromIndices = [0, 1];
+      const anchorIndex = 0;
+      const toIndex = 3;
+      const fromSet = new Set(fromIndices);
+      let restTargetPos = 0;
+      for (let i = 0; i < toIndex; i++) if (!fromSet.has(i)) restTargetPos++;
+      const insertAt = anchorIndex < toIndex ? restTargetPos + 1 : restTargetPos;
+      const result = editSlideSegments(prev, (segments) => {
+        const moving = [...fromIndices].sort((a, b) => a - b).map((i) => segments[i]);
+        const rest = segments.filter((_, i) => !fromSet.has(i));
+        const next = [...rest];
+        next.splice(insertAt, 0, ...moving);
+        return next;
+      }, 'trim');
+      const body = result.split('---\n').slice(2).join('---\n');
+      // Dragging the [A,B] block down past C onto D lands it right after D.
+      expect(body.split(/\n\n---\n\n/).map((s) => s.trim())).toEqual(['C', 'D', 'A', 'B']);
+    });
+
+    it('reorders a block of segments as a unit, dragging up', () => {
+      // Select [C, D] (indices 2,3), drag block via anchor=3 to drop onto A (index 0).
+      const prev = doc('title: X', ['A', 'B', 'C', 'D']);
+      const fromIndices = [2, 3];
+      const anchorIndex = 3;
+      const toIndex = 0;
+      const fromSet = new Set(fromIndices);
+      let restTargetPos = 0;
+      for (let i = 0; i < toIndex; i++) if (!fromSet.has(i)) restTargetPos++;
+      const insertAt = anchorIndex < toIndex ? restTargetPos + 1 : restTargetPos;
+      const result = editSlideSegments(prev, (segments) => {
+        const moving = [...fromIndices].sort((a, b) => a - b).map((i) => segments[i]);
+        const rest = segments.filter((_, i) => !fromSet.has(i));
+        const next = [...rest];
+        next.splice(insertAt, 0, ...moving);
+        return next;
+      }, 'trim');
+      const body = result.split('---\n').slice(2).join('---\n');
+      // Dragging the [C,D] block up before A lands it right before A.
+      expect(body.split(/\n\n---\n\n/).map((s) => s.trim())).toEqual(['C', 'D', 'A', 'B']);
+    });
+
     it('does not split on a --- line inside a fenced code block (fence-aware, unlike the old body.split(/^---$/m))', () => {
       const prev = doc('title: X', ['A\n\n```\nline one\n---\nline two\n```', 'B']);
       const result = editSlideSegments(prev, (segments) => {

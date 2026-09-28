@@ -2034,6 +2034,50 @@ export default function App() {
     setTimeout(() => editorRef.current?.scrollToSlide(newIndex), 50);
   }, [slides.length]);
 
+  // Multi-select delete (ThumbnailPanel). Refuses to remove every slide,
+  // same guard as the single-slide delete above.
+  const handleDeleteMultiple = useCallback((indices: number[]) => {
+    if (indices.length === 0) return;
+    setContent((prev) => editSlideSegments(prev, (segments) => {
+      const toRemove = new Set(indices);
+      if (toRemove.size >= segments.length) return null;
+      return segments.filter((_, i) => !toRemove.has(i));
+    }, 'trim'));
+    setIsDirty(true);
+    const newIndex = Math.max(0, Math.min(Math.min(...indices), slides.length - indices.length - 1));
+    setCurrentSlideIndex(newIndex);
+    setTimeout(() => editorRef.current?.scrollToSlide(newIndex), 50);
+  }, [slides.length]);
+
+  // Multi-select block drag-reorder (ThumbnailPanel). `anchorIndex` is the
+  // specific thumbnail the user physically grabbed — its position relative to
+  // `toIndex` decides whether the block lands before or after the drop
+  // target, the same rule handleSlideReorder's two-step splice produces for
+  // a single slide (drag down → land after target; drag up → land before).
+  // The landing position is computed up front, synchronously, from the
+  // indices alone — not from inside the setContent updater, whose callback
+  // may run later (or twice, in StrictMode) rather than during this call.
+  const handleReorderMultiple = useCallback((fromIndices: number[], anchorIndex: number, toIndex: number) => {
+    if (fromIndices.length === 0 || fromIndices.includes(toIndex)) return;
+    const fromSet = new Set(fromIndices);
+    let restTargetPos = 0;
+    for (let i = 0; i < toIndex; i++) if (!fromSet.has(i)) restTargetPos++;
+    const insertAt = anchorIndex < toIndex ? restTargetPos + 1 : restTargetPos;
+
+    setContent((prev) => editSlideSegments(prev, (segments) => {
+      if (toIndex < 0 || toIndex >= segments.length) return null;
+      for (const i of fromIndices) if (i < 0 || i >= segments.length) return null;
+      const moving = [...fromIndices].sort((a, b) => a - b).map((i) => segments[i]);
+      const rest = segments.filter((_, i) => !fromSet.has(i));
+      const next = [...rest];
+      next.splice(insertAt, 0, ...moving);
+      return next;
+    }, 'trim'));
+    setIsDirty(true);
+    setCurrentSlideIndex(insertAt);
+    setTimeout(() => editorRef.current?.scrollToSlide(insertAt), 50);
+  }, []);
+
   const handleToggleHidden = useCallback((index: number) => {
     setContent((prev) => editSlideSegments(prev, (segments) => {
       if (index < 0 || index >= segments.length) return null;
@@ -2719,6 +2763,8 @@ export default function App() {
               onSetBackground={handleSetSlideBackground}
               onClearBackground={handleClearSlideBackground}
               onDelete={handleDeleteSlide}
+              onDeleteMultiple={handleDeleteMultiple}
+              onReorderMultiple={handleReorderMultiple}
               theme={activeTheme}
               docTitle={docTitle}
               docAuthor={docAuthor}

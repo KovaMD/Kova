@@ -10,12 +10,16 @@ interface Props {
   currentIndex: number;
   onSelect: (index: number) => void;
   onReorder?: (fromIndex: number, toIndex: number) => void;
+  /** Block drag-reorder: `fromIndices` is the whole selected set, `anchorIndex`
+   *  the specific thumbnail the user grabbed (decides before/after the drop target). */
+  onReorderMultiple?: (fromIndices: number[], anchorIndex: number, toIndex: number) => void;
   onDuplicate?: (index: number) => void;
   onNewSlide?: (index: number) => void;
   onToggleHidden?: (index: number) => void;
   onSetBackground?: (index: number) => void;
   onClearBackground?: (index: number) => void;
   onDelete?: (index: number) => void;
+  onDeleteMultiple?: (indices: number[]) => void;
   theme?: Theme;
   docTitle?: string;
   docAuthor?: string;
@@ -26,7 +30,7 @@ interface Props {
 const SLIDE_W = 960;
 const THUMB_W = 140;
 
-export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onDuplicate, onNewSlide, onToggleHidden, onSetBackground, onClearBackground, onDelete, theme = DEFAULT_THEME, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 } }: Props) {
+export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onReorderMultiple, onDuplicate, onNewSlide, onToggleHidden, onSetBackground, onClearBackground, onDelete, onDeleteMultiple, theme = DEFAULT_THEME, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 } }: Props) {
   const t = useT();
   const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
 
@@ -35,11 +39,34 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onDu
   const panelRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(THUMB_W / SLIDE_W);
   const [dragFromIndex, setDragFromIndex] = useState<number | null>(null);
+  const [dragBlockIndices, setDragBlockIndices] = useState<number[]>([]);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [menu, setMenu] = useState<{ index: number; x: number; y: number } | null>(null);
+  // Multi-select (shift/ctrl-click, shift+arrow). Local to the panel — App.tsx
+  // only learns about it when a delete or block-reorder action is taken.
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  // Range-select anchor: the endpoint a Shift-click/Shift-arrow range extends
+  // from. Mirrored into a ref (not just state) so handleThumbMouseDown — kept
+  // stable across renders to avoid defeating Thumbnail's memo — can read the
+  // latest selection without depending on it.
+  const anchorIndexRef = useRef<number | null>(null);
+  const selectedIndicesRef = useRef<Set<number>>(selectedIndices);
+  useEffect(() => { selectedIndicesRef.current = selectedIndices; }, [selectedIndices]);
+
+  // A slide count change (delete/duplicate/new-slide/reorder) shifts every
+  // index after the edit point — clear the multi-selection rather than let
+  // it point at whatever slides now happen to occupy those old positions.
+  const prevSlideCountRef = useRef(slides.length);
+  useEffect(() => {
+    if (prevSlideCountRef.current !== slides.length) {
+      prevSlideCountRef.current = slides.length;
+      setSelectedIndices(new Set());
+      anchorIndexRef.current = null;
+    }
+  }, [slides.length]);
 
   // Mutable drag state for use inside stable event listeners (avoids stale closures).
-  const dragRef     = useRef<{ fromIndex: number; overIndex: number | null } | null>(null);
+  const dragRef     = useRef<{ fromIndex: number; blockIndices: number[]; overIndex: number | null } | null>(null);
   const scrollRef   = useRef<HTMLDivElement>(null);   // the scrollable list container
   const mousePosRef = useRef({ x: 0, y: 0 });        // last known cursor position
   const scrollDelta = useRef(0);                       // px/frame to scroll; 0 = idle
@@ -93,6 +120,7 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onDu
       stopScroll();
       dragRef.current = null;
       setDragFromIndex(null);
+      setDragBlockIndices([]);
       setDragOverIndex(null);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
@@ -138,9 +166,16 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onDu
 
     const handleMouseUp = () => {
       if (!dragRef.current) return;
-      const { fromIndex, overIndex } = dragRef.current;
+      const { fromIndex, blockIndices, overIndex } = dragRef.current;
       cancelDrag();
-      if (overIndex !== null && overIndex !== fromIndex) {
+      if (overIndex === null || blockIndices.includes(overIndex)) return;
+      if (blockIndices.length > 1) {
+        onReorderMultiple?.(blockIndices, fromIndex, overIndex);
+        // The moved block's old indices now point at whatever slides shifted
+        // into those positions — clear rather than show a stale selection.
+        setSelectedIndices(new Set());
+        anchorIndexRef.current = null;
+      } else if (overIndex !== fromIndex) {
         onReorder?.(fromIndex, overIndex);
       }
     };
@@ -158,16 +193,25 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onDu
       window.removeEventListener('blur', handleBlur);
       stopScroll();
     };
-  }, [onReorder]);
+  }, [onReorder, onReorderMultiple]);
 
-  // Stable identity (depends only on onReorder, itself stable from App.tsx)
-  // so it can be passed straight through to the memoized Thumbnail below
-  // without defeating the memo on every ThumbnailPanel render.
+  // Stable identity (depends only on onReorder/onReorderMultiple, themselves
+  // stable from App.tsx) so it can be passed straight through to the
+  // memoized Thumbnail below without defeating the memo on every
+  // ThumbnailPanel render. Reads the *current* selection via a ref rather
+  // than depending on `selectedIndices` state, which would change this
+  // callback's identity on every click.
   const handleThumbMouseDown = useCallback((index: number, e: React.MouseEvent) => {
     if (!onReorder || e.button !== 0) return;
     e.preventDefault(); // prevent text selection during drag
-    dragRef.current = { fromIndex: index, overIndex: index };
+    const sel = selectedIndicesRef.current;
+    // Dragging a thumbnail that's part of an existing multi-selection moves
+    // the whole block; dragging an unselected one (or a lone selection)
+    // moves just that slide, matching standard file-manager drag behavior.
+    const block = sel.has(index) && sel.size > 1 ? [...sel].sort((a, b) => a - b) : [index];
+    dragRef.current = { fromIndex: index, blockIndices: block, overIndex: index };
     setDragFromIndex(index);
+    setDragBlockIndices(block);
     setDragOverIndex(index);
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
@@ -177,6 +221,92 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onDu
     e.preventDefault();
     setMenu({ index, x: e.clientX, y: e.clientY });
   }, []);
+
+  // Shift-click extends a range from the last anchor; Ctrl/Cmd-click toggles
+  // one slide in or out; a plain click selects just that one — the same
+  // three-way convention as a file manager's icon grid.
+  const handleThumbClick = useCallback((index: number, e: React.MouseEvent) => {
+    if (e.shiftKey && anchorIndexRef.current !== null) {
+      const lo = Math.min(anchorIndexRef.current, index);
+      const hi = Math.max(anchorIndexRef.current, index);
+      const range = new Set<number>();
+      for (let i = lo; i <= hi; i++) range.add(i);
+      setSelectedIndices(range);
+    } else if (e.metaKey || e.ctrlKey) {
+      setSelectedIndices((prev) => {
+        const next = new Set(prev);
+        if (next.has(index)) next.delete(index); else next.add(index);
+        return next;
+      });
+      anchorIndexRef.current = index;
+    } else {
+      setSelectedIndices(new Set([index]));
+      anchorIndexRef.current = index;
+    }
+    // onSelect (App.tsx) scrolls the editor to the slide, which itself ends
+    // by focusing the editor — refocus the panel *after*, so keyboard nav
+    // keeps working for a run of consecutive arrow presses instead of losing
+    // focus back to the editor after the very first click.
+    onSelect(index);
+    scrollRef.current?.focus();
+  }, [onSelect]);
+
+  // Panel-scoped keyboard nav — only fires while the thumbnail list itself
+  // has focus (clicking a thumbnail focuses it), so it never competes with
+  // the editor's own shortcuts. Up/Down/PageUp/PageDown/Home/End move the
+  // active slide; holding Shift extends the range selection like the click
+  // handler above. Delete/Backspace removes the selection (or just the
+  // active slide with no multi-select); Mod-D duplicates the active slide.
+  const handlePanelKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (slides.length === 0) return;
+
+    const moveTo = (next: number) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.shiftKey) {
+        const anchor = anchorIndexRef.current ?? currentIndex;
+        anchorIndexRef.current = anchor;
+        const lo = Math.min(anchor, next), hi = Math.max(anchor, next);
+        const range = new Set<number>();
+        for (let i = lo; i <= hi; i++) range.add(i);
+        setSelectedIndices(range);
+      } else {
+        anchorIndexRef.current = next;
+        setSelectedIndices(new Set([next]));
+      }
+      // Same focus-stealing fixup as handleThumbClick — onSelect ends by
+      // focusing the editor; reclaim it so a run of arrow presses keeps working.
+      onSelect(next);
+      scrollRef.current?.focus();
+    };
+
+    switch (e.key) {
+      case 'ArrowUp': case 'PageUp':
+        moveTo(Math.max(0, currentIndex - 1)); break;
+      case 'ArrowDown': case 'PageDown':
+        moveTo(Math.min(slides.length - 1, currentIndex + 1)); break;
+      case 'Home':
+        moveTo(0); break;
+      case 'End':
+        moveTo(slides.length - 1); break;
+      case 'Delete': case 'Backspace': {
+        const sel = selectedIndicesRef.current;
+        if (sel.size > 1 && onDeleteMultiple) {
+          e.preventDefault(); e.stopPropagation();
+          onDeleteMultiple([...sel]);
+        } else if (onDelete && slides.length > 1) {
+          e.preventDefault(); e.stopPropagation();
+          onDelete(currentIndex);
+        }
+        break;
+      }
+      default:
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd' && onDuplicate) {
+          e.preventDefault(); e.stopPropagation();
+          onDuplicate(currentIndex);
+        }
+    }
+  }, [slides.length, currentIndex, onSelect, onDelete, onDeleteMultiple, onDuplicate]);
 
   // Dismiss the context menu on any outside interaction.
   useEffect(() => {
@@ -201,14 +331,21 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onDu
   return (
     <div ref={panelRef} style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-app)' }}>
       <div className="panel-header">{t('layout.slidesPanelHeader')}</div>
-      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 6px' }}>
+      <div
+        ref={scrollRef}
+        className="thumbnail-scroller"
+        tabIndex={0}
+        onKeyDown={handlePanelKeyDown}
+        style={{ flex: 1, overflowY: 'auto', padding: '8px 6px' }}
+      >
         {slides.length === 0 ? (
           <div style={{ color: 'var(--text-dim)', fontSize: 11, textAlign: 'center', marginTop: 24, padding: '0 8px' }}>
             {t('layout.openFileHint')}
           </div>
         ) : (
           slides.map((slide, i) => {
-            const isTarget = dragOverIndex === i && dragFromIndex !== null && dragFromIndex !== i;
+            const inDragBlock = dragBlockIndices.includes(i);
+            const isTarget = dragOverIndex === i && dragFromIndex !== null && !inDragBlock;
             const showAbove = isTarget && (dragFromIndex as number) > i;
             const showBelow = isTarget && (dragFromIndex as number) < i;
             return (
@@ -219,11 +356,12 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onDu
                   index={i}
                   totalSlides={slides.length}
                   isActive={i === currentIndex}
-                  isDragSource={dragFromIndex === i}
+                  isSelected={selectedIndices.has(i)}
+                  isDragSource={inDragBlock}
                   isDragging={dragFromIndex !== null}
                   canDrag={Boolean(onReorder)}
                   isHidden={slide.hidden}
-                  onSelect={onSelect}
+                  onSelect={handleThumbClick}
                   onToggleHidden={onToggleHidden}
                   onDragStart={handleThumbMouseDown}
                   onContextMenu={handleThumbContextMenu}
@@ -340,11 +478,12 @@ interface ThumbnailProps {
   index: number;
   totalSlides: number;
   isActive: boolean;
+  isSelected: boolean;
   isDragSource: boolean;
   isDragging: boolean;
   canDrag: boolean;
   isHidden: boolean;
-  onSelect: (index: number) => void;
+  onSelect: (index: number, e: React.MouseEvent) => void;
   onToggleHidden?: (index: number) => void;
   onDragStart: (index: number, e: React.MouseEvent) => void;
   onContextMenu: (index: number, e: React.MouseEvent) => void;
@@ -364,7 +503,7 @@ interface ThumbnailProps {
 // keystroke. `onSelect`/`onDragStart` are forwarded as stable function
 // references (bound internally below) rather than passed as pre-bound
 // closures, specifically so they don't defeat this memoization.
-const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive, isDragSource, isDragging, canDrag, isHidden, onSelect, onToggleHidden, onDragStart, onContextMenu, theme, docTitle, docAuthor, docDate, slideH, scale, thumbH }: ThumbnailProps) {
+const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive, isSelected, isDragSource, isDragging, canDrag, isHidden, onSelect, onToggleHidden, onDragStart, onContextMenu, theme, docTitle, docAuthor, docDate, slideH, scale, thumbH }: ThumbnailProps) {
   const t = useT();
   const thumbRef = useRef<HTMLDivElement>(null);
 
@@ -376,7 +515,7 @@ const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive,
     <div
       ref={thumbRef}
       data-slide-index={index}
-      onClick={() => onSelect(index)}
+      onClick={(e) => onSelect(index, e)}
       onMouseDown={(e) => onDragStart(index, e)}
       onContextMenu={(e) => onContextMenu(index, e)}
       style={{
@@ -459,6 +598,12 @@ const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive,
       >
         {index + 1}
       </div>
+
+      {/* Multi-select wash — painted over the slide render (which has its own
+          opaque background), so it can't just live on the outer container. */}
+      {isSelected && (
+        <div style={{ position: 'absolute', inset: 0, background: 'var(--accent-bg)', pointerEvents: 'none' }} />
+      )}
     </div>
   );
 });

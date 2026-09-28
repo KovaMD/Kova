@@ -363,6 +363,19 @@ html { zoom: var(--ui-scale, 1); }
   user-select: none;
 }
 
+/* :focus-visible (not plain :focus) so a mouse click into the thumbnail
+   strip doesn't show a ring — only actual keyboard focus does. Clicking a
+   thumbnail calls .focus() programmatically to enable arrow-key nav right
+   after, which some browsers otherwise still render an outline for under
+   plain :focus. */
+.thumbnail-scroller:focus {
+  outline: none;
+}
+.thumbnail-scroller:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .panel-body {
   flex: 1;
   overflow: hidden;
