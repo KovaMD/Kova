@@ -1,8 +1,8 @@
 import type { EditorView } from '@codemirror/view';
 import { EditorSelection } from '@codemirror/state';
+import { indentMore, indentLess } from '@codemirror/commands';
 import type { MenuEntry } from './EditorContextMenu';
 import { getWordAtPos, doCopy, doCut, doPaste, doInsert, doWrap, doToggleLineStepMarker, hasLineStepMarker } from './contextMenuActions';
-import { indentLine, dedentLine } from './formatCommands';
 import {
   isSpellCheckerReady,
   spellCheck,
@@ -81,8 +81,8 @@ export function buildContextMenuEntries({
         { type: 'item', label: t('editor.menuUnderline'),     shortcut: `${mod}+U`,       action: () => view && doWrap(view, '<u>', '</u>', 'underlined text') },
         { type: 'item', label: t('editor.menuStrikethrough'), shortcut: `${mod}+Shift+X`, action: () => view && doWrap(view, '~~',  '~~',   'strikethrough text') },
         { type: 'item', label: t('editor.menuInlineCode'),    shortcut: `${mod}+\``,      action: () => view && doWrap(view, '`',   '`',    'code') },
-        { type: 'item', label: t('editor.menuIndent'),        shortcut: `${mod}+]`,       action: () => { if (view) indentLine(view); } },
-        { type: 'item', label: t('editor.menuDedent'),        shortcut: `${mod}+[`,       action: () => { if (view) dedentLine(view); } },
+        { type: 'item', label: t('editor.menuIndent'),        shortcut: `${mod}+]`,       action: () => { if (view) indentMore(view); } },
+        { type: 'item', label: t('editor.menuDedent'),        shortcut: `${mod}+[`,       action: () => { if (view) indentLess(view); } },
       ],
     },
     {

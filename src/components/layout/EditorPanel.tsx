@@ -1,6 +1,6 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
-import { indentWithTab, undo, redo, selectAll } from '@codemirror/commands';
+import { indentWithTab, indentMore, indentLess, undo, redo, selectAll } from '@codemirror/commands';
 import { Annotation, Compartment, EditorSelection, EditorState, Prec, Transaction } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
@@ -16,8 +16,6 @@ import {
   slideNav,
   makeWrapCommand,
   makeHeadingCommand,
-  indentLine,
-  dedentLine,
   makeLinePrefixCommand,
   makeListCommand,
   findNextRange,
@@ -300,8 +298,8 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
           { key: 'Mod-u',       run: makeWrapCommand('<u>', '</u>', 'underlined text') },
           { key: 'Mod-Shift-x', run: makeWrapCommand('~~',  '~~',   'strikethrough text') },
           { key: 'Mod-`',       run: makeWrapCommand('`',   '`',    'code') },
-          { key: 'Mod-]', run: indentLine },
-          { key: 'Mod-[', run: dedentLine },
+          { key: 'Mod-]', run: indentMore },
+          { key: 'Mod-[', run: indentLess },
           {
             key: 'Mod-Shift-r',
             run: (view) => { doToggleLineStepMarker(view, view.state.selection.main.head); return true; },

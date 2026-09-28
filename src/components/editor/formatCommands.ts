@@ -324,34 +324,6 @@ export function makeHeadingCommand(level: number) {
   };
 }
 
-const INDENT = '  ';
-
-export function indentLine(view: EditorView): boolean {
-  const { state } = view;
-  const { from } = state.selection.main;
-  const line = state.doc.lineAt(from);
-  view.dispatch({
-    changes: { from: line.from, insert: INDENT },
-    selection: EditorSelection.cursor(from + INDENT.length),
-  });
-  view.focus();
-  return true;
-}
-
-export function dedentLine(view: EditorView): boolean {
-  const { state } = view;
-  const { from } = state.selection.main;
-  const line = state.doc.lineAt(from);
-  const leading = line.text.match(/^ {1,2}/)?.[0] ?? '';
-  if (!leading) return false;
-  view.dispatch({
-    changes: { from: line.from, to: line.from + leading.length, insert: '' },
-    selection: EditorSelection.cursor(Math.max(line.from, from - leading.length)),
-  });
-  view.focus();
-  return true;
-}
-
 const LIST_PREFIX_RE = /^(\d+\.\s+|- )/;
 
 export function makeLinePrefixCommand(prefix: string) {
