@@ -2293,7 +2293,7 @@ export default function App() {
   useEffect(() => {
     const sc = (id: string) => getCombo(keybindings.combos, id);
     const handler = (e: KeyboardEvent) => {
-      if (presentMode) return;
+      if (presentMode || presenterMode) return;
       // Default keybindings all require a modifier, but keybindings.combos is
       // loaded from a user-editable file with no enforcement that a binding
       // include one — a bare-key rebind must not fire while the user is
@@ -2313,7 +2313,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [presentMode, keybindings.combos, filePath, slides.length, safeSlideIndex, handleNewFile, handleOpenFile, handleSave, handleSaveAs, toggleFocusMode, handlePresentEnter, handleToggleHidden]);
+  }, [presentMode, presenterMode, keybindings.combos, filePath, slides.length, safeSlideIndex, handleNewFile, handleOpenFile, handleSave, handleSaveAs, toggleFocusMode, handlePresentEnter, handleToggleHidden]);
 
   // Close menus when the user clicks outside them.
   useEffect(() => {
