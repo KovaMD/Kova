@@ -2175,7 +2175,24 @@ function hex(color: string): string {
 // table ever could (and survives future CSS additions). We fall back to a local
 // converter for exotic notations the DOM left unresolved (e.g. `oklch()` under
 // jsdom) or for DOM-less contexts.
+// A deck's slides overwhelmingly repeat the same 2-3 colour strings (the
+// theme's text/heading/bold colours), but each call re-resolves via a
+// DOM-append/getComputedStyle/remove round trip — a forced style recalc
+// that's pure cost on every repeat. The result is a pure function of the
+// input string (browser CSS colour parsing doesn't change mid-session), so
+// caching indefinitely at module scope is safe across exports too.
+const cssColorToHexCache = new Map<string, string>();
+
 function cssColorToHex(color: string, fallback = '000000'): string {
+  const key = `${color ?? ''}\u0000${fallback}`;
+  const cached = cssColorToHexCache.get(key);
+  if (cached !== undefined) return cached;
+  const result = resolveCssColorToHex(color, fallback);
+  cssColorToHexCache.set(key, result);
+  return result;
+}
+
+function resolveCssColorToHex(color: string, fallback = '000000'): string {
   const v = (color ?? '').trim();
   if (!v) return hex(fallback);
 
