@@ -79,15 +79,38 @@ export function useResolvedSlides(rawSlides: Slide[], docDir: string): Slide[] {
 
     if (paths.size === 0) { setIfChanged(new Map()); return; }
 
+    // Only fetch paths whose data we don't already have — this effect reruns
+    // on every keystroke (rawSlides is a fresh array reference each time,
+    // per the comment above), so re-reading every referenced file over IPC
+    // on every edit was the actual cost, not just the resulting setState.
+    // An image file edited in place on disk (same path, new bytes) while
+    // Kova is open won't be picked up without a reload — nothing watches
+    // media files, only the document itself (see start_watching in
+    // src-tauri), so that was never a guaranteed behaviour, just an
+    // accidental side effect of re-fetching everything every time.
+    const prev = resolvedRef.current;
+    const toFetch = Array.from(paths).filter((p) => !prev.has(p));
+
+    if (toFetch.length === 0) {
+      setIfChanged(new Map(Array.from(paths, (p) => [p, prev.get(p)!])));
+      return;
+    }
+
     let cancelled = false;
-    Promise.all(Array.from(paths).map(async (path) => {
+    Promise.all(toFetch.map(async (path) => {
       try {
         const b64 = await invoke<string>('read_file_b64', { path });
         const mime = VIDEO_EXT_RE.test(path) ? videoMime(path) : imageMime(path);
         return [path, `data:${mime};base64,${b64}`] as [string, string];
       } catch (e) { console.error('[Kova] read_file_b64 failed for', path, e); return null; }
     })).then((entries) => {
-      if (!cancelled) setIfChanged(new Map(entries.filter((e): e is [string, string] => e !== null)));
+      if (cancelled) return;
+      const next = new Map(prev);
+      for (const e of entries) if (e) next.set(e[0], e[1]);
+      // Drop entries for paths no longer referenced by any slide, so the
+      // cache doesn't grow unbounded across edits that remove media.
+      for (const k of next.keys()) if (!paths.has(k)) next.delete(k);
+      setIfChanged(next);
     });
 
     return () => { cancelled = true; };
