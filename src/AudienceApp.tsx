@@ -175,6 +175,26 @@ function AudienceAppInner() {
       {blankMode && (
         <div style={{ position: 'absolute', inset: 0, background: blankMode, zIndex: 10 }} />
       )}
+
+      {/* Persistent position indicator — this window has no HUD/counter at
+          all (audience-facing, no controls), so this is the only positional
+          cue the audience gets. Sits below the blank-screen overlay so it's
+          hidden while blanked. Uses the deck's own accent colour. */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, height: 3,
+          background: 'rgba(255,255,255,0.12)', zIndex: 5, pointerEvents: 'none',
+        }}
+      >
+        <div style={{
+          height: '100%',
+          width: `${((currentIndex + 1) / total) * 100}%`,
+          background: theme.colors.accent,
+          transition: 'width 0.25s ease',
+        }} />
+      </div>
+
       {/* Outer box constrains to the slide's aspect ratio */}
       <div style={{
         position: 'relative',
