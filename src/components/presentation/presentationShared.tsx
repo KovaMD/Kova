@@ -13,6 +13,21 @@ export function formatTime(seconds: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
+/**
+ * The presenter timer's display text plus whether the talk has run over.
+ * `countdownMinutes` of 0 (the default) keeps the existing elapsed-only,
+ * count-up display. A positive value counts down to the target instead,
+ * then switches to a `-mm:ss` overrun display once past it — the same
+ * convention PowerPoint/Keynote presenter timers use.
+ */
+export function formatTimerDisplay(elapsedSeconds: number, countdownMinutes: number): { text: string; isOverrun: boolean } {
+  if (!countdownMinutes) return { text: formatTime(elapsedSeconds), isOverrun: false };
+  const remaining = countdownMinutes * 60 - elapsedSeconds;
+  return remaining >= 0
+    ? { text: formatTime(remaining), isOverrun: false }
+    : { text: `-${formatTime(-remaining)}`, isOverrun: true };
+}
+
 // The 960px virtual slide scaled to fill its measured frame.
 export function ScaledSlideBox({ scale, slideH, children }: { scale: number; slideH: number; children: ReactNode }) {
   return (

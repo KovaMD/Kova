@@ -116,6 +116,11 @@
   text-align: center;
 }
 
+.pres-hud__timer--overrun {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
 .pres-hud__btn {
   background: none;
   border: 1px solid #333;

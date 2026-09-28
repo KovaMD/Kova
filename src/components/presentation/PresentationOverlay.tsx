@@ -3,7 +3,7 @@ import type { Slide, AspectRatio } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import { SlideRenderer } from '../preview/SlideRenderer';
 import { getSlideStepCount } from '../../engine/layout/steps';
-import { SLIDE_W, formatTime, ScaledSlideBox, LaserDot, NotesText, usePresentationNav } from './presentationShared';
+import { SLIDE_W, formatTimerDisplay, ScaledSlideBox, LaserDot, NotesText, usePresentationNav } from './presentationShared';
 import { useT } from '../../i18n';
 import './PresentationOverlay.css';
 
@@ -19,6 +19,8 @@ interface Props {
   aspectRatio?: AspectRatio;
   laserColor?: string;
   showTimer?: boolean;
+  /** Target talk length in minutes; 0 keeps the elapsed-only count-up display. */
+  countdownMinutes?: number;
   onNavigate: (index: number, step: number) => void;
   onExit: () => void;
 }
@@ -27,7 +29,7 @@ const HUD_H   = 40;   // px — HUD bar height
 const NOTE_H  = 160;  // px — speaker notes panel height
 
 export function PresentationOverlay({
-  slides, currentIndex, currentStep, theme, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 }, laserColor = '#ff2020', showTimer = false, onNavigate, onExit,
+  slides, currentIndex, currentStep, theme, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 }, laserColor = '#ff2020', showTimer = false, countdownMinutes = 0, onNavigate, onExit,
 }: Props) {
   const t = useT();
   const slide = slides[currentIndex];
@@ -266,9 +268,15 @@ export function PresentationOverlay({
           title={t('presentation.nextSlide')}
         >›</button>
 
-        {showTimer && (
-          <span className="pres-hud__timer" title={t('presentation.elapsedTime')}>{formatTime(elapsed)}</span>
-        )}
+        {showTimer && (() => {
+          const { text, isOverrun } = formatTimerDisplay(elapsed, countdownMinutes);
+          return (
+            <span
+              className={`pres-hud__timer${isOverrun ? ' pres-hud__timer--overrun' : ''}`}
+              title={countdownMinutes ? t('presentation.timeRemaining') : t('presentation.elapsedTime')}
+            >{text}</span>
+          );
+        })()}
 
         {hasNotes && (
           <button

@@ -2421,6 +2421,7 @@ export default function App() {
           aspectRatio={aspectRatio}
           laserColor={settings.laserColor}
           showTimer={settings.presenterShowTimer}
+          countdownMinutes={settings.presenterCountdownMinutes}
           onNavigate={handlePresentNavigate}
           onExit={handlePresentExit}
         />
@@ -2437,6 +2438,7 @@ export default function App() {
           aspectRatio={aspectRatio}
           showNextSlide={settings.presenterShowNextSlide}
           showTimer={settings.presenterShowTimer}
+          countdownMinutes={settings.presenterCountdownMinutes}
           notesFontSize={settings.presenterNotesFontSize}
           laserColor={settings.laserColor}
           onNavigate={handlePresentNavigate}

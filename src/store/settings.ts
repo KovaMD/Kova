@@ -47,6 +47,9 @@ export interface AppSettings {
   presenterAlwaysOnTop: boolean;
   presenterShowNextSlide: boolean;
   presenterShowTimer: boolean;
+  /** Target talk length in minutes; 0 disables the countdown (elapsed-only, the
+   *  existing behaviour). Reused every time you present, not asked per-talk. */
+  presenterCountdownMinutes: number;
   presenterNotesFontSize: NotesFontSize;
   laserColor: LaserColor;
   // Editor
@@ -83,6 +86,8 @@ function buildDefaults(): AppSettings {
     presenterAlwaysOnTop: false,
     presenterShowNextSlide: true,
     presenterShowTimer: true,
+    // Preserves existing behaviour (elapsed-only) for anyone upgrading.
+    presenterCountdownMinutes: 0,
     presenterNotesFontSize: 'md',
     laserColor: '#ff2020',
     showFrontmatter: false,

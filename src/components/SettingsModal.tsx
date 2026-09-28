@@ -774,7 +774,7 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
           />
         )}
 
-        {inView('presentation', `${t('settings.windowedPresenterView')} ${t('settings.windowedPresenterViewDescription')} ${t('settings.alwaysOnTop')} ${t('settings.alwaysOnTopDescription')} ${t('settings.showNextSlidePreview')} ${t('settings.showElapsedTimer')} ${t('settings.notesFontSize')}`) && (settings.presentationMode === 'dual' || settings.presentationMode === 'auto') && (
+        {inView('presentation', `${t('settings.windowedPresenterView')} ${t('settings.windowedPresenterViewDescription')} ${t('settings.alwaysOnTop')} ${t('settings.alwaysOnTopDescription')} ${t('settings.showNextSlidePreview')} ${t('settings.showElapsedTimer')} ${t('settings.countdownTarget')} ${t('settings.countdownTargetDescription')} ${t('settings.notesFontSize')}`) && (settings.presentationMode === 'dual' || settings.presentationMode === 'auto') && (
           <>
             <Row
               label={t('settings.windowedPresenterView')}
@@ -798,6 +798,24 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
               description={t('settings.showElapsedTimerDescription')}
               control={<Toggle checked={settings.presenterShowTimer} onChange={(v) => set('presenterShowTimer', v)} />}
             />
+            {settings.presenterShowTimer && (
+              <div style={{ padding: '6px 0 10px' }}>
+                <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 4 }}>{t('settings.countdownTarget')}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8, lineHeight: 1.5 }}>
+                  {t('settings.countdownTargetDescription')}
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {[0, 5, 10, 15, 20, 30, 45, 60].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => set('presenterCountdownMinutes', mins)}
+                      style={{ ...groupBtnStyle(settings.presenterCountdownMinutes === mins), flex: '0 1 auto', padding: '5px 10px' }}
+                    >{mins === 0 ? t('settings.countdownOff') : t('settings.countdownMinutes', { count: mins })}</button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div style={{ padding: '6px 0 10px' }}>
               <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>{t('settings.notesFontSize')}</div>
               <div style={{ display: 'flex', gap: 6 }}>

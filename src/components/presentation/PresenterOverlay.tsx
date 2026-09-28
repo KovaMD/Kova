@@ -5,7 +5,7 @@ import type { Theme } from '../../engine/theme';
 import type { NotesFontSize } from '../../store/settings';
 import { SlideRenderer } from '../preview/SlideRenderer';
 import { getSlideStepCount } from '../../engine/layout/steps';
-import { SLIDE_W, formatTime, ScaledSlideBox, LaserDot, NotesText, usePresentationNav } from './presentationShared';
+import { SLIDE_W, formatTimerDisplay, ScaledSlideBox, LaserDot, NotesText, usePresentationNav } from './presentationShared';
 import { useT } from '../../i18n';
 import './PresenterOverlay.css';
 
@@ -21,6 +21,8 @@ interface Props {
   aspectRatio: AspectRatio;
   showNextSlide: boolean;
   showTimer: boolean;
+  /** Target talk length in minutes; 0 keeps the elapsed-only count-up display. */
+  countdownMinutes?: number;
   notesFontSize: NotesFontSize;
   laserColor?: string;
   onNavigate: (index: number, step: number) => void;
@@ -35,7 +37,7 @@ const STORAGE_KEY     = 'kova:presenter-right-w';
 
 export function PresenterOverlay({
   slides, currentIndex, currentStep, theme, docTitle, docAuthor, docDate, aspectRatio,
-  showNextSlide, showTimer, notesFontSize, laserColor = '#ff2020', onNavigate, onExit,
+  showNextSlide, showTimer, countdownMinutes = 0, notesFontSize, laserColor = '#ff2020', onNavigate, onExit,
 }: Props) {
   const t = useT();
   const slide     = slides[currentIndex];
@@ -328,14 +330,20 @@ export function PresenterOverlay({
           >›</button>
         </div>
 
-        {showTimer && (
-          <>
-            <div className="pres-presenter__hud-divider" />
-            <span className="pres-presenter__timer" title={t('presentation.elapsedTime')}>
-              {formatTime(elapsed)}
-            </span>
-          </>
-        )}
+        {showTimer && (() => {
+          const { text, isOverrun } = formatTimerDisplay(elapsed, countdownMinutes);
+          return (
+            <>
+              <div className="pres-presenter__hud-divider" />
+              <span
+                className={`pres-presenter__timer${isOverrun ? ' pres-presenter__timer--overrun' : ''}`}
+                title={countdownMinutes ? t('presentation.timeRemaining') : t('presentation.elapsedTime')}
+              >
+                {text}
+              </span>
+            </>
+          );
+        })()}
 
         <div className="pres-presenter__hud-divider" />
 

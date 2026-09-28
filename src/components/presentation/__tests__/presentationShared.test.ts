@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { formatTime, usePresentationNav, NotesText, splitNotesLinks, type UsePresentationNavOpts } from '../presentationShared';
+import { formatTime, formatTimerDisplay, usePresentationNav, NotesText, splitNotesLinks, type UsePresentationNavOpts } from '../presentationShared';
 
 const openUrlMock = vi.fn((_url: string) => Promise.resolve());
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: (url: string) => openUrlMock(url) }));
@@ -21,6 +21,26 @@ describe('formatTime', () => {
   it('adds h:mm:ss past an hour', () => {
     expect(formatTime(3600)).toBe('1:00:00');
     expect(formatTime(3661)).toBe('1:01:01');
+  });
+});
+
+describe('formatTimerDisplay', () => {
+  it('counts up (elapsed-only) when countdownMinutes is 0', () => {
+    expect(formatTimerDisplay(125, 0)).toEqual({ text: '02:05', isOverrun: false });
+  });
+
+  it('counts down toward the target while under it', () => {
+    // 10 minutes target, 2 minutes elapsed → 8:00 remaining.
+    expect(formatTimerDisplay(120, 10)).toEqual({ text: '08:00', isOverrun: false });
+  });
+
+  it('shows 00:00 exactly at the target, not yet overrun', () => {
+    expect(formatTimerDisplay(600, 10)).toEqual({ text: '00:00', isOverrun: false });
+  });
+
+  it('switches to a negative overrun display past the target', () => {
+    // 10 minutes target, 10m30s elapsed → 30s over.
+    expect(formatTimerDisplay(630, 10)).toEqual({ text: '-00:30', isOverrun: true });
   });
 });
 

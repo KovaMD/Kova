@@ -211,6 +211,11 @@
   text-align: center;
 }
 
+.pres-presenter__timer--overrun {
+  color: #d94040;
+  font-weight: 600;
+}
+
 .pres-presenter__btn {
   background: none;
   border: 1px solid #2a2a2a;
