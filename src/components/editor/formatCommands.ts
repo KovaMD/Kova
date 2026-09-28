@@ -483,3 +483,67 @@ export function findNextRange(doc: string, query: string, start: number, dir: 1 
 
   return { from: idx, to: idx + needle.length };
 }
+
+/** Every non-overlapping case-insensitive occurrence of `query` in `doc`, in order. */
+export function findAllRanges(doc: string, query: string): { from: number; to: number }[] {
+  const q = query.trim();
+  if (!q) return [];
+
+  const hay = doc.toLowerCase();
+  const needle = q.toLowerCase();
+
+  const ranges: { from: number; to: number }[] = [];
+  let idx = 0;
+  while ((idx = hay.indexOf(needle, idx)) !== -1) {
+    ranges.push({ from: idx, to: idx + needle.length });
+    idx += needle.length;
+  }
+  return ranges;
+}
+
+// ── Find/replace commands ─────────────────────────────────────────────────
+
+/** Selects the next occurrence of `query` from the current selection, wrapping around. */
+export function goToNextMatch(view: EditorView, query: string, dir: 1 | -1 = 1): boolean {
+  const doc = view.state.doc.toString();
+  const sel = view.state.selection.main;
+  const start = dir === 1 ? sel.to : sel.from;
+
+  const range = findNextRange(doc, query, start, dir);
+  if (!range) return false;
+
+  const { from, to } = range;
+  view.dispatch({
+    selection: EditorSelection.range(from, to),
+    effects: EditorView.scrollIntoView(from, { y: 'center', yMargin: 12 }),
+  });
+  view.focus();
+  return true;
+}
+
+/**
+ * Replaces the current selection if it's itself a live match for `query`,
+ * then advances to the next occurrence either way — matching how most
+ * editors' "Replace" button behaves (plain Find when nothing matches yet).
+ */
+export function replaceCurrent(view: EditorView, query: string, replacement: string): void {
+  if (!query.trim()) return;
+  const sel = view.state.selection.main;
+  const selText = view.state.sliceDoc(sel.from, sel.to);
+  if (!sel.empty && selText.toLowerCase() === query.trim().toLowerCase()) {
+    view.dispatch({
+      changes: { from: sel.from, to: sel.to, insert: replacement },
+      selection: EditorSelection.cursor(sel.from + replacement.length),
+    });
+  }
+  goToNextMatch(view, query, 1);
+}
+
+/** Replaces every occurrence of `query` in the document; returns the count replaced. */
+export function replaceAll(view: EditorView, query: string, replacement: string): number {
+  const ranges = findAllRanges(view.state.doc.toString(), query);
+  if (ranges.length === 0) return 0;
+  view.dispatch({ changes: ranges.map((r) => ({ from: r.from, to: r.to, insert: replacement })) });
+  view.focus();
+  return ranges.length;
+}

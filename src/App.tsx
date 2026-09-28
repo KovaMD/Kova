@@ -334,6 +334,9 @@ export default function App() {
   const [findOpen, setFindOpen] = useState(false);
   const [findMode, setFindMode] = useState<'text' | 'slide'>('text');
   const [findQuery, setFindQuery] = useState('');
+  const [showReplace, setShowReplace] = useState(false);
+  const [replaceQuery, setReplaceQuery] = useState('');
+  const [replacedCount, setReplacedCount] = useState<number | null>(null);
   const findInputRef = useRef<HTMLInputElement>(null);
   const [showExternalChangeDialog, setShowExternalChangeDialog] = useState(false);
   const [showExternalReloadBanner, setShowExternalReloadBanner] = useState(false);
@@ -2142,6 +2145,18 @@ export default function App() {
     editorRef.current?.findNext(findQuery, dir);
   }, [findMode, findQuery, slides.length]);
 
+  const runReplace = useCallback(() => {
+    if (!findQuery.trim()) return;
+    setReplacedCount(null);
+    editorRef.current?.replaceCurrent(findQuery, replaceQuery);
+  }, [findQuery, replaceQuery]);
+
+  const runReplaceAll = useCallback(() => {
+    if (!findQuery.trim()) return;
+    const count = editorRef.current?.replaceAll(findQuery, replaceQuery) ?? 0;
+    setReplacedCount(count);
+  }, [findQuery, replaceQuery]);
+
   const handleSettingsChange = useCallback((s: AppSettings) => {
     setSettings(s);
     saveSettings(s);
@@ -2837,6 +2852,16 @@ export default function App() {
                 />
                 {t('editor.findModeSlide')}
               </label>
+              {findMode === 'text' && (
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', marginLeft: 'auto' }}>
+                  <input
+                    type="checkbox"
+                    checked={showReplace}
+                    onChange={(e) => { setShowReplace(e.target.checked); setReplacedCount(null); }}
+                  />
+                  {t('editor.findReplaceToggle')}
+                </label>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
@@ -2849,6 +2874,7 @@ export default function App() {
                 onChange={(e) => {
                   const next = e.target.value;
                   setFindQuery(findMode === 'slide' ? next.replace(/\D+/g, '') : next);
+                  setReplacedCount(null);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Escape') { e.preventDefault(); setFindOpen(false); editorRef.current?.focus(); }
@@ -2888,6 +2914,40 @@ export default function App() {
                 </button>
               )}
             </div>
+
+            {findMode === 'text' && showReplace && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                <input
+                  value={replaceQuery}
+                  placeholder={t('editor.findReplacePlaceholder')}
+                  onChange={(e) => { setReplaceQuery(e.target.value); setReplacedCount(null); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') { e.preventDefault(); setFindOpen(false); editorRef.current?.focus(); }
+                    if (e.key === 'Enter') { e.preventDefault(); runReplace(); }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-panel)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                  }}
+                />
+                <button className="btn" onClick={runReplace} disabled={!findQuery.trim()}>
+                  {t('editor.findReplaceButton')}
+                </button>
+                <button className="btn" onClick={runReplaceAll} disabled={!findQuery.trim()}>
+                  {t('editor.findReplaceAllButton')}
+                </button>
+              </div>
+            )}
+            {replacedCount !== null && (
+              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
+                {t('editor.findReplacedCount', { count: replacedCount })}
+              </div>
+            )}
           </div>
         </div>
       )}

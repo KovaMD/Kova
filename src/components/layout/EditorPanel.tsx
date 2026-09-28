@@ -18,7 +18,9 @@ import {
   makeHeadingCommand,
   makeLinePrefixCommand,
   makeListCommand,
-  findNextRange,
+  goToNextMatch,
+  replaceCurrent,
+  replaceAll,
   wrapOnType,
 } from '../editor/formatCommands';
 import { buildMediaSnippet } from '../editor/mediaSnippet';
@@ -123,6 +125,11 @@ export interface EditorHandle {
   runFormat: (cmd: FormatCmd) => void;
   scrollToSlide: (index: number) => void;
   findNext: (query: string, dir?: 1 | -1) => void;
+  /** Replaces the current selection if it's a live match for `query`, then
+   *  advances to the next occurrence either way (matches otherwise). */
+  replaceCurrent: (query: string, replacement: string) => void;
+  /** Replaces every occurrence of `query` in the document; returns the count. */
+  replaceAll: (query: string, replacement: string) => number;
   undo: () => void;
   redo: () => void;
   selectAll: () => void;
@@ -236,20 +243,19 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
     findNext(query: string, dir: 1 | -1 = 1) {
       const view = viewRef.current;
       if (!view) return;
+      goToNextMatch(view, query, dir);
+    },
 
-      const doc = view.state.doc.toString();
-      const sel = view.state.selection.main;
-      const start = dir === 1 ? sel.to : sel.from;
+    replaceCurrent(query: string, replacement: string) {
+      const view = viewRef.current;
+      if (!view) return;
+      replaceCurrent(view, query, replacement);
+    },
 
-      const range = findNextRange(doc, query, start, dir);
-      if (!range) return;
-
-      const { from, to } = range;
-      view.dispatch({
-        selection: EditorSelection.range(from, to),
-        effects: EditorView.scrollIntoView(from, { y: 'center', yMargin: 12 }),
-      });
-      view.focus();
+    replaceAll(query: string, replacement: string) {
+      const view = viewRef.current;
+      if (!view) return 0;
+      return replaceAll(view, query, replacement);
     },
   }), []);
 
