@@ -322,7 +322,11 @@ export default function App() {
   const [showInspector, setShowInspector] = useState(true);
   const [recents, setRecents] = useState<string[]>(() => loadRecentFiles());
   const [presenterMode, setPresenterMode] = useState(false);
-  const [confirmCloseAction, setConfirmCloseAction] = useState<(() => void) | null>(null);
+  // Wrapped in `{ run }` rather than storing the bare function: a bare
+  // `useState<() => void>` makes `setConfirmCloseAction(action)` look correct
+  // while actually invoking React's functional-updater form instead of
+  // storing it. The wrapper removes that footgun entirely.
+  const [confirmCloseAction, setConfirmCloseAction] = useState<{ run: () => void } | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<string | null>(null);
   const [keybindings, setKeybindings]     = useState<Keybindings>({ path: '', combos: {} });
   const [warnMessage, setWarnMessage]     = useState<string | null>(null);
@@ -804,7 +808,7 @@ export default function App() {
 
   const guardDirty = useCallback((action: () => void) => {
     if (isDirty && settings.confirmOnClose) {
-      setConfirmCloseAction(() => action);
+      setConfirmCloseAction({ run: action });
     } else {
       action();
     }
@@ -3091,7 +3095,7 @@ export default function App() {
               <button
                 className="btn"
                 style={{ background: '#c0392b', borderColor: '#c0392b', color: '#fff' }}
-                onClick={() => { const a = confirmCloseAction; setConfirmCloseAction(null); a(); }}
+                onClick={() => { const a = confirmCloseAction; setConfirmCloseAction(null); a.run(); }}
               >{t('common.discard')}</button>
               <button
                 className="btn btn-primary"
@@ -3105,7 +3109,7 @@ export default function App() {
                     const saved = await handleSaveAs();
                     if (!saved) return;
                   }
-                  action?.();
+                  action?.run();
                 }}
               >{t('common.save')}</button>
             </div>
