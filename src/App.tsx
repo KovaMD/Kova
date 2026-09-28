@@ -332,6 +332,7 @@ export default function App() {
   const [findQuery, setFindQuery] = useState('');
   const findInputRef = useRef<HTMLInputElement>(null);
   const [showExternalChangeDialog, setShowExternalChangeDialog] = useState(false);
+  const [showExternalReloadBanner, setShowExternalReloadBanner] = useState(false);
   const [pdfOptionsOpen, setPdfOptionsOpen] = useState(false);
   const [pdfPerPage, setPdfPerPage]         = useState(1);
   const [pdfNotesOn, setPdfNotesOn]         = useState(false);
@@ -773,8 +774,7 @@ export default function App() {
         setContent(newContent);
         setIsDirty(false);
         diskContentRef.current = newContent;
-        externalChangePathRef.current = path;
-        setShowExternalChangeDialog(true);
+        setShowExternalReloadBanner(true);
       }
     });
     return () => { unlisten.then((fn) => fn()); };
@@ -2983,46 +2983,42 @@ export default function App() {
               {t('app.fileChangedExternally')}
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
-              {isDirty
-                ? t('app.fileChangedExternallyDirty')
-                : t('app.fileChangedExternallyClean')}
+              {t('app.fileChangedExternallyDirty')}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              {isDirty && (
-                <>
-                  <button
-                    className="btn btn-primary"
-                    onClick={async () => {
-                      // Use the path captured when the dialog opened, not the
-                      // current filePathRef — the user may have navigated away.
-                      const path = externalChangePathRef.current;
-                      setShowExternalChangeDialog(false);
-                      if (!path) return;
-                      try {
-                        const newContent: string = await invoke('read_file', { path });
-                        syncThemeFromContent(newContent);
-                        setContent(newContent);
-                        setIsDirty(false);
-                        diskContentRef.current = newContent;
-                      } catch (err) { console.error('Failed to reload file:', err); }
-                    }}
-                  >{t('common.reload')}</button>
-                  <button
-                    className="btn"
-                    onClick={async () => {
-                      setShowExternalChangeDialog(false);
-                      await handleSaveAs();
-                    }}
-                  >{t('common.saveAs')}</button>
-                </>
-              )}
-              {!isDirty && (
-                <button className="btn btn-primary" onClick={() => setShowExternalChangeDialog(false)}>
-                  {t('common.ok')}
-                </button>
-              )}
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  // Use the path captured when the dialog opened, not the
+                  // current filePathRef — the user may have navigated away.
+                  const path = externalChangePathRef.current;
+                  setShowExternalChangeDialog(false);
+                  if (!path) return;
+                  try {
+                    const newContent: string = await invoke('read_file', { path });
+                    syncThemeFromContent(newContent);
+                    setContent(newContent);
+                    setIsDirty(false);
+                    diskContentRef.current = newContent;
+                  } catch (err) { console.error('Failed to reload file:', err); }
+                }}
+              >{t('common.reload')}</button>
+              <button
+                className="btn"
+                onClick={async () => {
+                  setShowExternalChangeDialog(false);
+                  await handleSaveAs();
+                }}
+              >{t('common.saveAs')}</button>
             </div>
         </ModalShell>
+      )}
+
+      {showExternalReloadBanner && (
+        <InfoBanner
+          message={t('app.fileChangedExternallyClean')}
+          onDismiss={() => setShowExternalReloadBanner(false)}
+        />
       )}
 
       {pdfOptionsOpen && (
