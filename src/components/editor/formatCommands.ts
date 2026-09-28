@@ -425,6 +425,41 @@ export function makeListCommand(kind: 'ul' | 'ol') {
   };
 }
 
+// ── Type-to-wrap for markdown emphasis markers ───────────────────────────────
+
+const WRAP_ON_TYPE_CHARS = new Set(['*', '_', '`']);
+
+/**
+ * Typing `*`, `_`, or `` ` `` over a selection wraps it in that marker instead
+ * of replacing it — the same gesture Typora and CodeMirror's own bracket/quote
+ * auto-close use, just extended to markdown emphasis. Deliberately not
+ * toggle-aware like `makeWrapCommand`: the inner text stays selected after
+ * wrapping, so typing the same character again nests another marker around
+ * it (`*` twice over a selection yields `**text**`) rather than reasoning
+ * about what's "already on" — simpler and matches literal repeated keystrokes.
+ *
+ * Exported separately from the `wrapOnType` extension so tests can call it
+ * directly rather than reach into CodeMirror's internal facet-value storage.
+ */
+export function handleWrapOnType(view: EditorView, from: number, to: number, insert: string): boolean {
+  if (view.composing || view.state.readOnly) return false;
+  if (!WRAP_ON_TYPE_CHARS.has(insert)) return false;
+  const sel = view.state.selection.main;
+  if (sel.empty || from !== sel.from || to !== sel.to) return false;
+
+  view.dispatch({
+    changes: [
+      { from: sel.from, to: sel.from, insert },
+      { from: sel.to, to: sel.to, insert },
+    ],
+    selection: EditorSelection.range(sel.from + insert.length, sel.to + insert.length),
+    userEvent: 'input.type',
+  });
+  return true;
+}
+
+export const wrapOnType = EditorView.inputHandler.of(handleWrapOnType);
+
 export function findNextRange(doc: string, query: string, start: number, dir: 1 | -1 = 1): { from: number; to: number } | null {
   const q = query.trim();
   if (!q) return null;

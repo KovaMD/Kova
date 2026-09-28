@@ -19,6 +19,7 @@ import {
   makeLinePrefixCommand,
   makeListCommand,
   findNextRange,
+  wrapOnType,
 } from '../editor/formatCommands';
 import { buildMediaSnippet } from '../editor/mediaSnippet';
 import { buildContextMenuEntries } from '../editor/contextMenuEntries';
@@ -341,6 +342,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
           },
         ])),
         updateListener,
+        wrapOnType,
         slideDivider,
         stepMarkerDecoration,
         urlLinkDecoration,
