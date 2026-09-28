@@ -13,6 +13,12 @@ import { isMac } from '../../engine/keybindings';
 // while allowing any punctuation — including markdown emphasis — before it.
 const URL_RE = /(?<![A-Za-z0-9])https?:\/\/[^\s<>"']+/g;
 
+// `[label](url)` markdown links — decorates the label text (not the brackets)
+// so clicking the visible link text opens it, same as a rendered link would.
+// The negative lookbehind excludes image syntax (`![alt](url)`); only http(s)
+// targets are treated as clickable, matching the bare-URL behavior above.
+const LINK_LABEL_RE = /(?<!!)\[([^\]\n]+)\]\(([^)\s]+)\)/g;
+
 // A URL ending in sentence punctuation almost always has that punctuation as
 // prose, not part of the address ("see https://x.com."); a closing paren or
 // bracket is kept when it balances one earlier in the URL itself (e.g. a
@@ -47,15 +53,36 @@ const linkDeco = Decoration.mark({
   attributes: { title: `${isMac ? 'Cmd' : 'Ctrl'}+click to open in browser` },
 });
 
-function build(view: EditorView): DecorationSet {
-  const b = new RangeSetBuilder<Decoration>();
-  const text = view.state.doc.toString();
+interface LinkRange { from: number; to: number; url: string }
+
+// The decorated span's text doesn't always equal its target URL (a markdown
+// link's label span is the visible text, not the address) — ranges carry the
+// URL explicitly instead of relying on `doc.sliceString(from, to)`.
+function findLinkRanges(text: string): LinkRange[] {
+  const ranges: LinkRange[] = [];
+
   URL_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = URL_RE.exec(text))) {
     const trimmed = trimTrailingPunctuation(m[0]);
-    if (trimmed) b.add(m.index, m.index + trimmed.length, linkDeco);
+    if (trimmed) ranges.push({ from: m.index, to: m.index + trimmed.length, url: trimmed });
   }
+
+  LINK_LABEL_RE.lastIndex = 0;
+  while ((m = LINK_LABEL_RE.exec(text))) {
+    const [, label, url] = m;
+    if (!/^https?:\/\//.test(url)) continue;
+    const labelFrom = m.index + 1; // skip the opening '['
+    ranges.push({ from: labelFrom, to: labelFrom + label.length, url });
+  }
+
+  ranges.sort((a, b) => a.from - b.from);
+  return ranges;
+}
+
+function build(ranges: LinkRange[]): DecorationSet {
+  const b = new RangeSetBuilder<Decoration>();
+  for (const r of ranges) b.add(r.from, r.to, linkDeco);
   return b.finish();
 }
 
@@ -67,6 +94,7 @@ function build(view: EditorView): DecorationSet {
 // still just places the cursor.
 class UrlLinkPluginValue {
   decorations: DecorationSet;
+  ranges: LinkRange[];
   private onKeyChange = (e: KeyboardEvent) => {
     const isModKey = isMac ? e.key === 'Meta' : e.key === 'Control';
     if (!isModKey) return;
@@ -79,7 +107,8 @@ class UrlLinkPluginValue {
   private onBlur = () => this.view.dom.classList.remove('cm-mod-active');
 
   constructor(private view: EditorView) {
-    this.decorations = build(view);
+    this.ranges = findLinkRanges(view.state.doc.toString());
+    this.decorations = build(this.ranges);
     document.addEventListener('keydown', this.onKeyChange);
     document.addEventListener('keyup', this.onKeyChange);
     window.addEventListener('blur', this.onBlur);
@@ -87,7 +116,10 @@ class UrlLinkPluginValue {
   }
 
   update(u: ViewUpdate) {
-    if (u.docChanged) this.decorations = build(u.view);
+    if (u.docChanged) {
+      this.ranges = findLinkRanges(u.state.doc.toString());
+      this.decorations = build(this.ranges);
+    }
   }
 
   destroy() {
@@ -103,16 +135,13 @@ const urlLinkPlugin = ViewPlugin.fromClass(UrlLinkPluginValue, {
   decorations: (p) => p.decorations,
 });
 
-/** The decorated URL text spanning `pos`, if any. Exported for testing. */
+/** The target URL of the decorated link span containing `pos`, if any
+ *  (a bare URL or a markdown link's label). Exported for testing. */
 export function urlAt(view: EditorView, pos: number): string | null {
   const plugin = view.plugin(urlLinkPlugin);
   if (!plugin) return null;
-  let found: string | null = null;
-  plugin.decorations.between(pos, pos, (from, to) => {
-    found = view.state.doc.sliceString(from, to);
-    return false;
-  });
-  return found;
+  const r = plugin.ranges.find((r) => r.from <= pos && pos <= r.to);
+  return r?.url ?? null;
 }
 
 /** Exported separately from the `domEventHandlers` extension so tests can

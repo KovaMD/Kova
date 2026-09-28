@@ -82,6 +82,39 @@ describe('urlLinkDecoration', () => {
     expect(linkTexts('Just a paragraph about nothing in particular.')).toEqual([]);
   });
 
+  it('decorates the label text of a markdown link, not just the URL', () => {
+    expect(linkTexts('See [our docs](https://example.com/docs) for details')).toEqual([
+      'our docs', 'https://example.com/docs',
+    ]);
+  });
+
+  it('does not decorate a markdown link with a non-http(s) target', () => {
+    expect(linkTexts('See [this slide](#slide-3) for details')).toEqual([]);
+  });
+
+  it('does not decorate image syntax as a clickable link', () => {
+    expect(linkTexts('![a cat](https://example.com/cat.png)')).toEqual([
+      'https://example.com/cat.png',
+    ]);
+  });
+
+  it('urlAt resolves a markdown link label to its URL, not the label text', () => {
+    const view = makeView('See [our docs](https://example.com/docs) for details');
+    // "See [" is 5 chars; "our docs" starts at offset 5.
+    expect(urlAt(view, 7)).toBe('https://example.com/docs');
+    view.destroy();
+  });
+
+  it('modifier+click on a markdown link label opens its URL', () => {
+    const view = makeView('See [our docs](https://example.com/docs) for details');
+    vi.spyOn(view, 'posAtCoords').mockReturnValue(7);
+    const event = fakeEvent();
+    const handled = handleUrlMousedown(event, view);
+    expect(handled).toBe(true);
+    expect(openUrlMock).toHaveBeenCalledWith('https://example.com/docs');
+    view.destroy();
+  });
+
   it('urlAt finds the URL spanning a given position', () => {
     const view = makeView('Visit https://example.com/page today');
     // "Visit " is 6 chars; the URL starts at offset 6.
