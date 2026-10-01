@@ -21,10 +21,12 @@ Kova turns plain Markdown into polished slides — with live preview, multiple l
 - **Auto layout** — title, section, split, two-column, grid, quote, full-bleed, and more
 - **Themes** — 11 built-in themes, community themes, and custom YAML
 - **Math, code & diagrams** — KaTeX math, highlight.js syntax highlighting, and Mermaid charts
+- **Icons** — `:name:` shortcodes (e.g. `:rocket:`) from a bundled Nerd Fonts symbol set, carried through to PPTX export
 - **Rich media** — images, local video, YouTube embeds, and QR codes
-- **Fullscreen presentation** — speaker notes, slide counter, keyboard and click navigation
+- **Fullscreen presentation** — keyboard and click navigation, plus a presenter view with speaker notes, next-slide preview, and an elapsed or countdown timer
 - **Build-reveal animations** — mark a bullet, image, or other element with `<!-- step -->` to reveal it on its own click, in presentation, the interactive HTML export, and native PowerPoint builds
-- **Export** — PowerPoint (16:9 and 4:3, including build animations), PDF (with speaker notes), and standalone HTML
+- **Export** — PowerPoint (16:9 and 4:3, including build animations), PDF (with speaker notes and multi-slide handouts), and standalone HTML
+- **Import** — convert Marp decks, PowerPoint files, or a web page URL into Kova Markdown
 - **Computed tables** — annotate a table with `!sheet` and write formulas in the cells (`=qty * unit`, `=sum(total)`); Kova computes them, the source keeps only the formulas. See [`examples/sheet-basics.md`](examples/sheet-basics.md)
 
 ## Download
@@ -35,7 +37,7 @@ Kova turns plain Markdown into polished slides — with live preview, multiple l
 | **Windows 10/11** | [**Download .msi**](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Windows.msi) (installs for all users) · [Setup .exe](https://github.com/KovaMD/Kova/releases/latest/download/Kova_Windows_setup.exe) (installs for just you) |
 | **Linux** | [See install options ↓](#linux) |
 
-Both Windows installers let you skip adding Kova to PATH so `kova` works from a terminal. The `.exe` (per-user) always uses your own user PATH; the `.msi` (all users) lets you pick system PATH, your user PATH only, or neither.
+Both Windows installers add Kova to PATH by default so `kova` works from a terminal, and both let you opt out. The `.exe` (per-user) always uses your own user PATH; the `.msi` (all users) lets you pick system PATH, your user PATH only, or neither.
 
 ## Linux
 
@@ -129,7 +131,7 @@ Prefer a plain package file over adding a repo? Raw `.deb` and `.rpm` builds are
 
 ## Building from source
 
-**Prerequisites:** [Node.js](https://nodejs.org/) 18+, [Rust](https://rustup.rs/) (stable), and [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your platform.
+**Prerequisites:** [Node.js](https://nodejs.org/) 20.19+ or 22.12+, [Rust](https://rustup.rs/) (stable), and [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your platform.
 
 ```bash
 git clone https://github.com/KovaMD/Kova.git
@@ -142,6 +144,17 @@ npm run tauri build    # release binary
 Nix users can skip the prerequisites: `nix develop` drops you in a shell with Rust, Node, and Tauri ready.
 
 See the [Contributing guide](https://wiki.kova.md/contributing/) for more details, or [TRANSLATING.md](.github/TRANSLATING.md) if you'd like to add a language.
+
+## Command line
+
+Kova also runs from a terminal (`kova --help` for all options):
+
+```bash
+kova --present talk.md                 # open straight into presentation
+kova --check talk.md                   # validate and exit
+kova --export pdf talk.md talk.pdf     # pptx | pdf | html
+kova --import pptx deck.pptx deck.md   # marp | pptx | url
+```
 
 ## Keybindings
 
