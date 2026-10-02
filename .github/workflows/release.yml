@@ -29,17 +29,27 @@ jobs:
           ## What's new
 
           ### New features
-          - **Icon shortcodes.** Write `:rocket:` or `:git-branch:` inline to drop an icon into a slide. Icons come from a bundled Nerd Fonts symbols set, so there's nothing to install, and a new `icon` font role in `theme.yaml` lets a theme swap in a local icon font instead (requested by @StefanZander, #263).
-          - **The status bar now shows each slide's layout**, such as `split` or `code`, marked "(override)" when the slide pins one with `<!-- layout: ... -->`, so you can see what Kova auto-detected without checking the layout rules (requested by @sschuberth, #260).
-          - **Links in speaker notes are now clickable** in both the presentation and presenter views. Bare `http(s)` URLs, `mailto:` addresses and `[label](url)` links open in your default browser or mail app (requested by @sschuberth, #265).
-          - **Updated German translation**, now covering the header/footer "hide on title slide" options and the theme-override hint (contributed by @a1880, #267).
+          - **Kova now has an official VS Code extension.** Edit and preview Kova slides without leaving VS Code — find it on the [Marketplace](https://marketplace.visualstudio.com/items?itemName=Kovamd.kova), or via the new link in Settings → About.
+          - **Slide thumbnails support keyboard navigation, multi-select, and block drag-reorder** — Up/Down/PageUp/PageDown/Home/End to navigate, Shift/Ctrl-click to select a range or toggle one slide, Delete to remove the selection, Mod-D to duplicate, and dragging a multi-selection now moves the whole block together, matching PowerPoint/Keynote/Google Slides conventions.
+          - **The presenter view can now count down** instead of only counting up. Set a target length in Settings → Presentation (5–60 minutes) and the timer switches to a red overrun display once you're past it.
+          - **A persistent slide-position indicator** is now pinned to the bottom edge for the audience, in the deck's own accent colour — unlike the existing counter, it never fades after a few seconds idle.
+          - **The Find dialog now supports Replace and Replace All.**
+          - **Selecting text and typing `*`, `_`, or `` ` `` now wraps the selection** with that marker instead of replacing it, matching Typora/Obsidian.
+          - **A markdown link's visible label text is now clickable** with Cmd/Ctrl+click, not just the literal URL.
+          - **Kova now shows a "What's new" notice** the first time it launches after updating, with a link to the full release notes — toggle it off in Settings → Updates if you'd rather not see it.
 
           ### Bug fixes
-          - **Fixed** oversized, uneven padding around code blocks on the code layout: short snippets always showed a gap at the top, and how much space was left at the bottom varied with the block's length (reported by @sschuberth, #261).
-          - **Fixed** long code blocks and Mermaid diagrams on the code layout being cut off at the bottom of the slide with no sign anything was missing. They now shrink to fit, like every other layout.
-          - **Fixed** a second heading on a slide (for example a `##` under a title) losing its colour on title and section slides, which made it hard to read on dark backgrounds.
-          - **Fixed** code, table and chart panes in the BSP and split layouts sitting at the top of their pane instead of being vertically centred. BSP text panes now centre too, so both sides stay balanced.
-          - **Fixed** the Flatpak metainfo declaring the licence as GPL-3.0-or-later when Kova is GPL-3.0-only, and the npm and Cargo package metadata now declare the licence and homepage (contributed by @sschuberth, #264).
+          - **Fixed** Mod-[ and Mod-] dedenting differently from Shift-Tab on the same line, and added multi-line selection support to both.
+          - **Fixed** a harmless external file change (e.g. a git checkout) interrupting editing with a click-through dialog — it now surfaces as a dismissable banner, and the blocking dialog is reserved for genuine unsaved-changes conflicts.
+          - **Fixed** global shortcuts (new/open/save, hide-slide) still firing in the presenter window during a live talk, where only the audience-facing view was meant to block them.
+
+          ### Performance
+          - Local image/video lookups during editing now only fetch newly-referenced paths instead of re-reading every path in the deck on every keystroke — the most noticeable lag source in media-heavy decks.
+          - The status bar's external-image counter is now debounced instead of re-scanning the whole document on every keystroke.
+          - PPTX export's colour resolution is now cached, cutting 300+ repeated style recalculations down to a handful on a typical deck.
+
+          ### Security
+          - Resolved a high-severity infinite-loop denial-of-service in `image-size` (pulled in transitively through `pptxgenjs`) via a dependency override, since `image-size` itself is unused dead code in pptxgenjs's shipped bundle.
 
           ### Known issues
           - **Icons in exported PPTX files may not display.** They use the `Kova Icons` font, which isn't embedded in the file, so PowerPoint and Keynote only show them on machines where that font is installed.
