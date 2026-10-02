@@ -38,6 +38,7 @@ export interface AppSettings {
   autosaveIntervalSeconds: number; // 15 | 30 | 60 | 300
   confirmOnClose: boolean;
   checkForUpdates: boolean;
+  notifyWhatsNew: boolean;
   // Spell check
   spellCheckEnabled: boolean;
   spellCheckLanguage: string;
@@ -77,6 +78,7 @@ function buildDefaults(): AppSettings {
     autosaveIntervalSeconds: 30,
     confirmOnClose: true,
     checkForUpdates: false,
+    notifyWhatsNew: true,
     spellCheckEnabled: true,
     spellCheckLanguage: detectOsLanguage(),
     presentationMode: 'auto',

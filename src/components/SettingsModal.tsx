@@ -163,6 +163,7 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
     { kind: 'link', label: t('settings.aboutLinkGithub'),    description: t('settings.aboutLinkGithubDescription'),    url: 'https://github.com/KovaMD/Kova' },
     { kind: 'link', label: t('settings.aboutLinkIssues'),    description: t('settings.aboutLinkIssuesDescription'),    url: 'https://github.com/KovaMD/Kova/issues' },
     { kind: 'link', label: t('settings.aboutLinkWiki'),      description: t('settings.aboutLinkWikiDescription'),      url: 'https://wiki.kova.md/' },
+    { kind: 'link', label: t('settings.aboutLinkVscode'),    description: t('settings.aboutLinkVscodeDescription'),    url: 'https://marketplace.visualstudio.com/items?itemName=Kovamd.kova' },
     { kind: 'link', label: t('settings.aboutLinkSupport'),   description: t('settings.aboutLinkSupportDescription'),   url: 'https://opencollective.com/kovamd' },
     { kind: 'link', label: t('settings.aboutLinkCommunity'), description: t('settings.aboutLinkCommunityDescription'), url: 'https://matrix.to/#/#kova-md:matrix.org' },
     { kind: 'submenu', label: t('settings.showLicenses'),    description: t('settings.aboutLicensesDescription') },
@@ -835,7 +836,7 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
 
         {/* Updates */}
 
-        {inView('updates', `${t('settings.checkForUpdates')} ${t('settings.checkForUpdatesDescription')}`) && (
+        {inView('updates', `${t('settings.checkForUpdates')} ${t('settings.checkForUpdatesDescription')} ${t('settings.notifyWhatsNew')} ${t('settings.notifyWhatsNewDescription')}`) && (
           <>
             {selfUpdateSupported ? (
               <Row
@@ -966,6 +967,12 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
                 </div>
               )}
             </div>}
+
+            <Row
+              label={t('settings.notifyWhatsNew')}
+              description={t('settings.notifyWhatsNewDescription')}
+              control={<Toggle checked={settings.notifyWhatsNew} onChange={(v) => set('notifyWhatsNew', v)} />}
+            />
           </>
         )}
 

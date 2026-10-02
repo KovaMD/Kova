@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { open, save, message } from '@tauri-apps/plugin-dialog';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { emit, emitTo, listen } from '@tauri-apps/api/event';
 import { availableMonitors, currentMonitor, getCurrentWindow } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
@@ -29,6 +30,7 @@ import { MissingThemeBanner } from './components/MissingThemeBanner';
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
 import type { AppSettings } from './store/settings';
 import { loadLastSession, saveLastSession } from './store/lastSession';
+import { loadLastSeenVersion, saveLastSeenVersion } from './store/lastSeenVersion';
 import { loadRecentFiles, addRecentFile, removeRecentFile, clearRecentFiles, recentFileBasename, recentFileMenuLabel } from './store/recentFiles';
 import { buildMacMenu } from './macMenu';
 import type { MacMenuHandlers } from './macMenu';
@@ -42,6 +44,7 @@ import { evaluateImportCheck } from './engine/cli/importCheckGate';
 import { extractFrontmatter, patchFrontmatter, frontmatterBlockLength } from './engine/parser/frontmatter';
 import { parseBgLine, formatBgLine } from './engine/parser/bgImage';
 import { fetchUpdate } from './engine/updater';
+import { APP_VERSION } from './version';
 import { exportToPptx } from './engine/export/exportPptx';
 import { exportToPdf, printPresentation } from './engine/export/exportPdf';
 import { exportPdfNative, buildInteractiveDocument, type PdfExportOpts } from './engine/export/exportPdfNative';
@@ -375,6 +378,7 @@ export default function App() {
   useEffect(() => { allThemesRef.current = allThemes; }, [allThemes]);
   const [activeThemeId, setActiveThemeId] = useState<string>(DEFAULT_THEME.id);
   const [missingThemeId, setMissingThemeId]   = useState<string | null>(null);
+  const [showWhatsNew, setShowWhatsNew]       = useState(false);
   const [resolvedLogoUrl, setResolvedLogoUrl] = useState<string | undefined>(undefined);
 
   // A single parse of the raw frontmatter block, shared below instead of
@@ -741,6 +745,22 @@ export default function App() {
     fetchUpdate()
       .then((update) => { if (update) setAvailableUpdate(update.version); })
       .catch((err) => console.error('[updater] startup check failed:', err));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally runs once on mount
+
+  // "What's new" notice: fires the first launch after APP_VERSION changes,
+  // regardless of how the update was installed (self-updater, APT/RPM,
+  // Flatpak). A missing lastSeenVersion means a fresh install, not an
+  // update, so it's recorded silently without a notice.
+  // Always fires in dev (import.meta.env.DEV) so the notice can be eyeballed
+  // without hand-editing localStorage — excluded from production builds.
+  useEffect(() => {
+    const lastSeen = loadLastSeenVersion();
+    saveLastSeenVersion(APP_VERSION);
+    const isNewVersion = lastSeen !== null && lastSeen !== APP_VERSION;
+    if ((isNewVersion || import.meta.env.DEV) && settings.notifyWhatsNew) {
+      setShowWhatsNew(true);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally runs once on mount
 
@@ -3076,6 +3096,22 @@ export default function App() {
         />
       )}
 
+      {showWhatsNew && (
+        <InfoBanner
+          message={t('app.whatsNewMessage', { version: APP_VERSION })}
+          actions={[{
+            label: t('app.whatsNewAction'),
+            onClick: () => {
+              // /releases/latest always redirects to the newest published release —
+              // more robust than building a /releases/tag/vX.Y.Z URL from APP_VERSION,
+              // which would 404 if the two ever drift (e.g. a local dev build).
+              openUrl('https://github.com/KovaMD/Kova/releases/latest').catch(() => {});
+              setShowWhatsNew(false);
+            },
+          }]}
+          onDismiss={() => setShowWhatsNew(false)}
+        />
+      )}
 
       {warnMessage && (
         <div style={{

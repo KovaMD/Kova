@@ -347,6 +347,8 @@ const de: DeepPartial<Messages> = {
     includeSpeakerNotes: 'Referenten-Notizen einschließen (Handout){{noneNote}}', // Include speaker notes (handout){{noneNote}}
     includeSpeakerNotesNone: ' — keine in diesem Foliensatz', //  — none in this deck
     exportAction: 'Exportieren', // Export
+    whatsNewMessage: 'Kova wurde auf v{{version}} aktualisiert — das ist neu.', // Kova updated to v{{version}} — here's what's new.
+    whatsNewAction: 'Release-Notizen ansehen', // View release notes
     unsavedChangesTitle: 'Nicht gespeicherte Änderungen', // Unsaved changes
     unsavedChangesMessage: 'Du hast ungespeicherte Änderungen. Möchtest du erst speichern?', // You have unsaved changes. Save before continuing?
     openFileTitle: 'Datei öffnen', // Open file
@@ -434,6 +436,8 @@ const de: DeepPartial<Messages> = {
     checkForUpdates: 'Beim Start nach Updates suchen', // Check for updates on launch
     checkForUpdatesDescription: 'Ruft beim Start das neueste Release-Tag von github.com/KovaMD/Kova ab. Es werden keine persönlichen Daten gesendet.', // Fetches the latest release tag from github.com/KovaMD/Kova on startup. No personal data is sent.
     updatesManagedByDistro: 'Updates für diese Installation werden von der Paketverwaltung deiner Distribution verwaltet.', // Updates for this installation are managed by your distribution's package manager.
+    notifyWhatsNew: 'Neuigkeiten nach Updates anzeigen', // Show what's new after updates
+    notifyWhatsNewDescription: 'Benachrichtige mich mit einer Zusammenfassung und einem Link zu den Release-Notizen, wenn Kova das erste Mal nach einem Update startet — unabhängig davon, wie es installiert wurde.', // Notify me with a summary and link to the release notes the first time Kova launches after updating, however it was installed.
     checkNow: 'Jetzt prüfen', // Check now
     checking: 'Wird geprüft…', // Checking…
     upToDate: 'Auf dem neuesten Stand (v{{version}})', // Up to date (v{{version}})
@@ -453,6 +457,8 @@ const de: DeepPartial<Messages> = {
     aboutLinkIssuesDescription: 'Fehler gefunden oder Idee für Verbesserungen?', // Found a bug, or have a feature idea?
     aboutLinkWiki: 'Wiki', // Wiki
     aboutLinkWikiDescription: 'Anleitungen, Designs und Tastatur-Kürzel', // Guides, themes, and keyboard shortcuts
+    aboutLinkVscode: 'VS Code-Erweiterung', // VS Code extension
+    aboutLinkVscodeDescription: 'Bearbeite und sieh dir Kova-Folien in VS Code an', // Edit and preview Kova slides in VS Code
     aboutLinkSupport: 'Unterstützung durch ein Open Collective', // Support on Open Collective
     aboutLinkSupportDescription: 'Kova gibt es kostenlos durch Beiträge von Freiwilligen', // Kova is free and community funded
     aboutLinkCommunity: 'Chat in der Community', // Community chat
