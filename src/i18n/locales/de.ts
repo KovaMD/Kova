@@ -26,6 +26,7 @@ const de: DeepPartial<Messages> = {
     nextSlide: 'Weiter (→ / Leertaste)', // Next (→ / Space)
     jumpToSlide: 'Klicken, um zur Folie zu springen', // Click to jump to slide
     elapsedTime: 'Verstrichene Zeit', // Elapsed time
+    timeRemaining: 'Verbleibende Zeit', // Time remaining
     toggleSpeakerNotes: 'Referentenansicht umschalten (N)', // Toggle speaker notes (N)
     toggleNotesShort: 'Notizen umschalten (N)', // Toggle notes (N)
     toggleLaser: 'Laserpointer umschalten (L)', // Toggle laser pointer (L)
@@ -73,8 +74,8 @@ const de: DeepPartial<Messages> = {
     chartColorLabel: 'Diagramm {{n}}', // Chart {{n}}
     resetToThemeDefaults: 'Auf Design-Standard zurücksetzen', // Reset to theme defaults
     headingsLabel: 'Überschriften', // Headings
-    inlineLabel: 'Inline', // Inline
-    blockLabel: 'Block', // Block
+    inlineLabel: 'Zeile', // Inline
+    blockLabel: 'Absatz', // Block
     headingTitle: 'Überschrift {{level}}', // Heading {{level}}
     bold: 'Fett (Strg+B)', // Bold (Ctrl+B)
     italic: 'Kursiv (Strg+I)', // Italic (Ctrl+I)
@@ -106,7 +107,7 @@ const de: DeepPartial<Messages> = {
     fontFieldBody: 'Fließtext', // Body
     fontFieldCode: 'Code', // Code
     fontUnavailableWarning: '"{{font}}" ist auf diesem Computer nicht installiert. Kova verwendet hier ersatzweise eine andere Schriftart — und dieselbe Ersetzung kann auf einem anderen Betriebssystem anders (oder gar nicht) ausfallen, sodass diese Präsentation an anderer Stelle abweichend aussehen kann.', // "{{font}}" isn't installed on this computer. Kova is falling back to a substitute font here — and the same substitution may happen differently (or not at all) on another OS, so this deck may look different when opened elsewhere.
-    overriddenHint: 'Überschrieben — unterscheidet sich vom Standard-Design', // Overridden — differs from the theme default
+    overriddenHint: 'Überschrieben - unterscheidet sich vom Standard-Design', // Overridden — differs from the theme default
     themeLibraryTitle: 'Weitere Designs', // More Themes
     themeLibraryLoading: 'Wird geladen…', // Loading…
     themeLibraryError: 'themes.kova.md konnte nicht erreicht werden', // Could not reach themes.kova.md
@@ -139,6 +140,10 @@ const de: DeepPartial<Messages> = {
     },
     wordCount: '{{formatted}} Wörter', // {{formatted}} words
     aspectRatioTooltip: 'Seitenverhältnis: {{current}} — klicken für {{next}}', // Aspect ratio: {{current}} — click for {{next}}
+    layoutStatus: 'Layout: {{name}}', // Layout: {{name}}
+    layoutStatusOverridden: 'Layout: {{name}} (überschrieben)', // Layout: {{name}} (override)
+    layoutTooltipAuto: 'Automatisch erkanntes Layout. Layout wählen mit <!-- layout: name -->', // Auto-detected layout. Pin one with <!-- layout: name -->
+    layoutTooltipOverridden: 'Layout gewählt mit <!-- layout: {{name}} -->', // Set by <!-- layout: {{name}} -->
     externalImageWarning: {
       one: '{{count}} Bild liegt außerhalb des Ordners dieser Datei — es wird nicht angezeigt, wenn die Datei verschoben wird', // {{count}} image is outside this file's folder — it won't appear if the file is moved
       other: '{{count}} Bilder liegen außerhalb des Ordners dieser Datei — sie werden nicht angezeigt, wenn die Datei verschoben wird', // {{count}} images are outside this file's folder — they won't appear if the file is moved
@@ -162,6 +167,11 @@ const de: DeepPartial<Messages> = {
     findPlaceholderSlide: 'Springe zur Folie (1–{{total}})…', // Go to slide (1–{{total}})…
     findNext: 'Nächste', // Next
     findPrevious: 'Vorherige', // Previous
+    findReplaceToggle: 'Ersetzen', // Replace
+    findReplacePlaceholder: 'Ersetzen durch …', // Replace with…
+    findReplaceButton: 'Ersetzen', // Replace
+    findReplaceAllButton: 'Alle ersetzen', // Replace All
+    findReplacedCount: '{{count}} ersetzt', // {{count}} replaced
     newPresentationHint: '{{mod}}+N — neue Präsentation', // {{mod}}+N — new presentation
     openFileHint: '{{mod}}+O — Datei öffnen', // {{mod}}+O — open file
     tocHint: 'Rechtsklick → Einfügen → Inhaltsverzeichnis', // Right-click → Insert → Table of Contents
@@ -217,7 +227,7 @@ const de: DeepPartial<Messages> = {
     youtubePlaceholder: '▶ YouTube', // ▶ YouTube
     clickToOpenInBrowser: 'Klicken, um im Browser zu öffnen', // Click to open in browser
     openInBrowserTitle: 'Im Browser öffnen: {{url}}', // Open in browser: {{url}}
-    rescaledToFit: 'Größe angepasst', // rescaled to fit
+    rescaledToFit: 'Größe angepasst/skaliert', // rescaled to fit
     noTitledSlidesFound: 'Keine Folien mit Titel gefunden', // No titled slides found
     pollQrUnavailable: 'QR Code ist nicht verfügbar', // QR code unavailable
   },
@@ -285,7 +295,7 @@ const de: DeepPartial<Messages> = {
     menuEdit: 'Bearbeiten', // Edit
     menuNew: 'Neu', // New
     menuOpen: 'Öffnen', // Open
-    menuOpenRecent: 'Zuletzt geöffnet', // Open Recent
+    menuOpenRecent: 'Zuletzt verwendet/geöffnet', // Open Recent
     menuNoRecentFiles: 'Bisher keine Dateien verwendet', // No Recent Files
     menuClearMenu: 'Menü leeren', // Clear Menu
     menuImport: 'Importieren', // Import
@@ -347,8 +357,8 @@ const de: DeepPartial<Messages> = {
     includeSpeakerNotes: 'Referenten-Notizen einschließen (Handout){{noneNote}}', // Include speaker notes (handout){{noneNote}}
     includeSpeakerNotesNone: ' — keine in diesem Foliensatz', //  — none in this deck
     exportAction: 'Exportieren', // Export
-    whatsNewMessage: 'Kova wurde auf v{{version}} aktualisiert — das ist neu.', // Kova updated to v{{version}} — here's what's new.
-    whatsNewAction: 'Release-Notizen ansehen', // View release notes
+    whatsNewMessage: "Kova auf Version v{{version}} angehoben — hier die Neuerungen.", // Kova updated to v{{version}} — here's what's new.
+    whatsNewAction: 'Release Notes ansehen', // View release notes
     unsavedChangesTitle: 'Nicht gespeicherte Änderungen', // Unsaved changes
     unsavedChangesMessage: 'Du hast ungespeicherte Änderungen. Möchtest du erst speichern?', // You have unsaved changes. Save before continuing?
     openFileTitle: 'Datei öffnen', // Open file
@@ -428,6 +438,10 @@ const de: DeepPartial<Messages> = {
     showNextSlidePreviewDescription: 'Zeigt in der Referenten-Ansicht eine Vorschau der kommenden Folie an.', // Displays a preview of the upcoming slide in the presenter view.
     showElapsedTimer: 'Verstrichene Zeit anzeigen', // Show elapsed timer
     showElapsedTimerDescription: 'Zeigt ab dem Beginn der Präsentation eine laufende Uhr an.', // Displays a running clock from the moment the presentation starts.
+    countdownTarget: 'Zielwert für Ablaufzähler', // Countdown target
+    countdownTargetDescription: 'Zählt herunter von einem Präsentationsumfang, statt hochzuzählen. Schaltet auf rot, sobald der Zähler überläuft. Wird bei jeder Präsentation neu verwendet.', // Counts down from a talk length instead of counting up, turning red once you run over. Reused every time you present.
+    countdownOff: 'Inaktiv', // Off
+    countdownMinutes: '{{count}} Minuten', // {{count}}m
     notesFontSize: 'Schriftgröße der Notizen', // Notes font size
     fontSizeSmall: 'Klein', // Small
     fontSizeMedium: 'Mittel', // Medium
@@ -436,8 +450,8 @@ const de: DeepPartial<Messages> = {
     checkForUpdates: 'Beim Start nach Updates suchen', // Check for updates on launch
     checkForUpdatesDescription: 'Ruft beim Start das neueste Release-Tag von github.com/KovaMD/Kova ab. Es werden keine persönlichen Daten gesendet.', // Fetches the latest release tag from github.com/KovaMD/Kova on startup. No personal data is sent.
     updatesManagedByDistro: 'Updates für diese Installation werden von der Paketverwaltung deiner Distribution verwaltet.', // Updates for this installation are managed by your distribution's package manager.
-    notifyWhatsNew: 'Neuigkeiten nach Updates anzeigen', // Show what's new after updates
-    notifyWhatsNewDescription: 'Benachrichtige mich mit einer Zusammenfassung und einem Link zu den Release-Notizen, wenn Kova das erste Mal nach einem Update startet — unabhängig davon, wie es installiert wurde.', // Notify me with a summary and link to the release notes the first time Kova launches after updating, however it was installed.
+    notifyWhatsNew: "Bei Update Neuerungen anzeigen", // Show what's new after updates
+    notifyWhatsNewDescription: "Benachrichtige mich beim ersten Start von Kova nach einem Update mit einer Zusammenfassung und einem Link zu den Release Notes, wie auch immer es installiert wurde.", // Notify me with a summary and link to the release notes the first time Kova launches after updating, however it was installed.
     checkNow: 'Jetzt prüfen', // Check now
     checking: 'Wird geprüft…', // Checking…
     upToDate: 'Auf dem neuesten Stand (v{{version}})', // Up to date (v{{version}})
@@ -457,9 +471,9 @@ const de: DeepPartial<Messages> = {
     aboutLinkIssuesDescription: 'Fehler gefunden oder Idee für Verbesserungen?', // Found a bug, or have a feature idea?
     aboutLinkWiki: 'Wiki', // Wiki
     aboutLinkWikiDescription: 'Anleitungen, Designs und Tastatur-Kürzel', // Guides, themes, and keyboard shortcuts
-    aboutLinkVscode: 'VS Code-Erweiterung', // VS Code extension
-    aboutLinkVscodeDescription: 'Bearbeite und sieh dir Kova-Folien in VS Code an', // Edit and preview Kova slides in VS Code
-    aboutLinkSupport: 'Unterstützung durch ein Open Collective', // Support on Open Collective
+    aboutLinkVscode: 'Erweiterung für VS Code', // VS Code extension
+    aboutLinkVscodeDescription: 'Kova Folien in VS Code bearbeiten und ansehen', // Edit and preview Kova slides in VS Code
+    aboutLinkSupport: 'Auf Open Collective unterstützen', // Support on Open Collective
     aboutLinkSupportDescription: 'Kova gibt es kostenlos durch Beiträge von Freiwilligen', // Kova is free and community funded
     aboutLinkCommunity: 'Chat in der Community', // Community chat
     aboutLinkCommunityDescription: 'Austausch mit anderen Benutzern über die Matrix Plattform', // Talk with other users on Matrix
