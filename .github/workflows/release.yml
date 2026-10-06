@@ -81,6 +81,7 @@ jobs:
     needs: [create-release]
     permissions:
       contents: write   # needed to create the GitHub release and upload assets
+      actions: read     # SignPath origin verification reads the workflow run and artifact
 
     strategy:
       fail-fast: false  # keep building other platforms even if one fails

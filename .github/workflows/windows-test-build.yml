@@ -21,6 +21,9 @@ on:
 jobs:
   windows-test-build:
     runs-on: windows-latest
+    permissions:
+      contents: read
+      actions: read     # SignPath origin verification reads the workflow run and artifact
 
     steps:
       - name: Checkout
