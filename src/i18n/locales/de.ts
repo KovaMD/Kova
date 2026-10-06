@@ -434,6 +434,8 @@ const de: DeepPartial<Messages> = {
     alwaysOnTop: 'Immer oben auf', // Always on top
     alwaysOnTopDescription: 'Behalte die Präsentations-Darstellung oberhalb von anderen Programmen, damit weder Video-Anrufe noch andere Fenster sie verdecken können.', // Keep the presenter window above other apps, so a video call or another window can't cover it.
     laserPointerColour: 'Farbe des Laserpointers', // Laser pointer colour
+    showProgressBar: 'Fortschrittsbalken anzeigen', // Show progress bar
+    showProgressBarDescription: 'Zeigt am unteren Rand der Folien einen schmalen Balken, der anzeigt, wie weit du in der Präsentation bist.', // Displays a thin bar along the bottom edge of the slides showing how far through the presentation you are.
     showNextSlidePreview: 'Vorschau der nächsten Folie anzeigen', // Show next slide preview
     showNextSlidePreviewDescription: 'Zeigt in der Referenten-Ansicht eine Vorschau der kommenden Folie an.', // Displays a preview of the upcoming slide in the presenter view.
     showElapsedTimer: 'Verstrichene Zeit anzeigen', // Show elapsed timer

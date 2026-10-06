@@ -21,6 +21,7 @@ interface Props {
   showTimer?: boolean;
   /** Target talk length in minutes; 0 keeps the elapsed-only count-up display. */
   countdownMinutes?: number;
+  showProgressBar?: boolean;
   onNavigate: (index: number, step: number) => void;
   onExit: () => void;
 }
@@ -29,7 +30,7 @@ const HUD_H   = 40;   // px — HUD bar height
 const NOTE_H  = 160;  // px — speaker notes panel height
 
 export function PresentationOverlay({
-  slides, currentIndex, currentStep, theme, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 }, laserColor = '#ff2020', showTimer = false, countdownMinutes = 0, onNavigate, onExit,
+  slides, currentIndex, currentStep, theme, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 }, laserColor = '#ff2020', showTimer = false, countdownMinutes = 0, showProgressBar = true, onNavigate, onExit,
 }: Props) {
   const t = useT();
   const slide = slides[currentIndex];
@@ -208,20 +209,22 @@ export function PresentationOverlay({
           (reveal.js/Google Slides convention). Uses the deck's own accent
           colour rather than Kova's app chrome, since this renders over the
           presented theme, not the editor UI. */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0, height: 3,
-          background: 'rgba(255,255,255,0.12)', zIndex: 4, pointerEvents: 'none',
-        }}
-      >
-        <div style={{
-          height: '100%',
-          width: `${((currentIndex + 1) / total) * 100}%`,
-          background: theme.colors.accent,
-          transition: 'width 0.25s ease',
-        }} />
-      </div>
+      {showProgressBar && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0, height: 3,
+            background: 'rgba(255,255,255,0.12)', zIndex: 4, pointerEvents: 'none',
+          }}
+        >
+          <div style={{
+            height: '100%',
+            width: `${((currentIndex + 1) / total) * 100}%`,
+            background: theme.colors.accent,
+            transition: 'width 0.25s ease',
+          }} />
+        </div>
+      )}
 
       {/* ── HUD ── */}
       <div className="pres-hud" style={{ opacity: hudVisible ? 1 : 0 }}>

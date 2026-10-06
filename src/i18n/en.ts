@@ -418,6 +418,8 @@ const en = {
     alwaysOnTop: 'Always on top',
     alwaysOnTopDescription: 'Keep the presenter window above other apps, so a video call or another window can\'t cover it.',
     laserPointerColour: 'Laser pointer colour',
+    showProgressBar: 'Show progress bar',
+    showProgressBarDescription: 'Displays a thin bar along the bottom edge of the slides showing how far through the presentation you are.',
     showNextSlidePreview: 'Show next slide preview',
     showNextSlidePreviewDescription: 'Displays a preview of the upcoming slide in the presenter view.',
     showElapsedTimer: 'Show elapsed timer',

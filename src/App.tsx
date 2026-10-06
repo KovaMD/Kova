@@ -2450,6 +2450,7 @@ export default function App() {
           laserColor={settings.laserColor}
           showTimer={settings.presenterShowTimer}
           countdownMinutes={settings.presenterCountdownMinutes}
+          showProgressBar={settings.presentationShowProgressBar}
           onNavigate={handlePresentNavigate}
           onExit={handlePresentExit}
         />

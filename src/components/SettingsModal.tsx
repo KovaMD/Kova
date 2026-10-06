@@ -746,6 +746,25 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
           </div>
         )}
 
+        {/* Directly under Display mode: adjusted more often than the other
+            presenter-view options. */}
+        {inView('presentation', t('settings.notesFontSize')) && (settings.presentationMode === 'dual' || settings.presentationMode === 'auto') && (
+          <div style={{ padding: '10px 0' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>{t('settings.notesFontSize')}</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {([
+                { value: 'sm', label: t('settings.fontSizeSmall')  },
+                { value: 'md', label: t('settings.fontSizeMedium') },
+                { value: 'lg', label: t('settings.fontSizeLarge')  },
+              ] as { value: NotesFontSize; label: string }[]).map(({ value, label }) => (
+                <button key={value} type="button" onClick={() => set('presenterNotesFontSize', value)}
+                  style={groupBtnStyle(settings.presenterNotesFontSize === value)}
+                >{label}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {inView('presentation', t('settings.laserPointerColour')) && (
           <Row
             label={t('settings.laserPointerColour')}
@@ -775,7 +794,7 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
           />
         )}
 
-        {inView('presentation', `${t('settings.windowedPresenterView')} ${t('settings.windowedPresenterViewDescription')} ${t('settings.alwaysOnTop')} ${t('settings.alwaysOnTopDescription')} ${t('settings.showNextSlidePreview')} ${t('settings.showElapsedTimer')} ${t('settings.countdownTarget')} ${t('settings.countdownTargetDescription')} ${t('settings.notesFontSize')}`) && (settings.presentationMode === 'dual' || settings.presentationMode === 'auto') && (
+        {inView('presentation', `${t('settings.windowedPresenterView')} ${t('settings.windowedPresenterViewDescription')} ${t('settings.alwaysOnTop')} ${t('settings.alwaysOnTopDescription')} ${t('settings.showNextSlidePreview')} ${t('settings.showElapsedTimer')} ${t('settings.countdownTarget')} ${t('settings.countdownTargetDescription')}`) && (settings.presentationMode === 'dual' || settings.presentationMode === 'auto') && (
           <>
             <Row
               label={t('settings.windowedPresenterView')}
@@ -817,21 +836,17 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
                 </div>
               </div>
             )}
-            <div style={{ padding: '6px 0 10px' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>{t('settings.notesFontSize')}</div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {([
-                  { value: 'sm', label: t('settings.fontSizeSmall')  },
-                  { value: 'md', label: t('settings.fontSizeMedium') },
-                  { value: 'lg', label: t('settings.fontSizeLarge')  },
-                ] as { value: NotesFontSize; label: string }[]).map(({ value, label }) => (
-                  <button key={value} type="button" onClick={() => set('presenterNotesFontSize', value)}
-                    style={groupBtnStyle(settings.presenterNotesFontSize === value)}
-                  >{label}</button>
-                ))}
-              </div>
-            </div>
           </>
+        )}
+
+        {/* Not gated on display mode like its neighbours: the bar shows in
+            every mode, not just the presenter view. */}
+        {inView('presentation', `${t('settings.showProgressBar')} ${t('settings.showProgressBarDescription')}`) && (
+          <Row
+            label={t('settings.showProgressBar')}
+            description={t('settings.showProgressBarDescription')}
+            control={<Toggle checked={settings.presentationShowProgressBar} onChange={(v) => set('presentationShowProgressBar', v)} />}
+          />
         )}
 
         {/* Updates */}

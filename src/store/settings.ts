@@ -53,6 +53,8 @@ export interface AppSettings {
   presenterCountdownMinutes: number;
   presenterNotesFontSize: NotesFontSize;
   laserColor: LaserColor;
+  /** Thin slide-position bar pinned to the bottom edge of the audience view. */
+  presentationShowProgressBar: boolean;
   // Editor
   showFrontmatter: boolean;
   editorWordWrap: boolean;
@@ -92,6 +94,8 @@ function buildDefaults(): AppSettings {
     presenterCountdownMinutes: 0,
     presenterNotesFontSize: 'md',
     laserColor: '#ff2020',
+    // Preserves existing behaviour (bar shown) for anyone upgrading.
+    presentationShowProgressBar: true,
     showFrontmatter: false,
     editorWordWrap: true,
     // Preserves existing behaviour (720px reading-width cap) for anyone upgrading
