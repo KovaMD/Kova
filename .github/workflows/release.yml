@@ -28,28 +28,24 @@ jobs:
           cat > /tmp/release-notes.md << 'NOTES'
           ## What's new
 
-          ### New features
-          - **Kova now has an official VS Code extension.** Edit and preview Kova slides without leaving VS Code — find it on the [Marketplace](https://marketplace.visualstudio.com/items?itemName=Kovamd.kova), or via the new link in Settings → About.
-          - **Slide thumbnails support keyboard navigation, multi-select, and block drag-reorder** — Up/Down/PageUp/PageDown/Home/End to navigate, Shift/Ctrl-click to select a range or toggle one slide, Delete to remove the selection, Mod-D to duplicate, and dragging a multi-selection now moves the whole block together, matching PowerPoint/Keynote/Google Slides conventions.
-          - **The presenter view can now count down** instead of only counting up. Set a target length in Settings → Presentation (5–60 minutes) and the timer switches to a red overrun display once you're past it.
-          - **A persistent slide-position indicator** is now pinned to the bottom edge for the audience, in the deck's own accent colour — unlike the existing counter, it never fades after a few seconds idle.
-          - **The Find dialog now supports Replace and Replace All.**
-          - **Selecting text and typing `*`, `_`, or `` ` `` now wraps the selection** with that marker instead of replacing it, matching Typora/Obsidian.
-          - **A markdown link's visible label text is now clickable** with Cmd/Ctrl+click, not just the literal URL.
-          - **Kova now shows a "What's new" notice** the first time it launches after updating, with a link to the full release notes — toggle it off in Settings → Updates if you'd rather not see it.
+          This is a minor release whose main purpose is to introduce **production code signing for Windows**.
 
-          ### Bug fixes
-          - **Fixed** Mod-[ and Mod-] dedenting differently from Shift-Tab on the same line, and added multi-line selection support to both.
-          - **Fixed** a harmless external file change (e.g. a git checkout) interrupting editing with a click-through dialog — it now surfaces as a dismissable banner, and the blocking dialog is reserved for genuine unsaved-changes conflicts.
-          - **Fixed** global shortcuts (new/open/save, hide-slide) still firing in the presenter window during a live talk, where only the audience-facing view was meant to block them.
+          ### Windows code signing
+          - **Kova's Windows installers and app are now production-signed** via [SignPath](https://signpath.io), replacing the test signing used in earlier releases. Windows can now verify that the `.msi` and `_x64-setup.exe` genuinely come from the Kova project and haven't been tampered with.
+          - This should also stop the Windows Defender false positive (`Trojan:Win32/Wacatac.C!ml`) some users saw on earlier, test-signed builds (reported by @chotte, #224). SmartScreen may still show a warning on the first few downloads while the new certificate builds reputation with Microsoft.
+
+          ### Other changes
+          - **The slide progress bar can now be turned off.** A new "Show progress bar" toggle in Settings → Presentation hides the thin position bar along the bottom edge of the slides. It's on by default, so nothing changes unless you switch it off.
+          - **"Notes font size" now sits directly under "Display mode"** in Settings → Presentation, since it's the presenter option people adjust most often.
+          - **Updated German translation**, now covering find and replace, the status bar layout indicator, time remaining and the presenter countdown target (contributed by @a1880, #269).
 
           ### Performance
-          - Local image/video lookups during editing now only fetch newly-referenced paths instead of re-reading every path in the deck on every keystroke — the most noticeable lag source in media-heavy decks.
-          - The status bar's external-image counter is now debounced instead of re-scanning the whole document on every keystroke.
-          - PPTX export's colour resolution is now cached, cutting 300+ repeated style recalculations down to a handful on a typical deck.
+          - **Large, diagram-heavy decks no longer freeze the app when opened**, most noticeably on Linux. Slide thumbnails now render as they scroll into view rather than all at once, and the thumbnail list, main preview and presenter view share each Mermaid diagram instead of drawing it separately.
+          - The app stays responsive while diagrams are drawing, rather than locking up until every one has finished.
+          - Split, two- and three-column, BSP and code layouts no longer re-measure their content on every redraw.
 
           ### Security
-          - Resolved a high-severity infinite-loop denial-of-service in `image-size` (pulled in transitively through `pptxgenjs`) via a dependency override, since `image-size` itself is unused dead code in pptxgenjs's shipped bundle.
+          - Updated `source-map-js` to fix a high-severity denial-of-service issue. It's only used by the build tooling and isn't part of the installed app, so no installed copy of Kova was affected.
 
           ### Known issues
           - **Icons in exported PPTX files may not display.** They use the `Kova Icons` font, which isn't embedded in the file, so PowerPoint and Keynote only show them on machines where that font is installed.
