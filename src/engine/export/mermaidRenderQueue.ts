@@ -1,4 +1,5 @@
 import mermaid from 'mermaid';
+import { mermaidRenderedSvgCache } from './mermaidSvgCache';
 
 /**
  * Mermaid keeps internal global state and cannot handle concurrent render()
@@ -60,4 +61,49 @@ export function queuedMermaidRender(id: string, src: string, timeoutMs = DEFAULT
   // is preserved and still propagates to whoever awaits `run` below.
   tail = run.catch(() => {});
   return run;
+}
+
+/**
+ * Mermaid scopes everything in its output SVG (the root <svg> id, its <style>
+ * selectors, marker/gradient ids and their url(#…) references) under the id
+ * it was rendered with. A cached SVG reused in a second place in the DOM has
+ * to be re-scoped to a fresh id, otherwise two copies share ids and a marker
+ * reference can resolve into the other copy (which may later unmount).
+ */
+export function retargetMermaidSvgIds(svg: string, newId: string): string {
+  const oldId = svg.match(/<svg\b[^>]*\bid="([^"]+)"/i)?.[1];
+  if (!oldId || oldId === newId) return svg;
+  // The lookahead stops "mermaid-r1-1" also matching inside "mermaid-r1-10".
+  const escaped = oldId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return svg.replace(new RegExp(`${escaped}(?![0-9])`, 'g'), newId);
+}
+
+/** Synchronous cache lookup, re-scoped to `id`; undefined on a miss. */
+export function getCachedMermaidSvg(src: string, id: string): string | undefined {
+  const hit = mermaidRenderedSvgCache.get(src);
+  return hit === undefined ? undefined : retargetMermaidSvgIds(hit, id);
+}
+
+// Renders already queued for a given source, so a thumbnail and the main
+// preview mounting the same diagram at the same time share one render
+// instead of both missing the cache and queueing two.
+const inFlight = new Map<string, Promise<string>>();
+
+/**
+ * queuedMermaidRender with a cache in front of it: a source already rendered
+ * (by any MermaidDiagram, in any view) is reused rather than rendered again.
+ * Failures are not cached, so a timed-out diagram gets another attempt on its
+ * next mount.
+ */
+export function cachedMermaidRender(id: string, src: string): Promise<string> {
+  const hit = getCachedMermaidSvg(src, id);
+  if (hit !== undefined) return Promise.resolve(hit);
+  let pending = inFlight.get(src);
+  if (!pending) {
+    pending = queuedMermaidRender(id, src)
+      .then(({ svg }) => { mermaidRenderedSvgCache.set(src, svg); return svg; })
+      .finally(() => inFlight.delete(src));
+    inFlight.set(src, pending);
+  }
+  return pending.then((svg) => retargetMermaidSvgIds(svg, id));
 }

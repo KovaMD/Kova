@@ -29,6 +29,9 @@ interface Props {
 
 const SLIDE_W = 960;
 const THUMB_W = 140;
+// How far beyond the visible list a thumbnail starts rendering, so a slide is
+// usually ready by the time it scrolls into view.
+const LAZY_MARGIN = '600px 0px';
 
 export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onReorderMultiple, onDuplicate, onNewSlide, onToggleHidden, onSetBackground, onClearBackground, onDelete, onDeleteMultiple, theme = DEFAULT_THEME, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 } }: Props) {
   const t = useT();
@@ -68,6 +71,10 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onRe
   // Mutable drag state for use inside stable event listeners (avoids stale closures).
   const dragRef     = useRef<{ fromIndex: number; blockIndices: number[]; overIndex: number | null } | null>(null);
   const scrollRef   = useRef<HTMLDivElement>(null);   // the scrollable list container
+  // Same element as scrollRef, but as state so thumbnails re-run their
+  // IntersectionObserver setup once it exists (a ref change re-renders nothing).
+  const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
+  useEffect(() => { setScrollRoot(scrollRef.current); }, []);
   const mousePosRef = useRef({ x: 0, y: 0 });        // last known cursor position
   const scrollDelta = useRef(0);                       // px/frame to scroll; 0 = idle
   const rafRef      = useRef<number | null>(null);    // auto-scroll animation frame id
@@ -372,6 +379,7 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onRe
                   scale={scale}
                   slideH={slideH}
                   thumbH={thumbH}
+                  scrollRoot={scrollRoot}
                 />
                 {showBelow && <DropLine />}
               </div>
@@ -494,6 +502,7 @@ interface ThumbnailProps {
   slideH: number;
   scale: number;
   thumbH: number;
+  scrollRoot: HTMLElement | null;
 }
 
 // Memoized so an edit to one slide's content — which, thanks to the
@@ -503,9 +512,24 @@ interface ThumbnailProps {
 // keystroke. `onSelect`/`onDragStart` are forwarded as stable function
 // references (bound internally below) rather than passed as pre-bound
 // closures, specifically so they don't defeat this memoization.
-const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive, isSelected, isDragSource, isDragging, canDrag, isHidden, onSelect, onToggleHidden, onDragStart, onContextMenu, theme, docTitle, docAuthor, docDate, slideH, scale, thumbH }: ThumbnailProps) {
+const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive, isSelected, isDragSource, isDragging, canDrag, isHidden, onSelect, onToggleHidden, onDragStart, onContextMenu, theme, docTitle, docAuthor, docDate, slideH, scale, thumbH, scrollRoot }: ThumbnailProps) {
   const t = useT();
   const thumbRef = useRef<HTMLDivElement>(null);
+
+  // Render the slide only once it nears the visible part of the list. Every
+  // thumbnail is a full-size SlideRenderer (Mermaid, KaTeX, highlight.js,
+  // OverflowPane's fit measurement), so mounting a whole large deck at once on
+  // file open pegs WebKitGTK and freezes the app. Sticky: once rendered it
+  // stays rendered, so scrolling back and forth never redoes that work.
+  const [inView, setInView] = useState(() => typeof IntersectionObserver === 'undefined');
+  useEffect(() => {
+    if (inView || !scrollRoot || !thumbRef.current) return;
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) { setInView(true); io.disconnect(); }
+    }, { root: scrollRoot, rootMargin: LAZY_MARGIN });
+    io.observe(thumbRef.current);
+    return () => io.disconnect();
+  }, [inView, scrollRoot]);
 
   useEffect(() => {
     if (isActive && !isDragging) thumbRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -569,16 +593,20 @@ const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive,
             pointerEvents: 'none',
           }}
         >
-          <SlideRenderer
-            slide={slide}
-            theme={theme}
-            docTitle={docTitle}
-            docAuthor={docAuthor}
-            docDate={docDate}
-            slideNumber={index + 1}
-            totalSlides={totalSlides}
-            isThumbnail
-          />
+          {inView ? (
+            <SlideRenderer
+              slide={slide}
+              theme={theme}
+              docTitle={docTitle}
+              docAuthor={docAuthor}
+              docDate={docDate}
+              slideNumber={index + 1}
+              totalSlides={totalSlides}
+              isThumbnail
+            />
+          ) : (
+            <div style={{ width: '100%', height: '100%', background: theme.colors.background }} />
+          )}
         </div>
       </div>
 

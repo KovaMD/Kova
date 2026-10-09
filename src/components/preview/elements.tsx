@@ -9,7 +9,7 @@ import type { SlideElement, ListItem } from '../../engine/types';
 import { progressBarInnerHtml } from '../../engine/progressBar';
 import { mermaidSvgCache } from '../../engine/export/mermaidSvgCache';
 import { buildMermaidRenderSource } from '../../engine/export/mermaidSource';
-import { queuedMermaidRender } from '../../engine/export/mermaidRenderQueue';
+import { cachedMermaidRender, getCachedMermaidSvg } from '../../engine/export/mermaidRenderQueue';
 import { fitMermaidViewBox } from '../../engine/export/mermaidViewBox';
 import { useT } from '../../i18n';
 import { ErrorBoundary } from '../ErrorBoundary';
@@ -484,27 +484,38 @@ export function MermaidDiagram({ value, caption }: { value: string; caption?: st
     // diagram has no leading Mermaid config.
     const src = buildMermaidRenderSource(value, mermaidInit);
     const renderId = `${baseId}-${++counter.current}`;
-    queuedMermaidRender(renderId, src)
-      .then(({ svg: out }: { svg: string }) => {
-        if (!cancelled) {
-          // Cache raw SVG for the PPTX exporter before rewriting dimensions.
-          mermaidSvgCache.set(value, out);
-          // Only rewrite attributes on the <svg> opening tag to avoid
-          // accidentally mutating inner element attributes (e.g. legend rects).
-          const scaled = out.replace(/<svg\b([^>]*)>/i, (_m, attrs: string) => {
-            let a = attrs
-              .replace(/\bwidth="[^"]*"/, 'width="100%"')
-              .replace(/\bheight="[^"]*"/, 'height="100%"')
-              .replace(/\bstyle="[^"]*max-width[^"]*"/, '');
-            if (!/preserveAspectRatio/.test(a)) a += ' preserveAspectRatio="xMidYMid meet"';
-            return `<svg${a}>`;
-          });
-          setSvg(scaled);
-          // Defer signalReady to useLayoutEffect so the export runner sees the
-          // SVG in the DOM before it calls cloneNode/toPng.
-          pendingSignalRef.current = signalReady;
-        }
-      })
+    const apply = (out: string) => {
+      // Cache raw SVG for the PPTX exporter before rewriting dimensions.
+      mermaidSvgCache.set(value, out);
+      // Only rewrite attributes on the <svg> opening tag to avoid
+      // accidentally mutating inner element attributes (e.g. legend rects).
+      const scaled = out.replace(/<svg\b([^>]*)>/i, (_m, attrs: string) => {
+        let a = attrs
+          .replace(/\bwidth="[^"]*"/, 'width="100%"')
+          .replace(/\bheight="[^"]*"/, 'height="100%"')
+          .replace(/\bstyle="[^"]*max-width[^"]*"/, '');
+        if (!/preserveAspectRatio/.test(a)) a += ' preserveAspectRatio="xMidYMid meet"';
+        return `<svg${a}>`;
+      });
+      setSvg(scaled);
+      // Defer signalReady to useLayoutEffect so the export runner sees the
+      // SVG in the DOM before it calls cloneNode/toPng.
+      pendingSignalRef.current = signalReady;
+    };
+    // Already rendered elsewhere (another thumbnail, the main preview, a
+    // presenter window) with the same source and theme: reuse it in this same
+    // commit rather than paying for another mermaid.render().
+    const cached = getCachedMermaidSvg(src, renderId);
+    if (cached !== undefined) {
+      apply(cached);
+      return () => {
+        cancelled = true;
+        pendingSignalRef.current = null;
+        signalReady();
+      };
+    }
+    cachedMermaidRender(renderId, src)
+      .then((out) => { if (!cancelled) apply(out); })
       .catch((err: unknown) => {
         if (!cancelled) {
           const raw = err instanceof Error ? err.message : String(err);
