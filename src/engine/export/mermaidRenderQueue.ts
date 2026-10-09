@@ -51,8 +51,14 @@ function getRenderHost(): HTMLDivElement {
 
 let tail: Promise<unknown> = Promise.resolve();
 
+// A macrotask hop before each queued render. Chaining renders purely through
+// promise callbacks runs them back to back as microtasks, which never give
+// WebKit a chance to paint or handle input in between — a deck with dozens of
+// diagrams then freezes the whole window until the queue drains.
+const yieldToEventLoop = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
 export function queuedMermaidRender(id: string, src: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<{ svg: string }> {
-  const run = tail.then(() => Promise.race([
+  const run = tail.then(yieldToEventLoop).then(() => Promise.race([
     mermaid.render(id, src, getRenderHost()),
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Mermaid render timeout')), timeoutMs)),
   ]));

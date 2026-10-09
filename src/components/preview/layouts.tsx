@@ -278,7 +278,11 @@ function TitleImageLayout({ slide }: { slide: Slide }) {
 function SplitLayout({ slide }: { slide: Slide }) {
   const imgIdx = slide.elements.findIndex((e) => e.type === 'image');
   const img = imgIdx >= 0 ? slide.elements[imgIdx] : undefined;
-  const rest = slide.elements.filter((e) => e.type !== 'image');
+  // Memoized: OverflowPane re-runs its full fit measurement whenever its
+  // `elements` identity changes, so a fresh array on every render would redo
+  // that forced-layout binary search on every re-render. slide.elements is
+  // itself reference-stable across edits to other slides.
+  const rest = useMemo(() => slide.elements.filter((e) => e.type !== 'image'), [slide.elements]);
   // Put the image on the right when it appears after text in the source.
   const imgOnRight = imgIdx > 0;
   const gateClass = useStepGateClass(img?.type === 'image' ? img.step : undefined);
@@ -346,10 +350,15 @@ function QuoteLayout({ slide }: { slide: Slide }) {
 }
 
 function MultiColumnLayout({ slide, columns }: { slide: Slide; columns: 2 | 3 }) {
-  const hasBreak = slide.elements.some((e) => e.type === 'column-break');
-  const groups = hasBreak
-    ? splitByColumnBreaks(slide.elements, columns)
-    : [...autoSplitElements(slide.elements), ...Array(columns - 2).fill([])];
+  // Memoized for OverflowPane (see SplitLayout) — and this layout re-renders
+  // itself every time a column reports its natural scale via setScales, so
+  // fresh group arrays here would set off another measurement round each time.
+  const groups = useMemo<SlideElement[][]>(() => {
+    const hasBreak = slide.elements.some((e) => e.type === 'column-break');
+    return hasBreak
+      ? splitByColumnBreaks(slide.elements, columns)
+      : [...autoSplitElements(slide.elements), ...Array(columns - 2).fill([])];
+  }, [slide.elements, columns]);
 
   // Shrink all columns in lockstep: without this, a lightly filled column
   // sits at full size (with dead space below it) next to a sibling that had
@@ -382,31 +391,35 @@ function MultiColumnLayout({ slide, columns }: { slide: Slide; columns: 2 | 3 })
 }
 
 function BspLayout({ slide }: { slide: Slide }) {
-  const groups = groupProgressRuns(slide.elements);
+  // Memoized for OverflowPane (see SplitLayout).
+  const { groups, leftGroup, rightGroups } = useMemo(() => {
+    const groups = groupProgressRuns(slide.elements);
+
+    // For 2 groups: if first is visual and second is text, put text on the left
+    const isGroupPureText = (g: SlideElement[]) =>
+      g.every((e) => e.type === 'paragraph' || e.type === 'list' || e.type === 'progress');
+
+    let leftGroup: SlideElement[];
+    let rightGroups: SlideElement[][];
+
+    if (groups.length === 2) {
+      if (!isGroupPureText(groups[0]) && isGroupPureText(groups[1])) {
+        leftGroup  = groups[1];
+        rightGroups = [groups[0]];
+      } else {
+        leftGroup  = groups[0];
+        rightGroups = [groups[1]];
+      }
+    } else {
+      // 3+ logical groups: first fills left, remaining stack on right
+      leftGroup  = groups[0];
+      rightGroups = groups.slice(1);
+    }
+    return { groups, leftGroup, rightGroups };
+  }, [slide.elements]);
 
   // Guard against a layout:bsp override on a slide with fewer than 2 logical groups.
   if (groups.length < 2) return <TitleContentLayout slide={slide} />;
-
-  // For 2 groups: if first is visual and second is text, put text on the left
-  const isGroupPureText = (g: SlideElement[]) =>
-    g.every((e) => e.type === 'paragraph' || e.type === 'list' || e.type === 'progress');
-
-  let leftGroup: SlideElement[];
-  let rightGroups: SlideElement[][];
-
-  if (groups.length === 2) {
-    if (!isGroupPureText(groups[0]) && isGroupPureText(groups[1])) {
-      leftGroup  = groups[1];
-      rightGroups = [groups[0]];
-    } else {
-      leftGroup  = groups[0];
-      rightGroups = [groups[1]];
-    }
-  } else {
-    // 3+ logical groups: first fills left, remaining stack on right
-    leftGroup  = groups[0];
-    rightGroups = groups.slice(1);
-  }
 
   return (
     <div className="sl-bsp">
@@ -464,35 +477,37 @@ function MediaLayout({ slide }: { slide: Slide }) {
 }
 
 function CodeLayout({ slide }: { slide: Slide }) {
-  const codeEls = slide.elements.filter((e) => e.type === 'code' || e.type === 'mermaid');
   // .sl-code__block already exists per-item and carries `flex: 1` against
   // .sl-code's column layout — apply the gate class directly onto it (like
   // the image layouts above) rather than introducing a wrapper, which would
   // stop it being a direct flex child and drop that sizing entirely. Called
   // once here, not per-item inside the map below, since useContext is a hook.
   const { revealThreshold, enteringStep } = useContext(SlideCtx);
+  // Memoized for OverflowPane (see SplitLayout): its `children` identity is
+  // what triggers a remeasure here, and JSX built inline is new every render.
+  const blocks = useMemo(() => slide.elements
+    .filter((e) => e.type === 'code' || e.type === 'mermaid')
+    .map((codeEl, i) => (
+      <div
+        key={i}
+        className={withStepGateClass('sl-code__block', stepGateClassName(codeEl.step, revealThreshold, enteringStep))}
+        data-step={codeEl.step}
+      >
+        {codeEl.type === 'code' && (
+          <>
+            {codeEl.lang && <div className="sl-code__lang">{codeEl.lang}</div>}
+            <CodeBlock lang={codeEl.lang} value={codeEl.value} />
+          </>
+        )}
+        {codeEl.type === 'mermaid' && (
+          <MermaidDiagram value={codeEl.value} caption={codeEl.caption} />
+        )}
+      </div>
+    )), [slide.elements, revealThreshold, enteringStep]);
   return (
     <div className="sl-code">
       {slide.title && <div className="sl-heading sl-code__title">{slide.title}</div>}
-      <OverflowPane className="sl-code__body">
-        {codeEls.map((codeEl, i) => (
-          <div
-            key={i}
-            className={withStepGateClass('sl-code__block', stepGateClassName(codeEl.step, revealThreshold, enteringStep))}
-            data-step={codeEl.step}
-          >
-            {codeEl.type === 'code' && (
-              <>
-                {codeEl.lang && <div className="sl-code__lang">{codeEl.lang}</div>}
-                <CodeBlock lang={codeEl.lang} value={codeEl.value} />
-              </>
-            )}
-            {codeEl.type === 'mermaid' && (
-              <MermaidDiagram value={codeEl.value} caption={codeEl.caption} />
-            )}
-          </div>
-        ))}
-      </OverflowPane>
+      <OverflowPane className="sl-code__body">{blocks}</OverflowPane>
     </div>
   );
 }
