@@ -40,7 +40,7 @@
     "katex": "^0.17.0",
     "mdast-util-to-string": "^4.0.0",
     "mermaid": "^11.16.0",
-    "pele": "^1.6.0",
+    "pele": "1.6.0",
     "pptxgenjs": "^4.0.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
