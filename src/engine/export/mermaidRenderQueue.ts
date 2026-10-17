@@ -1,5 +1,7 @@
 import mermaid from 'mermaid';
 import { mermaidRenderedSvgCache } from './mermaidSvgCache';
+import { getDiagramRenderer } from './diagramRenderer';
+import { renderWithPele, PeleUnsupportedError } from './peleRender';
 
 /**
  * Mermaid keeps internal global state and cannot handle concurrent render()
@@ -58,6 +60,23 @@ let tail: Promise<unknown> = Promise.resolve();
 const yieldToEventLoop = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 export function queuedMermaidRender(id: string, src: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<{ svg: string }> {
+  if (getDiagramRenderer() === 'pele') {
+    // Pele is synchronous and stateless, so it skips the queue. The macrotask
+    // hop still spreads a diagram-heavy deck's renders across frames. A
+    // diagram type Pele doesn't know falls back to Mermaid.
+    return yieldToEventLoop().then(() => {
+      try {
+        return renderWithPele(id, src);
+      } catch (err) {
+        if (err instanceof PeleUnsupportedError) return queuedMermaidOnly(id, src, timeoutMs);
+        throw err;
+      }
+    });
+  }
+  return queuedMermaidOnly(id, src, timeoutMs);
+}
+
+function queuedMermaidOnly(id: string, src: string, timeoutMs: number): Promise<{ svg: string }> {
   const run = tail.then(yieldToEventLoop).then(() => Promise.race([
     mermaid.render(id, src, getRenderHost()),
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Mermaid render timeout')), timeoutMs)),
@@ -85,8 +104,11 @@ export function retargetMermaidSvgIds(svg: string, newId: string): string {
 }
 
 /** Synchronous cache lookup, re-scoped to `id`; undefined on a miss. */
+// The engine is part of the key so switching it is a miss, not a stale hit.
+const cacheKey = (src: string) => `${getDiagramRenderer()}\0${src}`;
+
 export function getCachedMermaidSvg(src: string, id: string): string | undefined {
-  const hit = mermaidRenderedSvgCache.get(src);
+  const hit = mermaidRenderedSvgCache.get(cacheKey(src));
   return hit === undefined ? undefined : retargetMermaidSvgIds(hit, id);
 }
 
@@ -104,12 +126,13 @@ const inFlight = new Map<string, Promise<string>>();
 export function cachedMermaidRender(id: string, src: string): Promise<string> {
   const hit = getCachedMermaidSvg(src, id);
   if (hit !== undefined) return Promise.resolve(hit);
-  let pending = inFlight.get(src);
+  const key = cacheKey(src);
+  let pending = inFlight.get(key);
   if (!pending) {
     pending = queuedMermaidRender(id, src)
-      .then(({ svg }) => { mermaidRenderedSvgCache.set(src, svg); return svg; })
-      .finally(() => inFlight.delete(src));
-    inFlight.set(src, pending);
+      .then(({ svg }) => { mermaidRenderedSvgCache.set(key, svg); return svg; })
+      .finally(() => inFlight.delete(key));
+    inFlight.set(key, pending);
   }
   return pending.then((svg) => retargetMermaidSvgIds(svg, id));
 }

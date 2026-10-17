@@ -28,6 +28,7 @@ import { pptxToMarkdown } from './engine/import/pptxToMarkdown';
 import { toRawUrl } from './engine/import/toRawUrl';
 import { MissingThemeBanner } from './components/MissingThemeBanner';
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
+import { setDiagramRenderer } from './engine/export/diagramRenderer';
 import type { AppSettings } from './store/settings';
 import { loadLastSession, saveLastSession } from './store/lastSession';
 import { loadLastSeenVersion, saveLastSeenVersion } from './store/lastSeenVersion';
@@ -2233,6 +2234,8 @@ export default function App() {
     setSettings(s);
     saveSettings(s);
   }, []);
+
+  useEffect(() => { setDiagramRenderer(settings.diagramRenderer); }, [settings.diagramRenderer]);
 
   // Apply UI theme class to root element; 'auto' follows the OS preference
   useEffect(() => {

@@ -32,6 +32,10 @@ class MermaidSvgLruCache {
       if (oldest !== undefined) this.map.delete(oldest);
     }
   }
+
+  clear(): void {
+    this.map.clear();
+  }
 }
 
 export const mermaidSvgCache = new MermaidSvgLruCache();

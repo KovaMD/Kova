@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
 import katex from 'katex';
@@ -11,6 +11,7 @@ import { mermaidSvgCache } from '../../engine/export/mermaidSvgCache';
 import { buildMermaidRenderSource } from '../../engine/export/mermaidSource';
 import { cachedMermaidRender, getCachedMermaidSvg } from '../../engine/export/mermaidRenderQueue';
 import { fitMermaidViewBox } from '../../engine/export/mermaidViewBox';
+import { getDiagramRenderer, subscribeDiagramRenderer } from '../../engine/export/diagramRenderer';
 import { useT } from '../../i18n';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { SlideCtx } from './slideContext';
@@ -447,6 +448,7 @@ export function MathBlock({ value, display, caption, step }: { value: string; di
 
 export function MermaidDiagram({ value, caption }: { value: string; caption?: string }) {
   const { mermaidInit, onDiagramReady } = useContext(SlideCtx);
+  const diagramRenderer = useSyncExternalStore(subscribeDiagramRenderer, getDiagramRenderer);
   const onDiagramReadyRef = useRef(onDiagramReady);
   useEffect(() => { onDiagramReadyRef.current = onDiagramReady; });
   const rawId  = useId();
@@ -538,7 +540,7 @@ export function MermaidDiagram({ value, caption }: { value: string; caption?: st
       pendingSignalRef.current = null;
       if (mermaidSvgCache.get(value)) signalReady();
     };
-  }, [baseId, value, mermaidInit]);
+  }, [baseId, value, mermaidInit, diagramRenderer]);
 
   if (!svg) {
     return (

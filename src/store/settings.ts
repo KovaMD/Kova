@@ -3,6 +3,7 @@ import { detectOsLanguage } from '../engine/spellcheck/spellChecker';
 export type PresentationMode  = 'auto' | 'single' | 'dual' | 'mirror';
 export type NotesFontSize     = 'sm' | 'md' | 'lg';
 export type StartupBehavior   = 'blank' | 'reopenLast';
+export type DiagramRenderer   = 'mermaid' | 'pele';
 
 export const LASER_COLOR_OPTIONS = [
   { value: '#ff2020', label: 'Red'    },
@@ -63,6 +64,8 @@ export interface AppSettings {
   defaultThemeId: string;
   // Export
   pdfPageSize: 'a4' | 'letter' | 'slide';
+  /** Engine for ```mermaid blocks; 'pele' is experimental. */
+  diagramRenderer: DiagramRenderer;
   // Startup
   startupBehavior: StartupBehavior;
 }
@@ -102,6 +105,7 @@ function buildDefaults(): AppSettings {
     editorContentWidth: 'fixed',
     defaultThemeId: 'light',
     pdfPageSize: 'a4',
+    diagramRenderer: 'mermaid',
     // Preserves existing behaviour (always launch blank) for anyone upgrading
     // — this only changes anything for users who explicitly opt in.
     startupBehavior: 'blank',

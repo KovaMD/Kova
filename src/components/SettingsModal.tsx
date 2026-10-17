@@ -723,6 +723,25 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
           </div>
         )}
 
+        {inView('workspace', `${t('settings.diagramRenderer')} ${t('settings.diagramRendererDescription')}`) && (
+          <div style={{ padding: '10px 0' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 4 }}>{t('settings.diagramRenderer')}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
+              {t('settings.diagramRendererDescription')}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {([
+                { value: 'mermaid', label: t('settings.diagramRendererMermaid') },
+                { value: 'pele',    label: t('settings.diagramRendererPele')    },
+              ] as { value: AppSettings['diagramRenderer']; label: string }[]).map(({ value, label }) => (
+                <button key={value} type="button" onClick={() => set('diagramRenderer', value)}
+                  style={groupBtnStyle(settings.diagramRenderer === value)}
+                >{label}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Presentation */}
 
         {inView('presentation', `${t('settings.displayMode')} ${t('settings.displayModeDescription')}`) && (
