@@ -563,10 +563,15 @@ async function extractAllCss(): Promise<string> {
 // ── Font URL resolution ──────────────────────────────────────────────────────
 
 // Browsers resolve relative CSS URLs against the document origin when returning
-// cssText, so /fonts/... becomes tauri://localhost/fonts/... in rule text.
-// We fetch those via the browser (no IPC) and embed them as data: URIs so the
-// self-contained HTML works when loaded from a temp file:// path.
-async function resolveFontUrls(css: string): Promise<string> {
+// cssText, so /fonts/... becomes <origin>/fonts/... in rule text. The origin is
+// tauri://localhost on macOS/Linux but http://tauri.localhost on Windows, and
+// asset URLs likewise differ (asset://localhost vs http://asset.localhost), so
+// match both rather than sniffing one scheme. We fetch the app's own fonts via
+// the browser (no IPC) and embed them as data: URIs so the self-contained HTML
+// works when loaded from a temp file:// path.
+const ASSET_URL_RE = /^(?:asset:\/\/[^/]*|https?:\/\/asset\.localhost)(?=\/)/;
+
+export async function resolveFontUrls(css: string, origin: string = window.location.origin): Promise<string> {
   const FONT_URL_RE = /url\((['"]?)([^'")\s]+\.(?:woff2?|ttf|otf|eot))\1\)/gi;
 
   // Collect unique font URLs first.
@@ -578,17 +583,17 @@ async function resolveFontUrls(css: string): Promise<string> {
   await Promise.all(Array.from(urls).map(async (url) => {
     try {
       let dataUrl: string;
-      if (url.startsWith('asset://')) {
-        const path = decodeURIComponent(url.replace(/^asset:\/\/[^/]*/, ''));
+      if (ASSET_URL_RE.test(url)) {
+        // Drop the slash left in front of a Windows drive letter (/C:\...).
+        const path = decodeURIComponent(url.replace(ASSET_URL_RE, '')).replace(/^\/(?=[A-Za-z]:)/, '');
         const b64  = await invoke<string>('read_file_b64', { path });
         dataUrl = `data:${extToFontMime(path)};base64,${b64}`;
-      } else if (url.startsWith('tauri://') || url.startsWith('/')) {
-        const fetchUrl = url.startsWith('/') ? `tauri://localhost${url}` : url;
-        const res = await fetch(fetchUrl);
+      } else if (url.startsWith('/') || url.startsWith(`${origin}/`)) {
+        const res = await fetch(url.startsWith('/') ? `${origin}${url}` : url);
         if (!res.ok) return;
         dataUrl = await blobToDataUrl(await res.blob());
       } else {
-        return; // leave http/https font URLs as-is
+        return; // leave remote http/https font URLs as-is
       }
       resolved.set(url, dataUrl);
     } catch { /* leave URL as-is */ }
