@@ -26,6 +26,9 @@ describe('exportPptx icon shortcodes (issue #263)', () => {
   it('gives an icon span its own fontFace, not the body/code font', async () => {
     const xml = await slideXml(makeSlide([para('Ship it <span class="sl-icon">&#xf135;</span>!')]));
     expect(xml).toContain('');
-    expect(xml).toMatch(/typeface="Kova Icons"/);
+    // The bundled font's public family name, which a recipient can install;
+    // "Kova Icons" only exists inside the app.
+    expect(xml).toMatch(/typeface="Symbols Nerd Font"/);
+    expect(xml).not.toMatch(/typeface="Kova Icons"/);
   });
 });

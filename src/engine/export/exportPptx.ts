@@ -1164,7 +1164,7 @@ function addReferences(s: PS, refs: string[], t: Theme, H: number, hasFoot: bool
   const codeFont = firstFont(t.fonts.code);
   const accentColor = hex(t.colors.accent);
   const runs = refs.flatMap((ref, i) => {
-    const refRuns = htmlToInlineRuns(ref, color, codeFont, accentColor, firstFont(t.fonts.icon), color);
+    const refRuns = htmlToInlineRuns(ref, color, codeFont, accentColor, pptxIconFont(t), color);
     return refRuns.map((run, ri) => ({
       text: run.text,
       options: { fontSize: 7, ...run.options, color, breakLine: ri === refRuns.length - 1 && i < refs.length - 1 },
@@ -1705,7 +1705,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
       case 'paragraph':
         if (el.text.trim()) {
           startParagraph(el.step);
-          const paraRuns = htmlToInlineRuns(el.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), firstFont(t.fonts.icon), boldColor);
+          const paraRuns = htmlToInlineRuns(el.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), pptxIconFont(t), boldColor);
           paraRuns.forEach((run, ri) => {
             runs.push({ text: run.text, options: { fontSize: 18, ...run.options, breakLine: ri === paraRuns.length - 1 } });
           });
@@ -1720,7 +1720,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
             fontSize: 18,
             paraSpaceAfter: 4,
           };
-          const itemRuns = htmlToInlineRuns(item.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), firstFont(t.fonts.icon), boldColor);
+          const itemRuns = htmlToInlineRuns(item.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), pptxIconFont(t), boldColor);
           runs.push({ text: itemRuns[0].text, options: { ...itemRuns[0].options, ...bulletBase } });
           for (let ri = 1; ri < itemRuns.length; ri++) {
             runs.push({ text: itemRuns[ri].text, options: { fontSize: 18, ...itemRuns[ri].options } });
@@ -1728,7 +1728,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
           for (const child of item.children) {
             startParagraph(el.step ?? child.step);
             const childBase = { bullet: true as const, indentLevel: 1, fontSize: 16, paraSpaceAfter: 3 };
-            const childRuns = htmlToInlineRuns(child.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), firstFont(t.fonts.icon), boldColor);
+            const childRuns = htmlToInlineRuns(child.html, tc, firstFont(t.fonts.code), hex(t.colors.accent), pptxIconFont(t), boldColor);
             runs.push({ text: childRuns[0].text, options: { ...childRuns[0].options, ...childBase } });
             for (let ri = 1; ri < childRuns.length; ri++) {
               runs.push({ text: childRuns[ri].text, options: { fontSize: 16, ...childRuns[ri].options } });
@@ -2322,6 +2322,17 @@ const NAMED_COLORS: Record<string, string> = {
 
 function firstFont(stack: string): string {
   return stack.split(',')[0].trim().replace(/['"]/g, '');
+}
+
+// "Kova Icons" is only the name the app registers its bundled icon font under;
+// the font itself is Nerd Fonts' "Symbols Nerd Font". PptxGenJS can't embed
+// fonts, so name the public family a recipient can actually install.
+const BUNDLED_ICON_FONT = 'Kova Icons';
+const PUBLIC_ICON_FONT = 'Symbols Nerd Font';
+
+function pptxIconFont(t: Theme): string {
+  const font = firstFont(t.fonts.icon);
+  return font === BUNDLED_ICON_FONT ? PUBLIC_ICON_FONT : font;
 }
 
 // A `!progress` directive in a table cell is rendered as an HTML bar (see
