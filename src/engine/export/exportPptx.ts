@@ -1689,7 +1689,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
   // inferred generically from run options. `paraSteps` collects, per build
   // step, every paragraph index that step should reveal — consumed by
   // applyStepAnimations() once this shape's real OOXML shape id is known.
-  const runs: Array<{ text: string; options?: Record<string, unknown> }> = [];
+  const runs: TextRun[] = [];
   let paraIdx = -1; // -1 so the first startParagraph() call lands on 0
   const paraSteps = new Map<number, number[]>();
   const startParagraph = (step: number | undefined) => {
@@ -1823,20 +1823,30 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
     }
   }
 
+  const tableEl = elements.find((e) => e.type === 'table');
+  const imageEls = elements.filter((e) => e.type === 'image') as Extract<SlideElement, { type: 'image' }>[];
+  const mediaEls = elements.filter((e) => e.type === 'youtube' || e.type === 'video');
+  const hasBelow = tableEl?.type === 'table' || imageEls.length > 0 || mediaEls.length > 0;
+  const textFrac = runs.length > 0 ? Math.min(0.5, 0.15 + runs.length * 0.08) : 0;
+
   if (runs.length > 0) {
     const objectName = paraSteps.size > 0 ? stepShapeName(area, 'text') : undefined;
-    s.addText(runs, {
+    // With a table/image below, the text only owns the top textFrac share.
+    const fit = fitRunsScale(runs, hasBelow ? { ...area, h: area.h * textFrac } : area);
+    if (fit.overflow) {
+      const label = runs[0].text.trim().slice(0, 40);
+      warnings.push(
+        `Text too long for the slide — scaled down to ${Math.round(fit.scale * 100)}% and may still overflow${label ? ` (starts: "${label}")` : ''}`,
+      );
+    }
+    s.addText(scaleRuns(runs, fit.scale), {
       x: area.x, y: area.y, w: area.w, h: area.h,
-      fontSize: 18, color: tc,
+      fontSize: Math.max(1, Math.round(18 * fit.scale * 2) / 2), color: tc,
       fontFace: firstFont(t.fonts.body),
       valign: 'top', wrap: true,
-      // Unlike the live preview's OverflowPane (which measures real DOM height
-      // and applies a CSS scale-to-fit), PptxGenJS has no way to pre-shrink text
-      // at export time — shrinkText only sets PowerPoint's "Shrink text on
-      // overflow" autofit flag, which PowerPoint itself applies the next time the
-      // box is edited or resized (pptxgenjs can't trigger that calculation here).
-      // It's a partial mitigation — the box opens at full size and self-corrects
-      // on first edit — rather than nothing, which is what dense slides had before.
+      // The runs are already pre-scaled to fit (fitRunsScale above). shrinkText
+      // additionally sets PowerPoint's "Shrink text on overflow" flag, so the
+      // box keeps fitting as the recipient edits it.
       shrinkText: true,
       ...(objectName ? { objectName } : {}),
     });
@@ -1886,11 +1896,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
   // reached via an explicit ||| column break) share the space left below the
   // text runs. Without this, such images used to fall through the switch's
   // `default` case above and vanish from the export with no warning.
-  const tableEl = elements.find((e) => e.type === 'table');
-  const imageEls = elements.filter((e) => e.type === 'image') as Extract<SlideElement, { type: 'image' }>[];
-  const mediaEls = elements.filter((e) => e.type === 'youtube' || e.type === 'video');
-  if (tableEl?.type === 'table' || imageEls.length > 0 || mediaEls.length > 0) {
-    const textFrac = runs.length > 0 ? Math.min(0.5, 0.15 + runs.length * 0.08) : 0;
+  if (hasBelow) {
     const belowY = area.y + area.h * textFrac;
     const belowH = area.h * (1 - textFrac - 0.02);
     // With both a table and image(s) present, give the table the larger share
@@ -2045,6 +2051,91 @@ function fitTableToArea(matrix: string[][], area: Area): TableFit {
   }
 
   return { fontSize, colW, rowH, height: total, overflow };
+}
+
+// ── Body text auto-fit ───────────────────────────────────────────────────────
+//
+// Same problem as tables, for the main text box: runs go out at fixed sizes
+// (18pt body, 16pt sub-bullets, ...) and shrinkText only sets PowerPoint's
+// "Shrink text on overflow" flag, which PowerPoint applies on first edit, not
+// on open — so a dense slide (e.g. three ||| columns of 15 bullets, issue
+// #272) opens with its text running off the bottom. Estimate the wrapped
+// height with the table fitter's constants and scale every run down together
+// until it fits, so the deck opens right in PowerPoint, Keynote and Google
+// Slides alike.
+
+type TextRun = { text: string; options?: Record<string, unknown> };
+
+const TEXT_MIN_SCALE = 0.5;
+const TEXT_SCALE_STEP = 0.05;
+const TEXT_BOX_HINSET = 0.1;  // in; OOXML default lIns/rIns
+const TEXT_BOX_VINSET = 0.05; // in; OOXML default tIns/bIns
+const BULLET_INDENT = 0.375;  // in; pptxgenjs' default 27pt bullet indent, per level
+
+/** Estimated rendered height (in) of `runs` in a box `w` wide at `scale`. A run
+ *  carrying `bullet` starts a paragraph; `breakLine` ends one. */
+function estimateRunsHeight(runs: TextRun[], w: number, scale: number): number {
+  let total = TEXT_BOX_VINSET * 2;
+  let chars = 0, fs = 0, spaceAfter = 0, indent = 0, lines = 0;
+  let open = false;
+  const em = (f: number) => (f * TABLE_CHAR_EM) / 72;
+  const close = () => {
+    if (!open) return;
+    const usable = Math.max(0.2, w - TEXT_BOX_HINSET * 2 - indent);
+    const cpl = Math.max(1, Math.floor(usable / em(fs)));
+    lines += Math.max(1, Math.ceil(chars / cpl));
+    total += lines * fs * TABLE_LINE_FACTOR + spaceAfter / 72;
+    chars = 0; fs = 0; spaceAfter = 0; indent = 0; lines = 0;
+    open = false;
+  };
+  for (const run of runs) {
+    const o = run.options ?? {};
+    if (o.bullet) close();
+    const runFs = ((o.fontSize as number | undefined) ?? 18) * scale;
+    if (!open) {
+      open = true;
+      indent = o.bullet ? BULLET_INDENT * (1 + ((o.indentLevel as number | undefined) ?? 0)) : 0;
+    }
+    fs = Math.max(fs, runFs);
+    spaceAfter = Math.max(spaceAfter, ((o.paraSpaceAfter as number | undefined) ?? 0) * scale);
+    // An embedded newline (code/math fallbacks) is a hard line break: count
+    // the wrapped lines of every segment before the last, carry the last on.
+    const segs = run.text.split('\n');
+    for (let i = 0; i < segs.length - 1; i++) {
+      const cpl = Math.max(1, Math.floor(Math.max(0.2, w - TEXT_BOX_HINSET * 2 - indent) / em(fs)));
+      lines += Math.max(1, Math.ceil((chars + segs[i].length) / cpl));
+      chars = 0;
+    }
+    chars += segs[segs.length - 1].length;
+    if (o.breakLine) close();
+  }
+  close();
+  return total;
+}
+
+/** Largest scale in [TEXT_MIN_SCALE, 1] at which `runs` fit `area`. */
+function fitRunsScale(runs: TextRun[], area: Area): { scale: number; overflow: boolean } {
+  let scale = 1;
+  while (scale > TEXT_MIN_SCALE && estimateRunsHeight(runs, area.w, scale) > area.h) {
+    scale = Math.max(TEXT_MIN_SCALE, scale - TEXT_SCALE_STEP);
+  }
+  return { scale, overflow: estimateRunsHeight(runs, area.w, scale) > area.h };
+}
+
+function scaleRuns(runs: TextRun[], scale: number): TextRun[] {
+  if (scale === 1) return runs;
+  const half = (n: number) => Math.max(1, Math.round(n * scale * 2) / 2);
+  return runs.map((run) => {
+    const o = run.options ?? {};
+    return {
+      text: run.text,
+      options: {
+        ...o,
+        fontSize: half((o.fontSize as number | undefined) ?? 18),
+        ...(typeof o.paraSpaceAfter === 'number' ? { paraSpaceAfter: half(o.paraSpaceAfter) } : {}),
+      },
+    };
+  });
 }
 
 /** Renders the table into `area`, auto-fitting font/columns/rows. Returns the
