@@ -85,3 +85,11 @@
 :root.theme-light .editor-panel .cm-url { color: #1a3399; }
 :root.theme-light .editor-panel .cm-quote { color: #666666; }
 :root.theme-light .editor-panel .cm-code { color: #8b4000; }
+
+/* Glyph preview beside `:icon:` suggestions in the autocomplete popup. */
+.editor-panel .cm-kova-icon-glyph {
+  display: inline-block;
+  width: 1.4em;
+  font-family: 'Kova Icons';
+  text-align: center;
+}

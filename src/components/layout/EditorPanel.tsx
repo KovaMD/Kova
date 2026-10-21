@@ -25,6 +25,7 @@ import {
 } from '../editor/formatCommands';
 import { buildMediaSnippet } from '../editor/mediaSnippet';
 import { buildContextMenuEntries } from '../editor/contextMenuEntries';
+import { kovaCompletions } from '../editor/completions';
 import { insertTable, doToggleLineStepMarker } from '../editor/contextMenuActions';
 import { useMediaDragAndDrop } from '../editor/useMediaDragAndDrop';
 import { useMediaPaste } from '../editor/useMediaPaste';
@@ -72,6 +73,12 @@ const editorDarkTheme = EditorView.theme({
   '.cm-gutters': { background: '#1e1e1e', borderRight: '1px solid #2a2a2a' },
   '.cm-activeLine': { background: 'rgba(255,255,255,0.03)' },
   '.cm-cursor': { borderLeftColor: '#D94F00' },
+  // Autocomplete popup: oneDark's selected row is barely darker than the rest
+  // and dims its text, so use the accent instead.
+  '&.cm-editor .cm-tooltip': { background: '#252526', border: '1px solid #3a3a3a', boxShadow: '0 4px 12px rgba(0,0,0,0.4)' },
+  '&.cm-editor .cm-tooltip-autocomplete > ul > li': { color: '#d4d4d4' },
+  '&.cm-editor .cm-tooltip-autocomplete > ul > li[aria-selected]': { background: 'rgba(217,79,0,0.4)', color: '#ffffff' },
+  '&.cm-editor .cm-completionDetail': { color: '#8a8a8a' },
 });
 
 const editorLightTheme = EditorView.theme({
@@ -83,6 +90,10 @@ const editorLightTheme = EditorView.theme({
   '.cm-cursor': { borderLeftColor: '#D94F00' },
   '.cm-selectionBackground': { background: 'rgba(217,79,0,0.15) !important' },
   '.cm-focused .cm-selectionBackground': { background: 'rgba(217,79,0,0.2) !important' },
+  // Autocomplete popup: CodeMirror's default selected row is a stock blue.
+  '&.cm-editor .cm-tooltip': { background: '#ffffff', border: '1px solid #d5d5d5', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' },
+  '&.cm-editor .cm-tooltip-autocomplete > ul > li[aria-selected]': { background: 'rgba(217,79,0,0.15)', color: '#1a1a1a' },
+  '&.cm-editor .cm-completionDetail': { color: '#777777' },
 }, { dark: false });
 
 function makeFontTheme(fontFamily: string) {
@@ -152,6 +163,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
   const onWarnRef = useRef(onWarn);
   const onSaveAsRef = useRef(onSaveAs);
   const onRequestFindRef = useRef(onRequestFind);
+  const tRef = useRef(t);
   const filePathRef = useRef(filePath);
   const uiThemeRef = useRef(uiTheme);
   const spellCheckEnabledRef = useRef(spellCheckEnabled);
@@ -168,6 +180,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
   useEffect(() => { onWarnRef.current = onWarn; }, [onWarn]);
   useEffect(() => { onSaveAsRef.current = onSaveAs; }, [onSaveAs]);
   useEffect(() => { onRequestFindRef.current = onRequestFind; }, [onRequestFind]);
+  useEffect(() => { tRef.current = t; }, [t]);
   useEffect(() => { filePathRef.current = filePath; }, [filePath]);
   useEffect(() => { uiThemeRef.current = uiTheme; }, [uiTheme]);
   useEffect(() => { spellCheckEnabledRef.current = spellCheckEnabled; }, [spellCheckEnabled]);
@@ -352,6 +365,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
         slideDivider,
         stepMarkerDecoration,
         urlLinkDecoration,
+        kovaCompletions(() => tRef.current),
         focusModeCompartment.of([]),
         spellCheckCompartment.of([]),
       ],
