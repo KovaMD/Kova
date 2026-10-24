@@ -34,8 +34,10 @@ jobs:
 
           ### Bug fixes
           - **Icons now appear in HTML and PDF exports on Windows.** Exported files were still pointing back at the running app for the icon font and bundled theme fonts, so icons and those fonts went missing once the file was opened elsewhere (reported by @a1880, #272).
-          - **Icons in PPTX exports now display wherever [Symbols Nerd Font](https://www.nerdfonts.com/font-downloads) is installed.** Exports used to name a font that only exists inside Kova, so recipients had no way to install it. The font still isn't embedded in the file, so the machine opening it needs that free font installed (reported by @a1880, #272).
           - **Dense slides in PPTX exports now fit when opened.** Body text was exported at a fixed size and relied on PowerPoint's "shrink text on overflow", which only takes effect once a slide is edited, so busy slides (such as three columns of bullets) opened with text running off the bottom. Kova now scales the text down to fit before exporting, and warns you if a slide is too full to fit even at half size (reported by @a1880, #272).
+
+          ### Known issues
+          - **Icons in exported PPTX files show as blank boxes** unless the machine opening the file has [Symbols Nerd Font](https://www.nerdfonts.com/font-downloads) installed, as the icon font isn't embedded in the file (reported by @a1880, #272).
 
           ---
 
