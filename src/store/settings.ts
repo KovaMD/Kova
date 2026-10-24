@@ -64,17 +64,28 @@ export interface AppSettings {
   defaultThemeId: string;
   // Export
   pdfPageSize: 'a4' | 'letter' | 'slide';
-  /** Engine for ```mermaid blocks; 'pele' is experimental. */
+  /** Engine for ```mermaid blocks; Mermaid is kept as a fallback. */
   diagramRenderer: DiagramRenderer;
   // Startup
   startupBehavior: StartupBehavior;
 }
 
 const KEY = 'kova:settings';
+const SETTINGS_VERSION = 2;
+
+// Every save writes the full settings object, so a changed default never
+// reaches anyone who has saved before. Each step moves them across once.
+function migrate(s: AppSettings): AppSettings {
+  if (s.settingsVersion < 2) {
+    // v2: Pele replaced Mermaid as the default diagram renderer.
+    s = { ...s, diagramRenderer: 'pele' };
+  }
+  return { ...s, settingsVersion: SETTINGS_VERSION };
+}
 
 function buildDefaults(): AppSettings {
   return {
-    settingsVersion: 1,
+    settingsVersion: SETTINGS_VERSION,
     uiTheme: 'auto',
     locale: 'auto',
     uiScale: 1,
@@ -105,7 +116,7 @@ function buildDefaults(): AppSettings {
     editorContentWidth: 'fixed',
     defaultThemeId: 'light',
     pdfPageSize: 'a4',
-    diagramRenderer: 'mermaid',
+    diagramRenderer: 'pele',
     // Preserves existing behaviour (always launch blank) for anyone upgrading
     // — this only changes anything for users who explicitly opt in.
     startupBehavior: 'blank',
@@ -117,7 +128,8 @@ export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return defaults;
-    return { ...defaults, ...JSON.parse(raw) };
+    // Saved settings with no version predate versioning; treat them as v1.
+    return migrate({ ...defaults, settingsVersion: 1, ...JSON.parse(raw) });
   } catch {
     return defaults;
   }

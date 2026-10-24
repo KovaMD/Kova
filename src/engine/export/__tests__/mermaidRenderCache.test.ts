@@ -7,6 +7,7 @@ vi.stubGlobal('document', {
 });
 
 const { retargetMermaidSvgIds, cachedMermaidRender, getCachedMermaidSvg } = await import('../mermaidRenderQueue');
+const { setDiagramRenderer } = await import('../diagramRenderer');
 
 const svgFor = (id: string) =>
   `<svg id="${id}" width="10"><style>#${id} .node{fill:red}</style><marker id="${id}_arrow"/><path marker-end="url(#${id}_arrow)"/></svg>`;
@@ -27,7 +28,8 @@ describe('retargetMermaidSvgIds', () => {
 });
 
 describe('cachedMermaidRender', () => {
-  beforeEach(() => render.mockReset());
+  // Pele is the default; these cover the Mermaid path.
+  beforeEach(() => { setDiagramRenderer('mermaid'); render.mockReset(); });
 
   it('shares one render between concurrent callers and serves later ones from cache', async () => {
     render.mockImplementation(async (id: string) => ({ svg: svgFor(id) }));

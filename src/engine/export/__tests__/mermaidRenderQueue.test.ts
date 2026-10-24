@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import mermaid from 'mermaid';
 import { queuedMermaidRender } from '../mermaidRenderQueue';
+import { setDiagramRenderer } from '../diagramRenderer';
 
 vi.mock('mermaid', () => ({
   default: { render: vi.fn().mockResolvedValue({ svg: '<svg></svg>' }) },
@@ -15,6 +16,8 @@ vi.mock('mermaid', () => ({
 // these tests pin down the fixed-size container that replaces that reliance.
 describe('queuedMermaidRender render host', () => {
   beforeEach(() => {
+    // Pele is the default; these cover the Mermaid path.
+    setDiagramRenderer('mermaid');
     document.body.innerHTML = '';
     document.body.style.width = '';
     vi.mocked(mermaid.render).mockClear();

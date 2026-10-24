@@ -2,8 +2,8 @@ import { loadSettings, type DiagramRenderer } from '../../store/settings';
 import { mermaidSvgCache } from './mermaidSvgCache';
 
 /**
- * Which engine renders ```mermaid blocks: Mermaid itself or Pele (an
- * experimental, synchronous renderer; see peleRender.ts). Held at module level
+ * Which engine renders ```mermaid blocks: Pele (the default, a synchronous
+ * renderer; see peleRender.ts) or Mermaid itself as a fallback. Held at module level
  * because the render queue and exporters run outside React; MermaidDiagram
  * subscribes so open diagrams re-render when it changes.
  */

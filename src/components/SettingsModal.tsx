@@ -731,8 +731,8 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {([
-                { value: 'mermaid', label: t('settings.diagramRendererMermaid') },
                 { value: 'pele',    label: t('settings.diagramRendererPele')    },
+                { value: 'mermaid', label: t('settings.diagramRendererMermaid') },
               ] as { value: AppSettings['diagramRenderer']; label: string }[]).map(({ value, label }) => (
                 <button key={value} type="button" onClick={() => set('diagramRenderer', value)}
                   style={groupBtnStyle(settings.diagramRenderer === value)}
