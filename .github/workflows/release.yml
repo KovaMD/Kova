@@ -28,27 +28,14 @@ jobs:
           cat > /tmp/release-notes.md << 'NOTES'
           ## What's new
 
-          This is a minor release whose main purpose is to introduce **production code signing for Windows**.
+          ### New features
+          - **Autocomplete for directives and icon shortcodes.** Type `!` and a letter at the start of a line to see Kova's directives, each with a short description, then pick one to insert it ready to fill in. Type `:` and two letters to search icon shortcodes, with a preview of each icon. Suggestions stay out of the way inside code blocks, HTML comments and front matter (requested by @ilikegis, #275).
+          - **Experimental: a faster diagram renderer.** A new "Diagram renderer" option in Settings → Workspace can draw ` ```mermaid ` blocks with [Pele](https://github.com/obsidianmd/pele) instead of Mermaid. Pele is much faster and lighter, which helps diagram-heavy decks, but it's new and its layout differs slightly from Mermaid's, so Mermaid stays the default. Diagram types Pele doesn't support yet are still drawn by Mermaid, and PPTX and PDF exports keep your theme's colours with either renderer.
 
-          ### Windows code signing
-          - **Kova's Windows installers and app are now production-signed** via [SignPath](https://signpath.io), replacing the test signing used in earlier releases. Windows can now verify that the `.msi` and `_x64-setup.exe` genuinely come from the Kova project and haven't been tampered with.
-          - This should also stop the Windows Defender false positive (`Trojan:Win32/Wacatac.C!ml`) some users saw on earlier, test-signed builds (reported by @chotte, #224). SmartScreen may still show a warning on the first few downloads while the new certificate builds reputation with Microsoft.
-
-          ### Other changes
-          - **The slide progress bar can now be turned off.** A new "Show progress bar" toggle in Settings → Presentation hides the thin position bar along the bottom edge of the slides. It's on by default, so nothing changes unless you switch it off.
-          - **"Notes font size" now sits directly under "Display mode"** in Settings → Presentation, since it's the presenter option people adjust most often.
-          - **Updated German translation**, now covering find and replace, the status bar layout indicator, time remaining and the presenter countdown target (contributed by @a1880, #269).
-
-          ### Performance
-          - **Large, diagram-heavy decks no longer freeze the app when opened**, most noticeably on Linux. Slide thumbnails now render as they scroll into view rather than all at once, and the thumbnail list, main preview and presenter view share each Mermaid diagram instead of drawing it separately.
-          - The app stays responsive while diagrams are drawing, rather than locking up until every one has finished.
-          - Split, two- and three-column, BSP and code layouts no longer re-measure their content on every redraw.
-
-          ### Security
-          - Updated `source-map-js` to fix a high-severity denial-of-service issue. It's only used by the build tooling and isn't part of the installed app, so no installed copy of Kova was affected.
-
-          ### Known issues
-          - **Icons in exported PPTX files may not display.** They use the `Kova Icons` font, which isn't embedded in the file, so PowerPoint and Keynote only show them on machines where that font is installed.
+          ### Bug fixes
+          - **Icons now appear in HTML and PDF exports on Windows.** Exported files were still pointing back at the running app for the icon font and bundled theme fonts, so icons and those fonts went missing once the file was opened elsewhere (reported by @a1880, #272).
+          - **Icons in PPTX exports now display wherever [Symbols Nerd Font](https://www.nerdfonts.com/font-downloads) is installed.** Exports used to name a font that only exists inside Kova, so recipients had no way to install it. The font still isn't embedded in the file, so the machine opening it needs that free font installed (reported by @a1880, #272).
+          - **Dense slides in PPTX exports now fit when opened.** Body text was exported at a fixed size and relied on PowerPoint's "shrink text on overflow", which only takes effect once a slide is edited, so busy slides (such as three columns of bullets) opened with text running off the bottom. Kova now scales the text down to fit before exporting, and warns you if a slide is too full to fit even at half size (reported by @a1880, #272).
 
           ---
 
