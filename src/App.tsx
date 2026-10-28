@@ -2107,18 +2107,24 @@ export default function App() {
     setTimeout(() => editorRef.current?.scrollToSlide(insertAt), 50);
   }, []);
 
-  const handleToggleHidden = useCallback((index: number) => {
+  // Adds or removes a `<!-- name -->` marker line at the top of one slide.
+  const toggleSlideMarker = useCallback((index: number, name: 'hidden' | 'todo') => {
+    const re = new RegExp(`<!--\\s*${name}\\s*-->`);
+    const lineRe = new RegExp(`[ \\t]*<!--\\s*${name}\\s*-->[ \\t]*\\r?\\n?`);
     setContent((prev) => editSlideSegments(prev, (segments) => {
       if (index < 0 || index >= segments.length) return null;
       const next = [...segments];
       const seg = next[index];
-      next[index] = /<!--\s*hidden\s*-->/.test(seg)
-        ? seg.replace(/[ \t]*<!--\s*hidden\s*-->[ \t]*\r?\n?/, '')
-        : seg.replace(/^(\s*)/, '$1<!-- hidden -->\n');
+      next[index] = re.test(seg)
+        ? seg.replace(lineRe, '')
+        : seg.replace(/^(\s*)/, `$1<!-- ${name} -->\n`);
       return next;
     }, 'preserve'));
     setIsDirty(true);
   }, []);
+
+  const handleToggleHidden = useCallback((index: number) => toggleSlideMarker(index, 'hidden'), [toggleSlideMarker]);
+  const handleToggleTodo = useCallback((index: number) => toggleSlideMarker(index, 'todo'), [toggleSlideMarker]);
 
   function setSlideBackgroundInRaw(raw: string, src: string | null): string {
     // Keep formatting stable: only touch bg lines; keep other lines byte-identical.
@@ -2149,10 +2155,10 @@ export default function App() {
     }
 
     if (src && !handled) {
-      // Insert near the top, after leading blanks and a `<!-- hidden -->` marker if present.
+      // Insert near the top, after leading blanks and any `<!-- hidden -->`/`<!-- todo -->` markers.
       let i = 0;
       while (i < out.length && out[i].trim() === '') i++;
-      if ((out[i]?.trim() ?? '') === '<!-- hidden -->') i++;
+      while (/^<!--\s*(?:hidden|todo)\s*-->$/.test(out[i]?.trim() ?? '')) i++;
       out.splice(i, 0, formatBgLine({ src, size: 'cover' }));
       if (out[i + 1] && out[i + 1].trim() !== '') out.splice(i + 1, 0, '');
     }
@@ -2794,6 +2800,7 @@ export default function App() {
               onDuplicate={handleDuplicateSlide}
               onNewSlide={handleNewSlide}
               onToggleHidden={handleToggleHidden}
+              onToggleTodo={handleToggleTodo}
               onSetBackground={handleSetSlideBackground}
               onClearBackground={handleClearSlideBackground}
               onDelete={handleDeleteSlide}

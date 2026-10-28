@@ -1102,6 +1102,23 @@ describe('hidden slide marker', () => {
   });
 });
 
+// ── To-do slide marker (issue #273) ──────────────────────────────────────────
+
+describe('todo slide marker', () => {
+  it('<!-- todo --> sets todo, leaves the slide visible and adds no element', () => {
+    const { slides } = parseDocument(doc('## A\n\n---\n\n<!-- todo -->\n\n## B\n\n- Item\n'));
+    expect(slides.map((s) => !!s.todo)).toEqual([false, true]);
+    expect(slides[1].hidden).toBe(false);
+    expect(slides[1].elements.map((e) => e.type)).toEqual(['list']);
+  });
+
+  it('combines with <!-- hidden -->', () => {
+    const { slides } = parseDocument(doc('<!-- hidden -->\n<!-- todo -->\n\n## A\n'));
+    expect(slides[0]).toMatchObject({ hidden: true, todo: true, title: 'A' });
+    expect(slides[0].elements).toEqual([]);
+  });
+});
+
 // ── Per-slide text colour (issue #143) ───────────────────────────────────────
 
 describe('per-slide text colour', () => {

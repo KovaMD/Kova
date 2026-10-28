@@ -49,6 +49,8 @@
   --status-bg:     #161616;
   --backdrop:      rgba(0,0,0,0.55);
   --dirty-color:   #c07a30;
+  --todo-color:    #e5484d;
+  --todo-bg:       rgba(229,72,77,0.16);
   --font-ui:  -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
   --panel-min: 180px;
@@ -80,6 +82,8 @@
   --status-bg:     #e0e0e0;
   --backdrop:      rgba(0,0,0,0.35);
   --dirty-color:   #b85c00;
+  --todo-color:    #cd2b31;
+  --todo-bg:       rgba(205,43,49,0.12);
 }
 
 html, body, #root {

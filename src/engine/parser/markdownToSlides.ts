@@ -178,6 +178,7 @@ function parseSlide(raw: string, index: number, constants: Map<string, Value>): 
     : undefined;
 
   const hidden = /<!--\s*hidden\s*-->/.test(rawWithoutBg);
+  const todo = /<!--\s*todo\s*-->/.test(rawWithoutBg);
 
   // Per-slide text colour override. Kova uses `<!-- color: #fff -->`; Marp
   // decks use `<!-- _color: white -->`. Both set the same `textColor` field.
@@ -214,7 +215,7 @@ function parseSlide(raw: string, index: number, constants: Map<string, Value>): 
     }
   }
 
-  return { index, raw, title, titleLevel, subheadings, elements, speakerNotes: notes, references, layout, layoutOverride, hidden, backgroundImage, textColor, invert };
+  return { index, raw, title, titleLevel, subheadings, elements, speakerNotes: notes, references, layout, layoutOverride, hidden, todo, backgroundImage, textColor, invert };
 }
 
 // ── Custom syntax pre-processor ──────────────────────────────────────────────
@@ -368,9 +369,9 @@ function preprocess(content: string): PreprocessResult {
       continue;
     }
 
-    // Strip layout override + hidden comments (already captured above)
+    // Strip layout override + hidden/todo comments (already captured above)
     if (/^<!--\s*layout:/.test(t)) continue;
-    if (/^<!--\s*hidden\s*-->$/.test(t)) continue;
+    if (/^<!--\s*(?:hidden|todo)\s*-->$/.test(t)) continue;
     // Strip per-slide colour + invert directives (also captured above)
     if (/^<!--\s*(?:_?color)\s*:/.test(t)) continue;
     if (/^<!--\s*_class\s*:/.test(t)) continue;

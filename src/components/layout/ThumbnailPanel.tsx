@@ -16,6 +16,7 @@ interface Props {
   onDuplicate?: (index: number) => void;
   onNewSlide?: (index: number) => void;
   onToggleHidden?: (index: number) => void;
+  onToggleTodo?: (index: number) => void;
   onSetBackground?: (index: number) => void;
   onClearBackground?: (index: number) => void;
   onDelete?: (index: number) => void;
@@ -33,7 +34,7 @@ const THUMB_W = 140;
 // usually ready by the time it scrolls into view.
 const LAZY_MARGIN = '600px 0px';
 
-export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onReorderMultiple, onDuplicate, onNewSlide, onToggleHidden, onSetBackground, onClearBackground, onDelete, onDeleteMultiple, theme = DEFAULT_THEME, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 } }: Props) {
+export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onReorderMultiple, onDuplicate, onNewSlide, onToggleHidden, onToggleTodo, onSetBackground, onClearBackground, onDelete, onDeleteMultiple, theme = DEFAULT_THEME, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 } }: Props) {
   const t = useT();
   const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
 
@@ -368,6 +369,7 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onRe
                   isDragging={dragFromIndex !== null}
                   canDrag={Boolean(onReorder)}
                   isHidden={slide.hidden}
+                  isTodo={!!slide.todo}
                   onSelect={handleThumbClick}
                   onToggleHidden={onToggleHidden}
                   onDragStart={handleThumbMouseDown}
@@ -426,6 +428,11 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onRe
             label={slides[menu.index]?.hidden ? t('layout.showSlide') : t('layout.hideSlide')}
             disabled={!onToggleHidden}
             onClick={() => { onToggleHidden?.(menu.index); setMenu(null); }}
+          />
+          <MenuItem
+            label={slides[menu.index]?.todo ? t('layout.clearSlideTodo') : t('layout.markSlideTodo')}
+            disabled={!onToggleTodo}
+            onClick={() => { onToggleTodo?.(menu.index); setMenu(null); }}
           />
           <div role="separator" style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
           <MenuItem
@@ -491,6 +498,7 @@ interface ThumbnailProps {
   isDragging: boolean;
   canDrag: boolean;
   isHidden: boolean;
+  isTodo: boolean;
   onSelect: (index: number, e: React.MouseEvent) => void;
   onToggleHidden?: (index: number) => void;
   onDragStart: (index: number, e: React.MouseEvent) => void;
@@ -512,7 +520,7 @@ interface ThumbnailProps {
 // keystroke. `onSelect`/`onDragStart` are forwarded as stable function
 // references (bound internally below) rather than passed as pre-bound
 // closures, specifically so they don't defeat this memoization.
-const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive, isSelected, isDragSource, isDragging, canDrag, isHidden, onSelect, onToggleHidden, onDragStart, onContextMenu, theme, docTitle, docAuthor, docDate, slideH, scale, thumbH, scrollRoot }: ThumbnailProps) {
+const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive, isSelected, isDragSource, isDragging, canDrag, isHidden, isTodo, onSelect, onToggleHidden, onDragStart, onContextMenu, theme, docTitle, docAuthor, docDate, slideH, scale, thumbH, scrollRoot }: ThumbnailProps) {
   const t = useT();
   const thumbRef = useRef<HTMLDivElement>(null);
 
@@ -546,7 +554,7 @@ const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive,
         marginBottom: 8,
         cursor: canDrag ? 'grab' : 'pointer',
         borderRadius: 4,
-        border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+        border: `2px solid ${isActive ? 'var(--accent)' : isTodo ? 'var(--todo-color)' : 'var(--border)'}`,
         overflow: 'hidden',
         position: 'relative',
         userSelect: 'none',
@@ -626,6 +634,28 @@ const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive,
       >
         {index + 1}
       </div>
+
+      {/* To-do wash and flag (issue #273). Editor-only: the marker never
+          reaches presentation or export. */}
+      {isTodo && (
+        <>
+          <div style={{ position: 'absolute', inset: 0, background: 'var(--todo-bg)', pointerEvents: 'none' }} />
+          <div
+            title={t('layout.slideTodoBadge')}
+            style={{
+              position: 'absolute', top: 4, left: 5, zIndex: 1,
+              width: 20, height: 20, display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              borderRadius: 3, color: '#fff', background: 'var(--todo-color)',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+              <line x1="4" y1="22" x2="4" y2="15"/>
+            </svg>
+          </div>
+        </>
+      )}
 
       {/* Multi-select wash — painted over the slide render (which has its own
           opaque background), so it can't just live on the outer container. */}
