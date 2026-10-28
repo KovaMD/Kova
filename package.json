@@ -28,7 +28,7 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2",
-    "@tauri-apps/plugin-updater": "^2",
+    "@tauri-apps/plugin-updater": "^2.14.1",
     "@types/js-yaml": "^4.0.9",
     "@types/katex": "^0.16.8",
     "codemirror": "^6.0.2",
@@ -38,7 +38,7 @@
     "js-yaml": "^4.3.2",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
-    "katex": "^0.17.0",
+    "katex": "^0.19.1",
     "mdast-util-to-string": "^4.0.0",
     "mermaid": "^11.16.0",
     "pele": "1.9.1",
@@ -54,7 +54,7 @@
     "unified": "^11.0.5"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2",
+    "@tauri-apps/cli": "^2.12.4",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^6.0.2",
@@ -64,6 +64,7 @@
     "vitest": "^4.1.11"
   },
   "overrides": {
-    "image-size": "^2.0.4"
+    "image-size": "^2.0.4",
+    "katex": "$katex"
   }
 }
