@@ -250,19 +250,31 @@ function TocElement({ el }: { el: Extract<SlideElement, { type: 'toc' }> }) {
   if (el.entries.length === 0) {
     return <p className="sl-para" style={{ opacity: 0.5, fontStyle: 'italic' }}>{t('preview.noTitledSlidesFound')}</p>;
   }
-  const items = el.entries.map((entry, i) => (
-    <li key={i}>
-      {interactive ? (
-        <button className="sl-toc-link" onClick={(e) => { e.stopPropagation(); onNavigateTo!(entry.index); }}>
-          {entry.title}
-        </button>
-      ) : (
-        <span>{entry.title}</span>
-      )}
-    </li>
-  ));
+  // Only top-level entries take a number. Every <li> in an <ol> advances the
+  // counter even with its marker hidden, so top-level items set it explicitly.
+  let n = el.numberStart ?? 0;
+  const items = el.entries.map((entry, i) => {
+    const depth = entry.depth ?? 0;
+    const className = `sl-toc-entry${depth ? ' sl-toc-entry--sub' : el.nested ? ' sl-toc-entry--top' : ''}`;
+    return (
+      <li
+        key={i}
+        className={className}
+        value={tocNumbered && !depth ? ++n : undefined}
+        style={depth ? { '--toc-depth': depth } as React.CSSProperties : undefined}
+      >
+        {interactive ? (
+          <button className="sl-toc-link" onClick={(e) => { e.stopPropagation(); onNavigateTo!(entry.index); }}>
+            {entry.title}
+          </button>
+        ) : (
+          <span>{entry.title}</span>
+        )}
+      </li>
+    );
+  });
   return tocNumbered ? (
-    <ol className="sl-list sl-list--toc sl-list--toc-ordered" start={(el.numberStart ?? 0) + 1}>{items}</ol>
+    <ol className="sl-list sl-list--toc sl-list--toc-ordered">{items}</ol>
   ) : (
     <ul className="sl-list sl-list--toc">{items}</ul>
   );

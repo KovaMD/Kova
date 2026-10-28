@@ -1766,15 +1766,24 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
         break;
 
       case 'toc': {
-        const numberStart = el.numberStart ?? 0;
-        el.entries.forEach((entry, i) => {
+        // Mirrors TocElement: only top-level entries are numbered or bolded,
+        // deeper ones are indented 2em per level (issue #277). pptxgenjs only
+        // indents bulleted paragraphs, so sub-entries carry an invisible
+        // (no-break space) bullet whose indent sets the text position.
+        const subBase = t.toc.numbered ? 27 : 0; // pptxgenjs' default numbered-text indent, pt
+        let n = el.numberStart ?? 0;
+        el.entries.forEach((entry) => {
+          const depth = entry.depth ?? 0;
           startParagraph(el.step);
           runs.push({
             text: entry.title,
             options: {
-              ...(t.toc.numbered
-                ? { bullet: { type: 'number', numberType: 'arabicPeriod', numberStartAt: numberStart + i + 1 } }
+              ...(t.toc.numbered && !depth
+                ? { bullet: { type: 'number', numberType: 'arabicPeriod', numberStartAt: ++n } }
                 : {}),
+              ...(depth
+                ? { bullet: { characterCode: '00A0', indent: subBase + depth * 36 } }
+                : el.nested ? { bold: true } : {}),
               fontSize: 18, paraSpaceAfter: 4, breakLine: true,
             },
           });
@@ -2094,7 +2103,10 @@ function estimateRunsHeight(runs: TextRun[], w: number, scale: number): number {
     const runFs = ((o.fontSize as number | undefined) ?? 18) * scale;
     if (!open) {
       open = true;
-      indent = o.bullet ? BULLET_INDENT * (1 + ((o.indentLevel as number | undefined) ?? 0)) : 0;
+      // `bullet: { indent }` (pt) overrides the default per-level indent.
+      const customIndent = (o.bullet as { indent?: number } | undefined)?.indent;
+      const bulletIndent = customIndent ? customIndent / 72 : BULLET_INDENT;
+      indent = o.bullet ? bulletIndent * (1 + ((o.indentLevel as number | undefined) ?? 0)) : 0;
     }
     fs = Math.max(fs, runFs);
     spaceAfter = Math.max(spaceAfter, ((o.paraSpaceAfter as number | undefined) ?? 0) * scale);

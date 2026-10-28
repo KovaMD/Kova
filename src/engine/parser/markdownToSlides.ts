@@ -195,7 +195,7 @@ function parseSlide(raw: string, index: number, constants: Map<string, Value>): 
   const { content, notes } = extractSpeakerNotes(cleanContent);
 
   const tree = processor.parse(content) as Root;
-  let { title, titleLevel, elements } = convertRoot(tree, placeholders, sheets, content, constants);
+  let { title, titleLevel, subheadings, elements } = convertRoot(tree, placeholders, sheets, content, constants);
 
   let layout = layoutOverride ?? detectLayout(elements, titleLevel, !!title);
   let backgroundImage: Slide['backgroundImage'];
@@ -214,7 +214,7 @@ function parseSlide(raw: string, index: number, constants: Map<string, Value>): 
     }
   }
 
-  return { index, raw, title, titleLevel, elements, speakerNotes: notes, references, layout, layoutOverride, hidden, backgroundImage, textColor, invert };
+  return { index, raw, title, titleLevel, subheadings, elements, speakerNotes: notes, references, layout, layoutOverride, hidden, backgroundImage, textColor, invert };
 }
 
 // ── Custom syntax pre-processor ──────────────────────────────────────────────
@@ -393,6 +393,7 @@ function preprocess(content: string): PreprocessResult {
 interface ConvertResult {
   title: string;
   titleLevel: number;
+  subheadings: Array<{ title: string; level: number }>;
   elements: SlideElement[];
 }
 
@@ -405,6 +406,7 @@ function convertRoot(
 ): ConvertResult {
   let title = '';
   let titleLevel = 0;
+  const subheadings: Array<{ title: string; level: number }> = [];
   const elements: SlideElement[] = [];
   let pendingSheet: SheetOpts | undefined;
   // Single per-slide sequence: auto-increment continues across top-level
@@ -429,6 +431,7 @@ function convertRoot(
           // A secondary heading is body content, not the slide title — it can
           // carry a trailing step marker exactly like a plain paragraph.
           const { children: hChildren, step } = extractTrailingStep(h.children as Node[], assignStep);
+          subheadings.push({ title: toString({ ...h, children: hChildren }), level: h.depth });
           elements.push({
             type: 'paragraph',
             text: toString({ ...h, children: hChildren }),
@@ -575,7 +578,7 @@ function convertRoot(
     elements.push({ type: 'paragraph', text: '', html: '#ERR !sheet must sit directly above a table' });
   }
 
-  return { title, titleLevel, elements };
+  return { title, titleLevel, subheadings, elements };
 }
 
 function convertParagraph(p: Paragraph, assignStep: StepAssigner): SlideElement[] {

@@ -179,4 +179,27 @@ describe('autoSplitElements — single toc branch', () => {
     expect(left).toEqual([{ type: 'toc', entries: [entries[0]] }]);
     expect(right).toEqual([{ type: 'toc', entries: entries.slice(1), numberStart: 1 }]);
   });
+
+  it('counts only top-level entries towards numberStart', () => {
+    const entries = [
+      { title: 'x'.repeat(700), index: 0, depth: 0 },
+      { title: 'a', index: 0, depth: 1 },
+      { title: 'b', index: 1, depth: 0 },
+      { title: 'c', index: 2, depth: 0 },
+      { title: 'd', index: 3, depth: 0 },
+      { title: 'e', index: 4, depth: 0 },
+      { title: 'f', index: 5, depth: 0 },
+      { title: 'g', index: 6, depth: 0 },
+      { title: 'h', index: 7, depth: 0 },
+      { title: 'i', index: 8, depth: 0 },
+      { title: 'j', index: 9, depth: 0 },
+      { title: 'k', index: 10, depth: 0 },
+      { title: 'l', index: 11, depth: 0 },
+    ];
+    const [left, right] = autoSplitElements([{ type: 'toc', entries, nested: true }]);
+    const leftEntries = (left[0] as Extract<SlideElement, { type: 'toc' }>).entries;
+    const leftTop = leftEntries.filter((e) => !e.depth).length;
+    expect(leftTop).toBeLessThan(leftEntries.length);
+    expect(right[0]).toMatchObject({ numberStart: leftTop, nested: true });
+  });
 });

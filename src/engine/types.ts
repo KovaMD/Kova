@@ -40,13 +40,21 @@ export type SlideElement =
   | { type: 'poll';     label: string; url: string; step?: number }
   | { type: 'progress'; label: string; value: number; step?: number }
   | { type: 'column-break' }
-  | { type: 'toc'; entries: Array<{ title: string; index: number }>; numberStart?: number; step?: number };
+  | { type: 'toc'; entries: TocEntry[]; numberStart?: number; nested?: boolean; step?: number };
+
+/** One line of a `!toc`. `depth` is the heading's level minus the shallowest
+ *  level in the TOC (0 = shallowest), so skipped levels keep their gap, as in
+ *  Typora. Absent means 0. */
+export interface TocEntry { title: string; index: number; depth?: number }
 
 export interface Slide {
   index: number;
   raw: string;
   title: string;
   titleLevel: number;   // 1 = H1, 2 = H2, etc. (0 = no title)
+  /** Headings after the title, in document order. Rendered as body paragraphs
+   *  but still listed by `!toc` (issue #278). */
+  subheadings?: Array<{ title: string; level: number }>;
   elements: SlideElement[];
   speakerNotes: string;
   references: string[];   // academic citations set via !ref[...], rendered at bottom-right (HTML: bold/italic/code)

@@ -109,7 +109,8 @@ export function autoSplitElements(elements: SlideElement[]): [SlideElement[], Sl
     const mid = balancedSplitIndex(entries, (entry) => estimateTocEntryLines(entry.title));
     return [
       [{ ...toc, entries: entries.slice(0, mid) }],
-      [{ ...toc, entries: entries.slice(mid), numberStart: mid }],
+      // Only top-level entries are numbered, so carry their count, not mid.
+      [{ ...toc, entries: entries.slice(mid), numberStart: (toc.numberStart ?? 0) + entries.slice(0, mid).filter((e) => !e.depth).length }],
     ];
   }
   // Multiple elements: split by cumulative estimated line count for visual balance

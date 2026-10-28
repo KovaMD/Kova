@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { detectLayout } from '../engine/layout/autoLayout';
+import { buildTocEntries } from '../engine/toc';
 import { imageMime } from '../engine/export/imageMime';
 import { videoMime } from '../engine/export/videoMime';
 import type { Slide, ListItem } from '../engine/types';
@@ -135,17 +136,6 @@ export function useResolvedSlides(rawSlides: Slide[], docDir: string): Slide[] {
     }
     const { cache } = cacheHolder;
 
-    // Pre-compute TOC entries from all non-hidden, titled slides. Derived from
-    // rawSlides (titles are identical in raw vs resolved) so it's always current.
-    // TOC slides are excluded from the WeakMap cache below because their resolved
-    // content depends on other slides' titles, not just their own raw text.
-    // Exclude the first non-hidden H1 slide (the cover/title slide) from the TOC.
-    // Subsequent H1 hero slides within the deck are included.
-    const coverIndex = rawSlides.find((s) => !s.hidden && s.titleLevel === 1)?.index ?? -1;
-    const tocEntries = rawSlides
-      .filter((s) => !s.hidden && s.title && s.index !== coverIndex)
-      .map((s) => ({ title: s.title, index: s.index }));
-
     return rawSlides.map((slide) => {
       const hasToc = slide.elements.some((e) => e.type === 'toc');
       if (!hasToc) {
@@ -156,7 +146,13 @@ export function useResolvedSlides(rawSlides: Slide[], docDir: string): Slide[] {
         if (el.type === 'image' || el.type === 'video') return { ...el, src: resolveImageSrc(el.src, docDir, localImageUrls) };
         if (el.type === 'paragraph') return { ...el, html: resolveHtmlSrcs(el.html, docDir, localImageUrls) };
         if (el.type === 'list')      return { ...el, items: el.items.map(resolveItem) };
-        if (el.type === 'toc')       return { ...el, entries: tocEntries.filter((e) => e.index !== slide.index) };
+        if (el.type === 'toc') {
+          // Derived from rawSlides (headings are identical in raw vs resolved)
+          // so it's always current. TOC slides skip the WeakMap cache above
+          // because their content depends on other slides' headings.
+          const entries = buildTocEntries(rawSlides, slide.index);
+          return { ...el, entries, nested: entries.some((e) => e.depth) };
+        }
         return el;
       });
       // detectLayout ran at parse time against a placeholder toc with zero
