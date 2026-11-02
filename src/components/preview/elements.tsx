@@ -319,13 +319,38 @@ export function YoutubeEmbed({ embed }: { embed: Extract<SlideElement, { type: '
 
 export function VideoEmbed({ embed }: { embed: Extract<SlideElement, { type: 'video' }> }) {
   const { isThumbnail, revealThreshold, enteringStep } = useContext(SlideCtx);
+  const t = useT();
   // See the matching comment in YoutubeEmbed above — same self-gating
   // rationale, same MediaLayout bypass.
   const gateClass = stepGateClassName(embed.step, revealThreshold, enteringStep);
+  // The <video> is only mounted once the user clicks play (issue #253).
+  // WebKitGTK builds its GStreamer pipeline, audio sink included, as soon as
+  // a <video> with a src mounts, whatever preload says; on systems missing a
+  // sink plugin (e.g. autoaudiosink) that crashes the whole WebKitWebProcess
+  // just from rendering the slide. Keyed on src so editing the path drops
+  // back to the placeholder rather than loading the new file unasked.
+  // Exports swap the placeholder back for a real <video> via data-video-src
+  // (see resolveVideoPlaceholders in exportPdfNative.ts).
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const loaded = !isThumbnail && loadedSrc === embed.src;
   return (
     // stopPropagation so the player's controls don't trigger slide navigation.
     <div className={`sl-video${gateClass ? ` ${gateClass}` : ''}`} data-step={embed.step} onClick={(e) => e.stopPropagation()}>
-      <video className="sl-video__player" src={embed.src} controls={!isThumbnail} preload="none" playsInline />
+      {loaded
+        ? <video className="sl-video__player" src={embed.src} controls autoPlay playsInline />
+        : (
+          <button
+            type="button"
+            className="sl-video__placeholder"
+            data-video-src={embed.src}
+            disabled={isThumbnail}
+            aria-label={t('preview.playVideo')}
+            title={!isThumbnail ? t('preview.playVideo') : undefined}
+            onClick={() => setLoadedSrc(embed.src)}
+          >
+            <svg className="sl-video__play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+          </button>
+        )}
       {embed.label && <div className="sl-video__label">{embed.label}</div>}
     </div>
   );

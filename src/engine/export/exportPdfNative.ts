@@ -216,6 +216,7 @@ export async function buildInteractiveDocument(
     : '';
 
   const clones = slideElements.map((el) => el.cloneNode(true) as HTMLElement);
+  clones.forEach(resolveVideoPlaceholders);
   await Promise.all(clones.map((el) => Promise.all([resolveImages(el), resolveVideos(el)])));
   clones.forEach(injectMermaidFallbacks);
   clones.forEach(inlinePrintColorAdjust);
@@ -512,6 +513,26 @@ async function resolveImages(el: HTMLElement): Promise<void> {
     } catch { /* leave original src */ }
     if (dataUrl) img.src = dataUrl;
   }));
+}
+
+/**
+ * The preview only mounts a <video> once the user clicks play (issue #253),
+ * so a cloned slide normally holds a click-to-load placeholder instead. The
+ * interactive HTML deck plays in an ordinary browser, so swap each one back
+ * for a real player before resolveVideos inlines its src. Print/PDF output
+ * keeps the placeholder: a play-button frame reads better on paper than the
+ * black box an unloaded <video> rasterises to.
+ */
+export function resolveVideoPlaceholders(el: HTMLElement): void {
+  for (const ph of Array.from(el.querySelectorAll<HTMLElement>('.sl-video__placeholder[data-video-src]'))) {
+    const vid = el.ownerDocument.createElement('video');
+    vid.className = 'sl-video__player';
+    vid.setAttribute('src', ph.dataset.videoSrc ?? '');
+    vid.setAttribute('controls', '');
+    vid.setAttribute('preload', 'metadata');
+    vid.setAttribute('playsinline', '');
+    ph.replaceWith(vid);
+  }
 }
 
 async function resolveVideos(el: HTMLElement): Promise<void> {

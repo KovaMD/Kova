@@ -232,6 +232,7 @@ const en = {
     youtubePlaceholder: '▶ YouTube',
     clickToOpenInBrowser: 'Click to open in browser',
     openInBrowserTitle: 'Open in browser: {{url}}',
+    playVideo: 'Play video',
     rescaledToFit: 'rescaled to fit',
     noTitledSlidesFound: 'No titled slides found',
     pollQrUnavailable: 'QR code unavailable',
