@@ -278,6 +278,17 @@
   margin-top: 0.4em;
   margin-bottom: 0.4em;
 }
+/* Inside split/two-column/BSP panes, 1.6cqi resolves against the pane's own
+   (narrow) container rather than the slide, so captions shrank to a half or
+   third of their full-slide size and bottomed out at 7px (issue #279). Size
+   them relative to the pane's text instead: 0.64em is the same 1.6:2.5 ratio
+   .sl-caption has to .sl-body on a full-width slide. */
+.sl-split__right > .sl-pane-inner .sl-caption,
+.sl-two-col__col > .sl-pane-inner .sl-caption,
+.sl-bsp__pane > .sl-pane-inner .sl-caption,
+.sl-bsp__subpane > .sl-pane-inner .sl-caption {
+  font-size: clamp(7px, 0.64em, 14px);
+}
 
 .sl-blockquote {
   border-left: 3px solid var(--sl-accent);
