@@ -1234,12 +1234,14 @@ export default function App() {
     setActiveThemeId(id);
     setContent((prev) => {
       // Preserve user-configured values across theme switches: header/footer/toc
-      // content and any logo the user explicitly chose. Colour/font overrides
-      // are cleared since they were customising the old theme's palette.
+      // content, font choices (issue #281) and any logo the user explicitly
+      // chose. Colour overrides are cleared since they were customising the
+      // old theme's palette.
       const cur = sanitiseThemeOverrides(
         extractFrontmatter(prev).frontmatter.theme_overrides as Record<string, unknown> ?? {},
       );
       const kept: Record<string, unknown> = {};
+      if (cur.fonts !== undefined) kept.fonts = cur.fonts;
       if (cur.header !== undefined) kept.header = cur.header;
       if (cur.footer !== undefined) kept.footer = cur.footer;
       if (cur.toc !== undefined) kept.toc = cur.toc;
