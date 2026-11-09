@@ -125,6 +125,9 @@ const de: DeepPartial<Messages> = {
     duplicateSlide: 'Folie duplizieren', // Duplicate slide
     showSlide: 'Folie anzeigen', // Show slide
     hideSlide: 'Folie ausblenden', // Hide slide
+    markSlideTodo: 'Als zu bearbeiten markieren', // Mark as to-do
+    clearSlideTodo: 'Nicht mehr als zu bearbeiten markieren', // Clear to-do
+    slideTodoBadge: 'To-do: Diese Folie ist noch nicht fertig', // To-do: this slide still needs work
     setSlideBackground: 'Hintergrundbild für Folie setzen …', // Set slide background…
     clearSlideBackground: 'Hintergrundbild entfernen', // Clear background
     deleteSlide: 'Folie löschen', // Delete slide
@@ -216,6 +219,15 @@ const de: DeepPartial<Messages> = {
     menuTimeline: 'Zeitleiste', // Timeline
     menuSequenceDiagram: 'Sequenzdiagramm', // Sequence Diagram
     menuNoSuggestions: 'Keine Vorschläge', // No suggestions
+    directiveCaption: 'Beschriftung für das Element darüber', // Caption for the element above
+    directiveRef: 'Verweis auf Quelle', // Source reference
+    directiveToc: 'Inhaltsverzeichnis', // Table of contents
+    directiveYoutube: 'YouTube-Video einbetten', // Embed a YouTube video
+    directiveVideo: 'Video-Datei einbetten', // Embed a video file
+    directivePoll: 'Link auf Umfrage mit QR-Code', // Poll link with QR code
+    directiveProgress: 'Fortschrittsbalken', // Progress bar
+    directiveSheet: 'Rechne die folgende Tabelle durch', // Compute the table below
+    directiveLet: 'Definiere einen Wert für !sheet Tabellen', // Define a value for !sheet tables
     menuAddToDictionary: 'Zum Kova-Wörterbuch hinzufügen', // Add to Kova's dictionary
     menuIgnore: 'Ignorieren', // Ignore
     insertTableTitle: 'Tabelle einfügen', // Insert Table
@@ -227,6 +239,7 @@ const de: DeepPartial<Messages> = {
     youtubePlaceholder: '▶ YouTube', // ▶ YouTube
     clickToOpenInBrowser: 'Klicken, um im Browser zu öffnen', // Click to open in browser
     openInBrowserTitle: 'Im Browser öffnen: {{url}}', // Open in browser: {{url}}
+    playVideo: 'Video abspielen', // Play video
     rescaledToFit: 'Größe angepasst/skaliert', // rescaled to fit
     noTitledSlidesFound: 'Keine Folien mit Titel gefunden', // No titled slides found
     pollQrUnavailable: 'QR Code ist nicht verfügbar', // QR code unavailable
@@ -419,6 +432,10 @@ const de: DeepPartial<Messages> = {
     startupReopenLast: 'Zuletzt verwendete Datei erneut öffnen', // Reopen last file
     pdfPageSize: 'PDF-Seitengröße', // PDF page size
     pdfPageSizeDescription: 'Papierformat für den PDF-Export. Seiten werden im Querformat angeordnet.', // Paper size for PDF export. Pages are laid out landscape.
+    diagramRenderer: 'Renderer für Diagramme', // Diagram renderer
+    diagramRendererDescription: 'Renderer für Mermaid-Diagramme. Pele ist deutlich schneller; schalte auf Mermaid, wenn Diagramme nicht korrekt dargestellt werden. Darstellung und Stil unterscheiden sich leicht.', // Engine for Mermaid diagrams. Pele is much faster; switch to Mermaid if a diagram doesn't look right, as its layout and styling differ slightly.
+    diagramRendererMermaid: 'Mermaid (Rückfalloption)', // Mermaid (Fallback)
+    diagramRendererPele: 'Pele (Standardeinstellung)', // Pele (Default)
     pageSizeA4: 'A4', // A4
     pageSizeLetter: 'Letter', // Letter
     pageSizeSlide: 'Entsprechend der Folien-Größe', // Match slide size
