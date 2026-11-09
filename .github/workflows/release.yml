@@ -29,12 +29,18 @@ jobs:
           ## What's new
 
           ### New features
-          - **Autocomplete for directives and icon shortcodes.** Type `!` and a letter at the start of a line to see Kova's directives, each with a short description, then pick one to insert it ready to fill in. Type `:` and two letters to search icon shortcodes, with a preview of each icon. Suggestions stay out of the way inside code blocks, HTML comments and front matter (requested by @ilikegis, #275).
-          - **Experimental: a faster diagram renderer.** A new "Diagram renderer" option in Settings → Workspace can draw ` ```mermaid ` blocks with [Pele](https://github.com/obsidianmd/pele) instead of Mermaid. Pele is much faster and lighter, which helps diagram-heavy decks, but it's new and its layout differs slightly from Mermaid's, so Mermaid stays the default. Diagram types Pele doesn't support yet are still drawn by Mermaid, and PPTX and PDF exports keep your theme's colours with either renderer.
+          - **Pele is now the default diagram renderer.** After a release as an experimental option, Pele now draws ` ```mermaid ` blocks by default because it is faster and lighter. If you picked Mermaid before, you'll be moved to Pele once. Choose "Mermaid (Fallback)" in Settings → Workspace to switch back, and that choice will stick. Diagram types Pele doesn't support yet are still drawn by Mermaid.
+          - **Flag slides as to-do.** Add a `<!-- todo -->` line to a slide, or right-click its thumbnail and choose "Mark as to-do", to mark it as still needing work. Flagged slides get a red border and a flag badge in the thumbnail panel. The marker only shows in the editor, so the slide still presents and exports as normal (suggested by @ilikegis, #273).
+          - **Nested table of contents.** `!toc` entries are now indented by heading level: the top level is bold and each deeper level is indented further. In a numbered TOC only top-level entries are numbered. PPTX export matches (requested by @ilikegis, #277).
+          - **Font choices survive a theme switch.** Fonts you've overridden are kept when you change theme, instead of resetting to the new theme's defaults (requested by @StefanZander, #281).
 
           ### Bug fixes
-          - **Icons now appear in HTML and PDF exports on Windows.** Exported files were still pointing back at the running app for the icon font and bundled theme fonts, so icons and those fonts went missing once the file was opened elsewhere (reported by @a1880, #272).
-          - **Dense slides in PPTX exports now fit when opened.** Body text was exported at a fixed size and relied on PowerPoint's "shrink text on overflow", which only takes effect once a slide is edited, so busy slides (such as three columns of bullets) opened with text running off the bottom. Kova now scales the text down to fit before exporting, and warns you if a slide is too full to fit even at half size (reported by @a1880, #272).
+          - **`!toc` now lists every heading on a slide**, not just the first, so a `### Section 1.1` on the same slide as `## Section 1` is no longer dropped (reported by @ilikegis, #278).
+          - **Figure captions in split, two-column and three-column slides are no longer tiny.** Captions in those panes were sized against the narrow pane instead of the slide, so they often hit the minimum size. They are now sized relative to the pane's text (reported by @ilikegis, #279).
+          - **Icon shortcodes no longer sit low next to text.** Icons are now lifted to line up with the middle of capital letters, which suits headings and list labels (reported by @StefanZander, #282).
+          - **Fewer crashes from video slides on Linux.** Some systems crashed as soon as a video slide was shown. Video slides now show a placeholder, and the player is only created when you click play. The interactive HTML export still includes working players (reported by @Testorakel, #253; follow-up by @jack3308).
+          - **German translation updated** for the 0.8.2 features (by @a1880, #276).
+          - **Security updates** to bundled dependencies, including DOMPurify, KaTeX and the Tauri updater.
 
           ### Known issues
           - **Icons in exported PPTX files show as blank boxes** unless the machine opening the file has [Symbols Nerd Font](https://www.nerdfonts.com/font-downloads) installed, as the icon font isn't embedded in the file (reported by @a1880, #272).
