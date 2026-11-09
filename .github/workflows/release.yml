@@ -297,6 +297,9 @@ jobs:
               libEGL.so* libGL.so* libGLX.so* libGLdispatch.so* libOpenGL.so* \
               libGLESv2.so* libgbm.so* libdrm.so* libEGL_mesa.so* libgallium*.so* \
               && rm -rf dri/ )
+          # --appimage-extract leaves the tree at 0700, which appimagetool's
+          # permission check (continuous builds since 2026-11-06) rejects.
+          chmod -R a+rX "$APPIMAGE_DIR/squashfs-root"
 
           wget -qO /tmp/appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x /tmp/appimagetool
