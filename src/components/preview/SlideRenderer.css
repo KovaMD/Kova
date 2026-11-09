@@ -855,7 +855,9 @@
   font-weight: normal;   /* or bold inside **strong** */
   display: inline-block;
   line-height: 1;
-  vertical-align: -0.1em;
+  /* Nerd Font glyphs are centred 0.30em above the baseline; lift them to
+     roughly cap-height centre so they line up with capitals (issue #282). */
+  vertical-align: 0.05em;
 }
 
 /* ── Overflow badge ──────────────────────────────────────────────────────── */

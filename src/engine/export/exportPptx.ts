@@ -1375,6 +1375,9 @@ function htmlToInlineRuns(
           // code/bold/italic formatting — checked first so an icon inside a
           // stray `isCode` context (shouldn't happen, but not load-bearing on
           // the parser never producing one) still gets the right glyph.
+          // No vertical lift to match .sl-icon's 0.05em (issue #282): the only
+          // run-level offset is `baseline`, which PowerPoint and LibreOffice
+          // treat as superscript and shrink the glyph to ~60%.
           ...(f.isIcon ? { fontFace: iconFont }
             : f.isCode ? { fontFace: codeFont } : {}),
         },
