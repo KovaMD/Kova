@@ -50,10 +50,10 @@ block2 = "0.6"
 [target.'cfg(target_os = "windows")'.dependencies]
 # Native PDF export via ICoreWebView2_7::PrintToPdf. Versions are pinned to what
 # Tauri/wry already pull in transitively so the lockfile doesn't change.
-webview2-com = "0.38"
+webview2-com = "0.39"
 # Win32_System_Console: AttachConsole for CLI output — release builds use the
 # GUI subsystem, so --help/--version/errors need the parent terminal's console.
-windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Console"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = { version = "0.18", features = [] }
