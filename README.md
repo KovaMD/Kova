@@ -23,6 +23,7 @@ Kova turns plain Markdown into polished slides — with live preview, multiple l
 - **Math, code & diagrams** — KaTeX math, highlight.js syntax highlighting, and Mermaid charts
 - **Icons** — `:name:` shortcodes (e.g. `:rocket:`) from a bundled Nerd Fonts symbol set, carried through to PPTX export
 - **Rich media** — images, local video, YouTube embeds, and QR codes
+- **Callouts** — Obsidian/GitHub-style admonition boxes (`> [!note]`, `info`, `tip`, `warning`, `danger`, plus 21 aliases) with editor autocomplete and PPTX export. See [`examples/callouts-demo.md`](examples/callouts-demo.md)
 - **Fullscreen presentation** — keyboard and click navigation, plus a presenter view with speaker notes, next-slide preview, and an elapsed or countdown timer
 - **Build-reveal animations** — mark a bullet, image, or other element with `<!-- step -->` to reveal it on its own click, in presentation, the interactive HTML export, and native PowerPoint builds
 - **Export** — PowerPoint (16:9 and 4:3, including build animations), PDF (with speaker notes and multi-slide handouts), and standalone HTML

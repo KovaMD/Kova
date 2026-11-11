@@ -4,7 +4,7 @@ import { EditorState } from '@codemirror/state';
 import { CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { markdown } from '@codemirror/lang-markdown';
 import { ensureSyntaxTree } from '@codemirror/language';
-import { directiveSource, iconSource, kovaCompletions } from '../completions';
+import { calloutSource, directiveSource, iconSource, kovaCompletions } from '../completions';
 import { createTranslator } from '../../../i18n/translate';
 
 // `|` marks the cursor.
@@ -16,6 +16,7 @@ function ctx(docWithCursor: string, explicit = false): CompletionContext {
 }
 
 const directives = directiveSource(() => createTranslator(null, 'en'));
+const callouts = calloutSource(() => createTranslator(null, 'en'));
 const labels = (r: CompletionResult | null) => r?.options.map((o) => o.label) ?? [];
 
 describe('directive completions', () => {
@@ -83,6 +84,54 @@ describe('icon completions', () => {
   });
 });
 
+describe('callout completions', () => {
+  it('offers canonical callouts and aliases after `> [!`', () => {
+    const r = callouts(ctx('> [!|')) as CompletionResult | null;
+    expect(labels(r)).toEqual(expect.arrayContaining([
+      '[!note]', '[!info]', '[!tip]', '[!warning]', '[!danger]',
+      '[!abstract]', '[!caution]', '[!tldr]', '[!faq]', '[!bug]',
+    ]));
+    expect(r!.from).toBe('> '.length);
+  });
+
+  it('allows leading indentation and optional space after `>`', () => {
+    expect(labels(callouts(ctx('  > [!wa|')))).toContain('[!warning]');
+    expect(labels(callouts(ctx('>[!no|')))).toContain('[!note]');
+  });
+
+  it('matches callout markers case-insensitively', () => {
+    const r = callouts(ctx('> [!WA|')) as CompletionResult | null;
+    expect(r?.validFor).toBeInstanceOf(RegExp);
+    expect((r!.validFor as RegExp).test('[!WA')).toBe(true);
+    expect(labels(r)).toContain('[!warning]');
+  });
+
+  it('boosts canonical styles above aliases and includes descriptions', () => {
+    const r = callouts(ctx('> [!|')) as CompletionResult;
+    const tip = r.options.find((o) => o.label === '[!tip]')!;
+    const caution = r.options.find((o) => o.label === '[!caution]')!;
+    expect(tip.detail).toBe('Tip callout');
+    expect(caution.detail).toBe('Alias for [!warning]');
+    expect(tip.boost ?? 0).toBeGreaterThan(caution.boost ?? 0);
+  });
+
+  it('ignores plain `[` in a blockquote, nested quotes, and mid-line `>`', () => {
+    expect(callouts(ctx('> [link|'))).toBeNull();
+    expect(callouts(ctx('> > [!no|'))).toBeNull();
+    expect(callouts(ctx('Text > [!no|'))).toBeNull();
+  });
+
+  it('ignores fenced code, inline code, and front matter', () => {
+    expect(callouts(ctx('```\n> [!no|\n```'))).toBeNull();
+    expect(callouts(ctx('Use `> [!no|` here'))).toBeNull();
+    expect(callouts(ctx('---\ntitle: > [!no|\n---\n\n# Hi'))).toBeNull();
+  });
+
+  it('works after front matter has closed', () => {
+    expect(labels(callouts(ctx('---\ntitle: X\n---\n\n> [!ti|')))).toContain('[!tip]');
+  });
+});
+
 describe('kovaCompletions', () => {
   // autocompletion matches results to sources by identity; a source rebuilt on
   // every lookup orphaned each query and the directive popup never appeared.
@@ -90,7 +139,7 @@ describe('kovaCompletions', () => {
     const state = EditorState.create({ doc: '!ca', extensions: [markdown(), kovaCompletions(() => createTranslator(null, 'en'))] });
     const a = state.languageDataAt<unknown>('autocomplete', 3);
     const b = state.languageDataAt<unknown>('autocomplete', 3);
-    expect(a.length).toBeGreaterThanOrEqual(2);
+    expect(a.length).toBeGreaterThanOrEqual(3);
     a.forEach((src, i) => expect(src).toBe(b[i]));
   });
 });
