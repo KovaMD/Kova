@@ -10,13 +10,14 @@ import { syntaxTree } from '@codemirror/language';
 import { EditorState, type Extension } from '@codemirror/state';
 import { ICONS } from '../../engine/icons';
 import { registerBundledFonts } from '../../engine/bundledFonts';
+import { CALLOUT_ALIASES, CALLOUT_CANONICAL_STYLES, type CalloutStyle } from '../../engine/parser/callouts';
 import type { Translator } from '../../i18n';
 import type { MessageKey } from '../../i18n/types';
 
-// Autocomplete for Kova's own syntax (issue #275): `!directive` lines and
-// `:icon:` shortcodes. basicSetup already enables CodeMirror's autocompletion,
-// so these are registered as language-data sources rather than a second
-// autocompletion() with an override.
+// Autocomplete for Kova's own syntax (issue #275): `!directive` lines,
+// `> [!callout]` markers, and `:icon:` shortcodes. basicSetup already enables
+// CodeMirror's autocompletion, so these are registered as language-data
+// sources rather than a second autocompletion() with an override.
 
 // Every directive must start its line (the parser matches them on the trimmed
 // line), so the source only fires there. `${}` is an empty snippet field —
@@ -96,6 +97,46 @@ export function iconSource(ctx: CompletionContext): CompletionResult | null {
   return { from: m.from, options: iconOptions, validFor: /^:[a-z0-9-]*$/ };
 }
 
+const CALLOUT_DETAIL_KEYS: Record<CalloutStyle, MessageKey> = {
+  note: 'editor.calloutNote',
+  info: 'editor.calloutInfo',
+  tip: 'editor.calloutTip',
+  warning: 'editor.calloutWarning',
+  danger: 'editor.calloutDanger',
+};
+
+const SORTED_CALLOUT_ALIASES = Object.entries(CALLOUT_ALIASES).sort(([a], [b]) => a.localeCompare(b));
+
+/** Completes `[!type]` callout markers on a leading `>` blockquote line. */
+export function calloutSource(getT: () => Translator): CompletionSource {
+  return (ctx: CompletionContext): CompletionResult | null => {
+    const line = ctx.state.doc.lineAt(ctx.pos);
+    const before = line.text.slice(0, ctx.pos - line.from);
+    // Match only a single leading `>` blockquote line; nested `> >` quotes do not parse as callouts.
+    const m = /^\s*>\s*(\[![a-z0-9-]*)$/i.exec(before);
+    if (!m || suppressed(ctx)) return null;
+    const t = getT();
+    const canonical = CALLOUT_CANONICAL_STYLES.map((style) =>
+      snippetCompletion(`[!${style}] \${}`, {
+        label: `[!${style}]`,
+        detail: t(CALLOUT_DETAIL_KEYS[style]),
+        boost: 1,
+      }),
+    );
+    const aliases = SORTED_CALLOUT_ALIASES.map(([alias, style]) =>
+      snippetCompletion(`[!${alias}] \${}`, {
+        label: `[!${alias}]`,
+        detail: t('editor.calloutAlias', { style }),
+      }),
+    );
+    return {
+      from: ctx.pos - m[1].length,
+      options: [...canonical, ...aliases],
+      validFor: /^\[![a-z0-9-]*$/i,
+    };
+  };
+}
+
 export function kovaCompletions(getT: () => Translator): Extension {
   // The popup draws each icon's glyph, so the font must be loaded even when
   // the active theme (e.g. a community one) doesn't declare it.
@@ -104,8 +145,13 @@ export function kovaCompletions(getT: () => Translator): Extension {
   // runs on every lookup — a fresh closure each time would orphan every
   // in-flight query, leaving the popup stuck pending.
   const directives = directiveSource(getT);
+  const callouts = calloutSource(getT);
   return [
-    EditorState.languageData.of(() => [{ autocomplete: directives }, { autocomplete: iconSource }]),
+    EditorState.languageData.of(() => [
+      { autocomplete: directives },
+      { autocomplete: callouts },
+      { autocomplete: iconSource },
+    ]),
     autocompletion({
       addToOptions: [{
         position: 30,

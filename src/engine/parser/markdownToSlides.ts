@@ -17,6 +17,7 @@ import { collectConstants } from '../sheet/constants';
 import { evaluateSheet, isFooterRow, parseSheetDirective, type SheetOpts } from '../sheet/sheet';
 import type { Value } from '../sheet/evaluate';
 import { matchStepMarker, createStepAssigner, STEP_MARKER_PATTERN, type StepAssigner } from './stepMarkers';
+import { CALLOUT_RE, resolveCalloutStyle } from './callouts';
 import { ICONS, ICON_SHORTCODE_RE } from '../icons';
 
 const processor = unified().use(remarkParse).use(remarkGfm).use(remarkMath);
@@ -717,24 +718,7 @@ function clearListItemSteps(items: ListItem[]): ListItem[] {
 
 // Obsidian/GitHub-style callout marker: the first line of a blockquote reading
 // `[!type]` (optionally `[!type] Custom Title`) turns it into an admonition box
-// instead of a plain quote. `type` is folded to one of five canonical styles via
-// CALLOUT_ALIASES so common synonyms (caution, error, hint, ...) still render
-// sensibly instead of falling back to a generic look.
-const CALLOUT_STYLES = new Set(['note', 'tip', 'warning', 'danger', 'info']);
-const CALLOUT_ALIASES: Record<string, string> = {
-  hint: 'tip', important: 'tip', success: 'tip', check: 'tip', done: 'tip',
-  caution: 'warning', attention: 'warning',
-  error: 'danger', failure: 'danger', fail: 'danger', bug: 'danger', missing: 'danger',
-  question: 'info', help: 'info', faq: 'info',
-  abstract: 'note', summary: 'note', tldr: 'note', quote: 'note', cite: 'note', example: 'note',
-};
-const CALLOUT_RE = /^\[!([A-Za-z][\w-]*)\]([+-]?)\s*(.*)$/;
-
-function resolveCalloutStyle(rawType: string): string {
-  const key = rawType.toLowerCase();
-  return CALLOUT_STYLES.has(key) ? key : (CALLOUT_ALIASES[key] ?? 'note');
-}
-
+// instead of a plain quote. Canonical styles and aliases live in `./callouts`.
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
