@@ -33,7 +33,7 @@
 <p:spPr>
 <a:xfrm>
 <a:off x="457200" y="457200"/>
-<a:ext cx="8229600" cy="2326005"/>
+<a:ext cx="8229600" cy="2640330"/>
 </a:xfrm>
 <a:prstGeom prst="rect">
 <a:avLst>
@@ -77,8 +77,8 @@
 </p:nvSpPr>
 <p:spPr>
 <a:xfrm>
-<a:off x="457200" y="2920365"/>
-<a:ext cx="8229600" cy="1765935"/>
+<a:off x="457200" y="3234690"/>
+<a:ext cx="8229600" cy="2023110"/>
 </a:xfrm>
 <a:prstGeom prst="rect">
 <a:avLst>
@@ -106,7 +106,7 @@
 <a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
 <a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
 </a:rPr>
-<a:t>Characterises known bug B1: a 16:10 deck currently exports as 16:9.</a:t>
+<a:t>Pins the 16:10 export at 10 x 6.25 in (bug B1, fixed: it used to export as 16:9).</a:t>
 </a:r>
 <a:endParaRPr lang="en-US" sz="2000" dirty="0"/>
 </a:p>

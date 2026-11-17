@@ -15,9 +15,9 @@ import { BUILT_IN_THEMES, DEFAULT_THEME, sanitiseThemeOverrides, type Theme } fr
 // ./__snapshots__/pptxGolden/<fixture>/. Later refactor cards move code around
 // exportPptx.ts and must keep every golden file byte-identical.
 //
-// These snapshots pin *current* behaviour, bugs included (e.g. B1: a 16:10
-// deck exports as 16:9, see fixtures/07-aspect-16x10.md). If a deliberate
-// behaviour change alters the output, regenerate with `npx vitest run -u
+// These snapshots pin *current* behaviour, bugs included. If a deliberate
+// behaviour change alters the output (as the B1 fix did for
+// fixtures/07-aspect-16x10.md), regenerate with `npx vitest run -u
 // src/engine/export/__tests__/pptxGolden.test.ts` and review the XML diff.
 
 // No Tauri backend in tests: every IPC call fails, which is what the export
