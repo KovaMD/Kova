@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+<p:cSld name="Slide 5">
+<p:bg>
+<p:bgPr>
+<a:solidFill>
+<a:srgbClr val="FFFFFF"/>
+</a:solidFill>
+</p:bgPr>
+</p:bg>
+<p:spTree>
+<p:nvGrpSpPr>
+<p:cNvPr id="1" name=""/>
+<p:cNvGrpSpPr/>
+<p:nvPr/>
+</p:nvGrpSpPr>
+<p:grpSpPr>
+<a:xfrm>
+<a:off x="0" y="0"/>
+<a:ext cx="0" cy="0"/>
+<a:chOff x="0" y="0"/>
+<a:chExt cx="0" cy="0"/>
+</a:xfrm>
+</p:grpSpPr>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="2" name="Shape 0">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="457200" y="2980944"/>
+<a:ext cx="8229600" cy="1033272"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:solidFill>
+<a:srgbClr val="003366"/>
+</a:solidFill>
+<a:ln>
+</a:ln>
+</p:spPr>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="3" name="Text 1">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="594360" y="3118104"/>
+<a:ext cx="2743200" cy="228600"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="square" rtlCol="0" anchor="b">
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="900" spc="100" kern="0" dirty="0">
+<a:solidFill>
+<a:srgbClr val="CC0000"/>
+</a:solidFill>
+<a:latin typeface="Courier New" pitchFamily="34" charset="0"/>
+<a:ea typeface="Courier New" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Courier New" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>BASH</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="900" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="4" name="Shape 2">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="594360" y="3401568"/>
+<a:ext cx="7955280" cy="475488"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:solidFill>
+<a:srgbClr val="0D1117"/>
+</a:solidFill>
+<a:ln>
+</a:ln>
+</p:spPr>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="5" name="Text 3">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="731520" y="3538728"/>
+<a:ext cx="7680960" cy="201168"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="none" rtlCol="0" anchor="t">
+<a:normAutofit/>
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1200" dirty="0">
+<a:solidFill>
+<a:srgbClr val="FFA657"/>
+</a:solidFill>
+<a:latin typeface="Courier New" pitchFamily="34" charset="0"/>
+<a:ea typeface="Courier New" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Courier New" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>echo</a:t>
+</a:r>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1200" dirty="0">
+<a:solidFill>
+<a:srgbClr val="C9D1D9"/>
+</a:solidFill>
+<a:latin typeface="Courier New" pitchFamily="34" charset="0"/>
+<a:ea typeface="Courier New" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Courier New" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t> </a:t>
+</a:r>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1200" dirty="0">
+<a:solidFill>
+<a:srgbClr val="A5D6FF"/>
+</a:solidFill>
+<a:latin typeface="Courier New" pitchFamily="34" charset="0"/>
+<a:ea typeface="Courier New" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Courier New" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>&quot;code only&quot;</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="1200" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="6" name="Shape 4">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="0" y="0"/>
+<a:ext cx="9144000" cy="365760"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:solidFill>
+<a:srgbClr val="003366"/>
+</a:solidFill>
+<a:ln>
+</a:ln>
+</p:spPr>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="7" name="Shape 5">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="0" y="6537960"/>
+<a:ext cx="9144000" cy="18288"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:solidFill>
+<a:srgbClr val="CC0000"/>
+</a:solidFill>
+<a:ln>
+</a:ln>
+</p:spPr>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="8" name="kova:footer-text">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="457200" y="6556248"/>
+<a:ext cx="7223760" cy="301752"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="square" rtlCol="0" anchor="ctr">
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="900" dirty="0">
+<a:solidFill>
+<a:srgbClr val="111111"/>
+</a:solidFill>
+<a:latin typeface="Arial" pitchFamily="34" charset="0"/>
+<a:ea typeface="Arial" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Arial" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>Four by Three</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="900" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="9" name="kova:slidenum">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="7680960" y="6556248"/>
+<a:ext cx="1005840" cy="301752"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="square" rtlCol="0" anchor="ctr">
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr algn="r" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="900" dirty="0">
+<a:solidFill>
+<a:srgbClr val="111111"/>
+</a:solidFill>
+<a:latin typeface="Arial" pitchFamily="34" charset="0"/>
+<a:ea typeface="Arial" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Arial" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>5 / 5</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="900" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+</p:spTree>
+</p:cSld>
+<p:clrMapOvr>
+<a:masterClrMapping/>
+</p:clrMapOvr>
+<p:transition spd="fast" p14:dur="300" xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main">
+<p:fade thruBlk="1"/>
+</p:transition>
+</p:sld>

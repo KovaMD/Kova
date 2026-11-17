@@ -1,0 +1,733 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+<p:cSld name="Slide 4">
+<p:bg>
+<p:bgPr>
+<a:solidFill>
+<a:srgbClr val="FFFFFF"/>
+</a:solidFill>
+</p:bgPr>
+</p:bg>
+<p:spTree>
+<p:nvGrpSpPr>
+<p:cNvPr id="1" name=""/>
+<p:cNvGrpSpPr/>
+<p:nvPr/>
+</p:nvGrpSpPr>
+<p:grpSpPr>
+<a:xfrm>
+<a:off x="0" y="0"/>
+<a:ext cx="0" cy="0"/>
+<a:chOff x="0" y="0"/>
+<a:chExt cx="0" cy="0"/>
+</a:xfrm>
+</p:grpSpPr>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="2" name="Text 0">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="457200" y="457200"/>
+<a:ext cx="8229600" cy="594360"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="square" rtlCol="0" anchor="ctr">
+<a:normAutofit/>
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="2400" b="1" dirty="0">
+<a:solidFill>
+<a:srgbClr val="1A1A1A"/>
+</a:solidFill>
+<a:latin typeface="Inter" pitchFamily="34" charset="0"/>
+<a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>Grid Layout</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="2400" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="3" name="Text 1">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="457200" y="1143000"/>
+<a:ext cx="4023360" cy="1680210"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="square" rtlCol="0" anchor="t">
+<a:normAutofit/>
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1800" dirty="0">
+<a:solidFill>
+<a:srgbClr val="1A1A1A"/>
+</a:solidFill>
+<a:latin typeface="Inter" pitchFamily="34" charset="0"/>
+<a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>First paragraph cell.</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="1800" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="4" name="Shape 2">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="4663440" y="1466469"/>
+<a:ext cx="4023360" cy="1033272"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:solidFill>
+<a:srgbClr val="1B3A5C"/>
+</a:solidFill>
+<a:ln>
+</a:ln>
+</p:spPr>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="5" name="Text 3">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="4800600" y="1603629"/>
+<a:ext cx="2743200" cy="228600"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="square" rtlCol="0" anchor="b">
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="900" spc="100" kern="0" dirty="0">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:latin typeface="JetBrains Mono" pitchFamily="34" charset="0"/>
+<a:ea typeface="JetBrains Mono" pitchFamily="34" charset="-122"/>
+<a:cs typeface="JetBrains Mono" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>JS</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="900" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="6" name="Shape 4">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="4800600" y="1887093"/>
+<a:ext cx="3749040" cy="475488"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:solidFill>
+<a:srgbClr val="0D1117"/>
+</a:solidFill>
+<a:ln>
+</a:ln>
+</p:spPr>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="7" name="Text 5">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="4937760" y="2024253"/>
+<a:ext cx="3474720" cy="201168"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="none" rtlCol="0" anchor="t">
+<a:normAutofit/>
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1200" dirty="0">
+<a:solidFill>
+<a:srgbClr val="FF7B72"/>
+</a:solidFill>
+<a:latin typeface="JetBrains Mono" pitchFamily="34" charset="0"/>
+<a:ea typeface="JetBrains Mono" pitchFamily="34" charset="-122"/>
+<a:cs typeface="JetBrains Mono" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>const</a:t>
+</a:r>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1200" dirty="0">
+<a:solidFill>
+<a:srgbClr val="C9D1D9"/>
+</a:solidFill>
+<a:latin typeface="JetBrains Mono" pitchFamily="34" charset="0"/>
+<a:ea typeface="JetBrains Mono" pitchFamily="34" charset="-122"/>
+<a:cs typeface="JetBrains Mono" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t> x = </a:t>
+</a:r>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1200" dirty="0">
+<a:solidFill>
+<a:srgbClr val="79C0FF"/>
+</a:solidFill>
+<a:latin typeface="JetBrains Mono" pitchFamily="34" charset="0"/>
+<a:ea typeface="JetBrains Mono" pitchFamily="34" charset="-122"/>
+<a:cs typeface="JetBrains Mono" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>1</a:t>
+</a:r>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1200" dirty="0">
+<a:solidFill>
+<a:srgbClr val="C9D1D9"/>
+</a:solidFill>
+<a:latin typeface="JetBrains Mono" pitchFamily="34" charset="0"/>
+<a:ea typeface="JetBrains Mono" pitchFamily="34" charset="-122"/>
+<a:cs typeface="JetBrains Mono" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>;</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="1200" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+<p:graphicFrame>
+<p:nvGraphicFramePr>
+<p:cNvPr id="5" name="Table 0"/>
+<p:cNvGraphicFramePr>
+<a:graphicFrameLocks noGrp="1"/>
+</p:cNvGraphicFramePr>  <p:nvPr>
+<p:extLst>
+<p:ext uri="<GUID>">
+<p14:modId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1579011935"/>
+</p:ext>
+</p:extLst>
+</p:nvPr>
+</p:nvGraphicFramePr>
+<p:xfrm>
+<a:off x="457200" y="3006090"/>
+<a:ext cx="4023360" cy="608584"/>
+</p:xfrm>
+<a:graphic>
+<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table">
+<a:tbl>
+<a:tblPr/>
+<a:tblGrid>
+<a:gridCol w="2011680"/>
+<a:gridCol w="2011680"/>
+</a:tblGrid>
+<a:tr h="304292">
+<a:tc>
+<a:txBody>
+<a:bodyPr/>
+<a:lstStyle/>
+<a:p>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1400" b="1" dirty="0">
+<a:solidFill>
+<a:srgbClr val="FFFFFF"/>
+</a:solidFill>
+<a:latin typeface="Inter" pitchFamily="34" charset="0"/>
+<a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>A</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="1400" dirty="0">
+<a:latin typeface="Inter" charset="0"/>
+<a:ea typeface="Inter" charset="0"/>
+<a:cs typeface="Inter" charset="0"/>
+</a:endParaRPr>
+</a:p>
+</a:txBody>
+<a:tcPr marL="54864" marR="54864" marT="36576" marB="36576" anchor="t">
+<a:lnL w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnL>
+<a:lnR w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnR>
+<a:lnT w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnT>
+<a:lnB w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnB>
+<a:solidFill>
+<a:srgbClr val="1B3A5C"/>
+</a:solidFill>  </a:tcPr> </a:tc>
+<a:tc>
+<a:txBody>
+<a:bodyPr/>
+<a:lstStyle/>
+<a:p>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1400" b="1" dirty="0">
+<a:solidFill>
+<a:srgbClr val="FFFFFF"/>
+</a:solidFill>
+<a:latin typeface="Inter" pitchFamily="34" charset="0"/>
+<a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>B</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="1400" dirty="0">
+<a:latin typeface="Inter" charset="0"/>
+<a:ea typeface="Inter" charset="0"/>
+<a:cs typeface="Inter" charset="0"/>
+</a:endParaRPr>
+</a:p>
+</a:txBody>
+<a:tcPr marL="54864" marR="54864" marT="36576" marB="36576" anchor="t">
+<a:lnL w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnL>
+<a:lnR w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnR>
+<a:lnT w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnT>
+<a:lnB w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnB>
+<a:solidFill>
+<a:srgbClr val="1B3A5C"/>
+</a:solidFill>  </a:tcPr> </a:tc>
+</a:tr>
+<a:tr h="304292">
+<a:tc>
+<a:txBody>
+<a:bodyPr/>
+<a:lstStyle/>
+<a:p>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1400" dirty="0">
+<a:solidFill>
+<a:srgbClr val="1A1A1A"/>
+</a:solidFill>
+<a:latin typeface="Inter" pitchFamily="34" charset="0"/>
+<a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>1</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="1400" dirty="0">
+<a:latin typeface="Inter" charset="0"/>
+<a:ea typeface="Inter" charset="0"/>
+<a:cs typeface="Inter" charset="0"/>
+</a:endParaRPr>
+</a:p>
+</a:txBody>
+<a:tcPr marL="54864" marR="54864" marT="36576" marB="36576" anchor="t">
+<a:lnL w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnL>
+<a:lnR w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnR>
+<a:lnT w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnT>
+<a:lnB w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnB>  </a:tcPr> </a:tc>
+<a:tc>
+<a:txBody>
+<a:bodyPr/>
+<a:lstStyle/>
+<a:p>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1400" dirty="0">
+<a:solidFill>
+<a:srgbClr val="1A1A1A"/>
+</a:solidFill>
+<a:latin typeface="Inter" pitchFamily="34" charset="0"/>
+<a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>2</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="1400" dirty="0">
+<a:latin typeface="Inter" charset="0"/>
+<a:ea typeface="Inter" charset="0"/>
+<a:cs typeface="Inter" charset="0"/>
+</a:endParaRPr>
+</a:p>
+</a:txBody>
+<a:tcPr marL="54864" marR="54864" marT="36576" marB="36576" anchor="t">
+<a:lnL w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnL>
+<a:lnR w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnR>
+<a:lnT w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnT>
+<a:lnB w="6350" cap="flat" cmpd="sng" algn="ctr">
+<a:solidFill>
+<a:srgbClr val="2563EB"/>
+</a:solidFill>
+<a:prstDash val="solid"/>
+<a:round/>
+<a:headEnd type="none" w="med" len="med"/>
+<a:tailEnd type="none" w="med" len="med"/>
+</a:lnB>  </a:tcPr> </a:tc>
+</a:tr>      </a:tbl>    </a:graphicData>  </a:graphic>
+</p:graphicFrame>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="9" name="Shape 6">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="4663440" y="3006090"/>
+<a:ext cx="4023360" cy="1680210"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:solidFill>
+<a:srgbClr val="FFFFFF"/>
+</a:solidFill>
+<a:ln w="9525">
+<a:solidFill>
+<a:srgbClr val="448AFF">
+<a:alpha val="40000"/>
+</a:srgbClr>
+</a:solidFill>
+<a:prstDash val="solid"/>
+</a:ln>
+</p:spPr>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="10" name="Shape 7">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="4663440" y="3006090"/>
+<a:ext cx="54864" cy="1680210"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:solidFill>
+<a:srgbClr val="448AFF"/>
+</a:solidFill>
+<a:ln>
+</a:ln>
+</p:spPr>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="11" name="Text 8">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="4855464" y="3074670"/>
+<a:ext cx="3762756" cy="320040"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="square" rtlCol="0" anchor="t">
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1500" b="1" dirty="0">
+<a:solidFill>
+<a:srgbClr val="448AFF"/>
+</a:solidFill>
+<a:latin typeface="Inter" pitchFamily="34" charset="0"/>
+<a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>Note</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="1500" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="12" name="Text 9">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="4855464" y="3394710"/>
+<a:ext cx="3762756" cy="1223010"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="square" rtlCol="0" anchor="t">
+<a:normAutofit/>
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1400" dirty="0">
+<a:solidFill>
+<a:srgbClr val="1A1A1A"/>
+</a:solidFill>
+<a:latin typeface="Inter" pitchFamily="34" charset="0"/>
+<a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>A note in a grid cell.</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="1400" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+</p:spTree>
+</p:cSld>
+<p:clrMapOvr>
+<a:masterClrMapping/>
+</p:clrMapOvr>
+<p:transition spd="fast" p14:dur="300" xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main">
+<p:fade thruBlk="1"/>
+</p:transition>
+</p:sld>

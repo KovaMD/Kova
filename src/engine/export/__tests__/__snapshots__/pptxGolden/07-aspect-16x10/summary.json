@@ -1,0 +1,33 @@
+{
+  "layouts": [
+    "title",
+    "title-content"
+  ],
+  "warnings": [],
+  "entries": [
+    "[Content_Types].xml",
+    "_rels/.rels",
+    "docProps/app.xml",
+    "docProps/core.xml",
+    "ppt/_rels/presentation.xml.rels",
+    "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+    "ppt/notesMasters/notesMaster1.xml",
+    "ppt/notesSlides/_rels/notesSlide1.xml.rels",
+    "ppt/notesSlides/_rels/notesSlide2.xml.rels",
+    "ppt/notesSlides/notesSlide1.xml",
+    "ppt/notesSlides/notesSlide2.xml",
+    "ppt/presProps.xml",
+    "ppt/presentation.xml",
+    "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+    "ppt/slideLayouts/slideLayout1.xml",
+    "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+    "ppt/slideMasters/slideMaster1.xml",
+    "ppt/slides/_rels/slide1.xml.rels",
+    "ppt/slides/_rels/slide2.xml.rels",
+    "ppt/slides/slide1.xml",
+    "ppt/slides/slide2.xml",
+    "ppt/tableStyles.xml",
+    "ppt/theme/theme1.xml",
+    "ppt/viewProps.xml"
+  ]
+}

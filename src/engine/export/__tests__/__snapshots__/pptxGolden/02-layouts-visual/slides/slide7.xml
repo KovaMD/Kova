@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+<p:cSld name="Slide 7">
+<p:bg>
+<p:bgPr>
+<a:solidFill>
+<a:srgbClr val="FFFFFF"/>
+</a:solidFill>
+</p:bgPr>
+</p:bg>
+<p:spTree>
+<p:nvGrpSpPr>
+<p:cNvPr id="1" name=""/>
+<p:cNvGrpSpPr/>
+<p:nvPr/>
+</p:nvGrpSpPr>
+<p:grpSpPr>
+<a:xfrm>
+<a:off x="0" y="0"/>
+<a:ext cx="0" cy="0"/>
+<a:chOff x="0" y="0"/>
+<a:chExt cx="0" cy="0"/>
+</a:xfrm>
+</p:grpSpPr>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="2" name="Text 0">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="457200" y="457200"/>
+<a:ext cx="8229600" cy="777240"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="square" rtlCol="0" anchor="ctr">
+<a:normAutofit/>
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="2800" b="1" dirty="0">
+<a:solidFill>
+<a:srgbClr val="1A1A1A"/>
+</a:solidFill>
+<a:latin typeface="Inter" pitchFamily="34" charset="0"/>
+<a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>Math Layout</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="2800" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="3" name="Text 1">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="457200" y="1325880"/>
+<a:ext cx="8229600" cy="3360420"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="square" rtlCol="0" anchor="t">
+<a:normAutofit/>
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1500" dirty="0">
+<a:solidFill>
+<a:srgbClr val="1A1A1A"/>
+</a:solidFill>
+<a:latin typeface="JetBrains Mono" pitchFamily="34" charset="0"/>
+<a:ea typeface="JetBrains Mono" pitchFamily="34" charset="-122"/>
+<a:cs typeface="JetBrains Mono" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>E = mc^2</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="1800" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+</p:spTree>
+</p:cSld>
+<p:clrMapOvr>
+<a:masterClrMapping/>
+</p:clrMapOvr>
+<p:transition spd="fast" p14:dur="300" xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main">
+<p:fade thruBlk="1"/>
+</p:transition>
+</p:sld>
