@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock the Tauri invoke so the module can be imported without a Tauri context
-vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
+// Mock the typed IPC layer so the module can be imported without a Tauri context
+vi.mock('../../platform/ipc', () => ({ loadKeybindings: vi.fn() }));
 
-import { invoke } from '@tauri-apps/api/core';
+import * as ipc from '../../platform/ipc';
 import {
   matchShortcut,
   formatCombo,
@@ -12,7 +12,7 @@ import {
   DEFAULT_COMBOS,
 } from '../keybindings';
 
-const mockedInvoke = vi.mocked(invoke);
+const mockedInvoke = vi.mocked(ipc.loadKeybindings);
 
 beforeEach(() => {
   mockedInvoke.mockReset();
@@ -179,10 +179,10 @@ describe('DEFAULT_COMBOS', () => {
   });
 });
 
-// ── loadKeybindings (YAML parse via invoke) ───────────────────────────────────
+// ── loadKeybindings (YAML parse via ipc) ──────────────────────────────────────
 
 describe('loadKeybindings', () => {
-  it('returns the config path from invoke', async () => {
+  it('returns the config path from load_keybindings', async () => {
     mockedInvoke.mockResolvedValueOnce(['/config/kova.yaml', 'save: ctrl+s\n']);
     const { path } = await loadKeybindings();
     expect(path).toBe('/config/kova.yaml');

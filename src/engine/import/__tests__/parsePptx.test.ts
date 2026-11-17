@@ -1,15 +1,20 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// parsePptx reads the file via Tauri's read_file_b64 command — mock it to
+// parsePptx reads the file via the read_file_b64 IPC wrapper — mock it to
 // hand back a hand-built in-memory PPTX zip instead of touching the filesystem.
-vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
+// Each wrapper forwards to one command-keyed mock so tests can dispatch on the
+// Rust command name.
+const mockedInvoke = vi.hoisted(() =>
+  vi.fn<(cmd: string, args?: Record<string, unknown>) => Promise<unknown>>(),
+);
+vi.mock('../../../platform/ipc', () => ({
+  readFileB64: (path: string) => mockedInvoke('read_file_b64', { path }),
+  writeAssetBytes: (args: Record<string, unknown>) => mockedInvoke('write_asset_bytes', { ...args }),
+}));
 
-import { invoke } from '@tauri-apps/api/core';
 import JSZip from 'jszip';
 import { parsePptx } from '../parsePptx';
-
-const mockedInvoke = vi.mocked(invoke);
 
 beforeEach(() => {
   mockedInvoke.mockReset();
