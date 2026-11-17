@@ -29,13 +29,27 @@ fn file_matches_bytes(path: &std::path::Path, bytes: &[u8]) -> bool {
     }
 }
 
-// Write `bytes` into `assets_dir` under `{stem}.{ext}`, appending a numeric
-// suffix on name collisions. If a colliding file already holds identical
-// content, its name is reused instead of writing a fresh copy — this avoids
-// piling up duplicate `-1`, `-2`, ... copies when the same asset is removed
-// and re-added (its old, now-orphaned file is still sitting in assets_dir).
-fn write_bytes_to_assets(bytes: &[u8], stem: &str, ext: &str, assets_dir: &std::path::Path) -> Result<String, String> {
-    use std::io::Write;
+// Claim a unique filename in `assets_dir`, starting at `{stem}.{ext}` and
+// then trying `{stem}-1.{ext}`, `{stem}-2.{ext}`, ... on collisions.
+//
+// For each candidate name:
+// - If the name is free, it is claimed atomically and `write` is called with
+//   the freshly created (empty) file handle and its path to fill it in.
+// - If the name is taken and `matches_existing` says the file already holds
+//   identical content, that name is reused and nothing is written. This
+//   avoids piling up duplicate `-1`, `-2`, ... copies when the same asset is
+//   removed and re-added (its old, now-orphaned file is still in assets_dir).
+//
+// `err_prefix` is used for unexpected I/O errors when claiming a name, so
+// each caller keeps its own error wording.
+fn claim_unique_asset(
+    assets_dir: &std::path::Path,
+    stem: &str,
+    ext: &str,
+    err_prefix: &str,
+    mut matches_existing: impl FnMut(&std::path::Path) -> Result<bool, String>,
+    write: impl FnOnce(std::fs::File, &std::path::Path) -> Result<(), String>,
+) -> Result<String, String> {
     let mut name = format!("{stem}.{ext}");
     let mut counter = 1u32;
     loop {
@@ -47,20 +61,34 @@ fn write_bytes_to_assets(bytes: &[u8], stem: &str, ext: &str, assets_dir: &std::
         // if it's taken) instead of exists()-then-write, which two concurrent
         // Tauri command invocations could both pass before either had written.
         match std::fs::OpenOptions::new().write(true).create_new(true).open(&dest) {
-            Ok(mut f) => {
-                f.write_all(bytes).map_err(|e| format!("Cannot write asset: {e}"))?;
+            Ok(f) => {
+                write(f, &dest)?;
                 return Ok(name);
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-                if file_matches_bytes(&dest, bytes) {
+                if matches_existing(&dest)? {
                     return Ok(name);
                 }
                 name = format!("{stem}-{counter}.{ext}");
                 counter += 1;
             }
-            Err(e) => return Err(format!("Cannot write asset: {e}")),
+            Err(e) => return Err(format!("{err_prefix}: {e}")),
         }
     }
+}
+
+// Write `bytes` into `assets_dir` under `{stem}.{ext}`, appending a numeric
+// suffix on name collisions and reusing an existing identical file's name.
+fn write_bytes_to_assets(bytes: &[u8], stem: &str, ext: &str, assets_dir: &std::path::Path) -> Result<String, String> {
+    use std::io::Write;
+    claim_unique_asset(
+        assets_dir,
+        stem,
+        ext,
+        "Cannot write asset",
+        |dest| Ok(file_matches_bytes(dest, bytes)),
+        |mut f, _dest| f.write_all(bytes).map_err(|e| format!("Cannot write asset: {e}")),
+    )
 }
 
 /// Copies `src` into `{dest_dir}/assets/`, creating the directory if needed.
@@ -81,40 +109,28 @@ pub fn copy_image_to_assets(src: String, dest_dir: String) -> Result<String, Str
     // by a previously-removed reference to this same source — and reuse its
     // name instead of writing yet another duplicate.
     let mut src_bytes: Option<Vec<u8>> = None;
-    let mut name = format!("{stem}.{ext}");
-    let mut counter = 1u32;
-    loop {
-        if counter > 10_000 {
-            return Err("Too many files with the same name in assets/".into());
-        }
-        let dest = assets_dir.join(&name);
-        // create_new atomically claims the filename (fails with AlreadyExists
-        // if it's taken) instead of exists()-then-copy, which two concurrent
-        // Tauri command invocations could both pass before either had written.
-        match std::fs::OpenOptions::new().write(true).create_new(true).open(&dest) {
-            Ok(f) => {
-                drop(f); // release the handle before fs::copy re-opens the same path
-                std::fs::copy(&src_path, &dest)
-                    .map_err(|e| format!("Cannot copy image: {e}"))?;
-                return Ok(name);
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-                let bytes = match &src_bytes {
-                    Some(b) => b,
-                    None => {
-                        let read = std::fs::read(&src_path).map_err(|e| format!("Cannot read source file: {e}"))?;
-                        src_bytes.get_or_insert(read)
-                    }
-                };
-                if file_matches_bytes(&dest, bytes) {
-                    return Ok(name);
+    claim_unique_asset(
+        &assets_dir,
+        &stem,
+        ext,
+        "Cannot copy image",
+        |dest| {
+            let bytes = match &src_bytes {
+                Some(b) => b,
+                None => {
+                    let read = std::fs::read(&src_path).map_err(|e| format!("Cannot read source file: {e}"))?;
+                    src_bytes.get_or_insert(read)
                 }
-                name = format!("{stem}-{counter}.{ext}");
-                counter += 1;
-            }
-            Err(e) => return Err(format!("Cannot copy image: {e}")),
-        }
-    }
+            };
+            Ok(file_matches_bytes(dest, bytes))
+        },
+        |f, dest| {
+            drop(f); // release the handle before fs::copy re-opens the same path
+            std::fs::copy(&src_path, dest)
+                .map(|_| ())
+                .map_err(|e| format!("Cannot copy image: {e}"))
+        },
+    )
 }
 
 /// Writes `content` to `dest_path` and, if `asset_refs` is non-empty,
