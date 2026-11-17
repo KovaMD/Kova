@@ -275,6 +275,65 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    // Writes `bytes` to `{src_dir}/{file_name}` and returns that path as a String.
+    fn write_source_image(src_dir: &std::path::Path, file_name: &str, bytes: &[u8]) -> String {
+        let path = src_dir.join(file_name);
+        std::fs::write(&path, bytes).unwrap();
+        path.to_str().unwrap().to_string()
+    }
+
+    #[test]
+    fn copy_image_to_assets_reuses_name_for_identical_content() {
+        let src_dir = temp_scratch_dir("img-same-src");
+        let dest_dir = temp_scratch_dir("img-same-dest");
+        let src = write_source_image(&src_dir, "shot.png", b"pngdata");
+        let dest = dest_dir.to_str().unwrap().to_string();
+
+        let name1 = copy_image_to_assets(src.clone(), dest.clone()).unwrap();
+        let name2 = copy_image_to_assets(src, dest).unwrap();
+
+        assert_eq!(name1, "shot.png");
+        assert_eq!(name2, "shot.png");
+        assert!(!dest_dir.join("assets/shot-1.png").exists());
+        assert_eq!(std::fs::read(dest_dir.join("assets/shot.png")).unwrap(), b"pngdata");
+        let _ = std::fs::remove_dir_all(&src_dir);
+        let _ = std::fs::remove_dir_all(&dest_dir);
+    }
+
+    #[test]
+    fn copy_image_to_assets_suffixes_on_real_collision() {
+        let src_a = temp_scratch_dir("img-diff-src-a");
+        let src_b = temp_scratch_dir("img-diff-src-b");
+        let dest_dir = temp_scratch_dir("img-diff-dest");
+        let first = write_source_image(&src_a, "my shot.png", b"first version");
+        let second = write_source_image(&src_b, "my shot.png", b"second version");
+        let dest = dest_dir.to_str().unwrap().to_string();
+
+        let name1 = copy_image_to_assets(first, dest.clone()).unwrap();
+        let name2 = copy_image_to_assets(second, dest).unwrap();
+
+        // Whitespace in the stem is sanitised; suffix format is `{stem}-{n}.{ext}`.
+        assert_eq!(name1, "my_shot.png");
+        assert_eq!(name2, "my_shot-1.png");
+        assert_eq!(std::fs::read(dest_dir.join("assets/my_shot.png")).unwrap(), b"first version");
+        assert_eq!(std::fs::read(dest_dir.join("assets/my_shot-1.png")).unwrap(), b"second version");
+        let _ = std::fs::remove_dir_all(&src_a);
+        let _ = std::fs::remove_dir_all(&src_b);
+        let _ = std::fs::remove_dir_all(&dest_dir);
+    }
+
+    #[test]
+    fn write_bytes_to_assets_skips_taken_suffixes() {
+        let dir = temp_scratch_dir("dedup-chain");
+        assert_eq!(write_bytes_to_assets(b"a", "clip", "mp4", &dir).unwrap(), "clip.mp4");
+        assert_eq!(write_bytes_to_assets(b"b", "clip", "mp4", &dir).unwrap(), "clip-1.mp4");
+        assert_eq!(write_bytes_to_assets(b"c", "clip", "mp4", &dir).unwrap(), "clip-2.mp4");
+        // Identical to the -1 copy: reuses that name rather than claiming -3.
+        assert_eq!(write_bytes_to_assets(b"b", "clip", "mp4", &dir).unwrap(), "clip-1.mp4");
+        assert!(!dir.join("clip-3.mp4").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     fn setup_copy_scenario(label: &str) -> (std::path::PathBuf, std::path::PathBuf, std::path::PathBuf) {
         let src_dir = temp_scratch_dir(&format!("copy-src-{label}"));
         let dest_dir = temp_scratch_dir(&format!("copy-dest-{label}"));
