@@ -26,33 +26,61 @@ pub fn check_in_home(path: &Path) -> Result<(), String> {
         if std::env::var("FLATPAK_ID").is_err() {
             return Ok(());
         }
-        let home = home_dir()?;
-        let canonical_home = std::fs::canonicalize(&home).unwrap_or(home);
-        if path.starts_with(&canonical_home) {
-            Ok(())
-        } else {
-            Err("Access denied: path is outside your home directory".to_string())
-        }
+        check_within_home(path, &home_dir()?)
+    }
+}
+
+/// True when `path` is `home` or lies beneath it. Compares whole path
+/// components, so `/home/ross2` is not inside `/home/ross`. Pure: does not
+/// touch the filesystem, so callers must pass already-canonical paths.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn is_within(path: &Path, home: &Path) -> bool {
+    path.starts_with(home)
+}
+
+/// The Flatpak home-boundary check against an explicit `home`, so tests can
+/// use a temp directory instead of mutating $HOME / FLATPAK_ID.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn check_within_home(path: &Path, home: &Path) -> Result<(), String> {
+    let canonical_home = std::fs::canonicalize(home).unwrap_or_else(|_| home.to_path_buf());
+    if is_within(path, &canonical_home) {
+        Ok(())
+    } else {
+        Err("Access denied: path is outside your home directory".to_string())
     }
 }
 
 // For reads the file must exist, so canonicalize resolves symlinks and traversal.
 pub fn safe_read_path(path: &str) -> Result<PathBuf, String> {
+    resolve_read_path(path, check_in_home)
+}
+
+fn resolve_read_path(
+    path: &str,
+    check: impl Fn(&Path) -> Result<(), String>,
+) -> Result<PathBuf, String> {
     let canonical = std::fs::canonicalize(path)
         .map_err(|e| format!("Failed to read file: {e}"))?;
-    check_in_home(&canonical)?;
+    check(&canonical)?;
     Ok(canonical)
 }
 
 // For writes the file may not exist yet; canonicalize the parent instead.
 pub fn safe_write_path(path: &str) -> Result<PathBuf, String> {
+    resolve_write_path(path, check_in_home)
+}
+
+fn resolve_write_path(
+    path: &str,
+    check: impl Fn(&Path) -> Result<(), String>,
+) -> Result<PathBuf, String> {
     let p = Path::new(path);
     let parent = p.parent().ok_or_else(|| "Invalid path: no parent directory".to_string())?;
     let filename = p.file_name().ok_or_else(|| "Invalid path: no filename".to_string())?;
     let canonical_parent = std::fs::canonicalize(parent)
         .map_err(|e| format!("Failed to write file: {e}"))?;
     let resolved = canonical_parent.join(filename);
-    check_in_home(&resolved)?;
+    check(&resolved)?;
     Ok(resolved)
 }
 
@@ -260,29 +288,100 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&link).unwrap(), "new");
     }
 
-    #[cfg(target_os = "linux")]
-    mod linux_home_boundary {
-        use std::path::Path;
+    // ── Home boundary (the check enforced under Flatpak) ─────────────────
+    // The FLATPAK_ID gate itself isn't unit tested: mutating process-global
+    // env vars in parallel test runs is racy. Instead these drive the same
+    // check through a seam that takes `home` explicitly.
 
-        #[test]
-        fn path_inside_home_is_allowed() {
-            let home = Path::new("/home/ross");
-            let inside = Path::new("/home/ross/Documents/file.md");
-            assert!(inside.starts_with(home));
-        }
+    #[test]
+    fn is_within_accepts_home_and_paths_beneath_it() {
+        let home = Path::new("/home/ross");
+        assert!(is_within(home, home));
+        assert!(is_within(Path::new("/home/ross/Documents/deck.md"), home));
+    }
 
-        #[test]
-        fn path_outside_home_is_blocked() {
-            let home = Path::new("/home/ross");
-            let outside = Path::new("/home/other/secret.txt");
-            assert!(!outside.starts_with(home));
-        }
+    #[test]
+    fn is_within_rejects_paths_outside_home() {
+        let home = Path::new("/home/ross");
+        assert!(!is_within(Path::new("/home/other/secret.txt"), home));
+        assert!(!is_within(Path::new("/etc/passwd"), home));
+        assert!(!is_within(Path::new("/home"), home));
+    }
 
-        #[test]
-        fn traversal_outside_home_is_blocked() {
-            let home = Path::new("/home/ross");
-            let traversal = Path::new("/etc/passwd");
-            assert!(!traversal.starts_with(home));
-        }
+    #[test]
+    fn is_within_rejects_sibling_with_shared_prefix() {
+        // A naive string prefix check would wrongly accept this.
+        assert!(!is_within(Path::new("/home/ross2/deck.md"), Path::new("/home/ross")));
+    }
+
+    fn in_home(home: &Path) -> impl Fn(&Path) -> Result<(), String> + '_ {
+        move |p| check_within_home(p, home)
+    }
+
+    const DENIED: &str = "Access denied: path is outside your home directory";
+
+    #[test]
+    fn boundary_read_ok_inside_home() {
+        let home = TempDir::new("b-read-ok");
+        let f = home.path().join("deck.md");
+        std::fs::write(&f, "x").unwrap();
+        assert_eq!(resolve_read_path(s(&f), in_home(home.path())).unwrap(), f);
+    }
+
+    #[test]
+    fn boundary_read_dotdot_escape_is_denied() {
+        let root = TempDir::new("b-read-dotdot");
+        let home = root.path().join("home");
+        std::fs::create_dir(&home).unwrap();
+        std::fs::write(root.path().join("secret.txt"), "x").unwrap();
+        let sneaky = home.join("..").join("secret.txt");
+        assert_eq!(resolve_read_path(s(&sneaky), in_home(&home)).unwrap_err(), DENIED);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn boundary_read_symlink_escape_is_denied() {
+        let home = TempDir::new("b-read-link-home");
+        let outside = TempDir::new("b-read-link-out");
+        let target = outside.path().join("secret.txt");
+        std::fs::write(&target, "x").unwrap();
+        let link = home.path().join("innocent.md");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        assert_eq!(resolve_read_path(s(&link), in_home(home.path())).unwrap_err(), DENIED);
+    }
+
+    #[test]
+    fn boundary_write_ok_inside_home() {
+        let home = TempDir::new("b-write-ok");
+        let f = home.path().join("new.md");
+        assert_eq!(resolve_write_path(s(&f), in_home(home.path())).unwrap(), f);
+    }
+
+    #[test]
+    fn boundary_write_dotdot_escape_is_denied() {
+        let root = TempDir::new("b-write-dotdot");
+        let home = root.path().join("home");
+        std::fs::create_dir(&home).unwrap();
+        let sneaky = home.join("..").join("new.md");
+        assert_eq!(resolve_write_path(s(&sneaky), in_home(&home)).unwrap_err(), DENIED);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn boundary_write_symlinked_dir_escape_is_denied() {
+        let home = TempDir::new("b-write-link-home");
+        let outside = TempDir::new("b-write-link-out");
+        let link = home.path().join("dir");
+        std::os::unix::fs::symlink(outside.path(), &link).unwrap();
+        let f = link.join("new.md");
+        assert_eq!(resolve_write_path(s(&f), in_home(home.path())).unwrap_err(), DENIED);
+    }
+
+    #[test]
+    fn boundary_write_missing_parent_errors_before_boundary_check() {
+        let home = TempDir::new("b-write-missing");
+        let f = home.path().join("no-such-dir").join("new.md");
+        let err = resolve_write_path(s(&f), in_home(home.path())).unwrap_err();
+        assert!(err.starts_with("Failed to write file:"), "{err}");
     }
 }
