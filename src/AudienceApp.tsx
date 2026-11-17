@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { emit, emitTo, listen } from '@tauri-apps/api/event';
+import { bestEffort } from './platform/bestEffort';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SlideRenderer } from './components/preview/SlideRenderer';
 import { SLIDE_W, ScaledSlideBox, LaserDot } from './components/presentation/presentationShared';
@@ -116,7 +117,7 @@ function AudienceAppInner({ showProgressBar }: { showProgressBar: boolean }) {
   // handleNavigateTo) and forward it to the main window, which owns navigation.
   const handleNavigateTo = useCallback((slideIndex: number) => {
     const visibleIdx = slidesRef.current.findIndex((s) => s.index === slideIndex);
-    if (visibleIdx >= 0) emitTo('main', 'audience:navigate', { index: visibleIdx, step: 0 }).catch(() => {});
+    if (visibleIdx >= 0) bestEffort(emitTo('main', 'audience:navigate', { index: visibleIdx, step: 0 }), 'emit audience:navigate');
   }, []);
 
   // Forward keyboard events to the main presenter window so navigation works
@@ -124,7 +125,7 @@ function AudienceAppInner({ showProgressBar }: { showProgressBar: boolean }) {
   useEffect(() => {
     if (!initData) return;
     const handler = (e: KeyboardEvent) => {
-      emitTo('main', 'audience:key', { key: e.key }).catch(() => {});
+      bestEffort(emitTo('main', 'audience:key', { key: e.key }), 'emit audience:key');
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -135,7 +136,7 @@ function AudienceAppInner({ showProgressBar }: { showProgressBar: boolean }) {
   useEffect(() => {
     if (!initData) return;
     const handler = (e: WheelEvent) => {
-      emitTo('main', 'audience:wheel', { deltaY: e.deltaY }).catch(() => {});
+      bestEffort(emitTo('main', 'audience:wheel', { deltaY: e.deltaY }), 'emit audience:wheel');
     };
     window.addEventListener('wheel', handler, { passive: true });
     return () => window.removeEventListener('wheel', handler);

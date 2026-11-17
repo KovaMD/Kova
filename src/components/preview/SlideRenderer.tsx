@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import mermaid from 'mermaid';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { bestEffort } from '../../platform/bestEffort';
 import type { Slide } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import { themeToVars, resolveTemplate, DEFAULT_THEME, isLightHex } from '../../engine/theme';
@@ -187,7 +188,7 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
     if (!href || href === '#') return;
     e.preventDefault();
     e.stopPropagation();
-    if (!isThumbnail) openUrl(href).catch(() => {});
+    if (!isThumbnail) bestEffort(openUrl(href), 'openUrl');
   }, [isThumbnail]);
 
   return (

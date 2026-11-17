@@ -1,6 +1,7 @@
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view';
 import { RangeSetBuilder } from '@codemirror/state';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { bestEffort } from '../../platform/bestEffort';
 import { isMac } from '../../engine/keybindings';
 
 // Bare http(s) URLs typed or pasted directly into the source — not
@@ -155,7 +156,7 @@ export function handleUrlMousedown(event: MouseEvent, view: EditorView): boolean
   const url = urlAt(view, pos);
   if (!url) return false;
   event.preventDefault();
-  openUrl(url).catch(() => {});
+  bestEffort(openUrl(url), 'openUrl');
   return true;
 }
 

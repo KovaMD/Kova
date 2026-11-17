@@ -5,6 +5,7 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { QRCode } from 'react-qr-code';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { bestEffort } from '../../platform/bestEffort';
 import type { SlideElement, ListItem } from '../../engine/types';
 import { progressBarInnerHtml } from '../../engine/progressBar';
 import { mermaidSvgCache } from '../../engine/export/mermaidSvgCache';
@@ -297,7 +298,7 @@ export function YoutubeEmbed({ embed }: { embed: Extract<SlideElement, { type: '
   const handleClick = (e: React.MouseEvent) => {
     if (isThumbnail) return;
     e.stopPropagation(); // prevent click bubbling to PresentationOverlay navigation handler
-    openUrl(embed.url).catch(() => {});
+    bestEffort(openUrl(embed.url), 'openUrl');
   };
 
   return (
@@ -377,7 +378,7 @@ export function PollEmbed({ embed }: { embed: Extract<SlideElement, { type: 'pol
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // prevent click bubbling to PresentationOverlay navigation handler
-    openUrl(embed.url).catch(() => {});
+    bestEffort(openUrl(embed.url), 'openUrl');
   };
 
   return (

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { emitTo } from '@tauri-apps/api/event';
+import { bestEffort } from '../../platform/bestEffort';
 import type { Slide, AspectRatio } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import type { NotesFontSize } from '../../store/settings';
@@ -105,7 +106,7 @@ export function PresenterOverlay({
   useEffect(() => {
     if (!laserActive) {
       setLaserPos(null);
-      emitTo('audience', 'present:laser', { x: 0, y: 0, active: false }).catch(() => {});
+      bestEffort(emitTo('audience', 'present:laser', { x: 0, y: 0, active: false }), 'emit present:laser');
     }
   }, [laserActive]);
 
@@ -116,12 +117,12 @@ export function PresenterOverlay({
       didMountRef.current = true;
       return;
     }
-    emitTo('audience', 'present:navigate', { index: currentIndex, step: currentStep }).catch(() => {});
+    bestEffort(emitTo('audience', 'present:navigate', { index: currentIndex, step: currentStep }), 'emit present:navigate');
   }, [currentIndex, currentStep]);
 
   // Sync blank state to audience window.
   useEffect(() => {
-    emitTo('audience', 'present:blank', { mode: blankMode }).catch(() => {});
+    bestEffort(emitTo('audience', 'present:blank', { mode: blankMode }), 'emit present:blank');
   }, [blankMode]);
 
   const handleCurrentFrameMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -131,7 +132,7 @@ export function PresenterOverlay({
     const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
     setLaserPos({ x, y });
     if (laserActive) {
-      emitTo('audience', 'present:laser', { x, y, active: true, color: laserColor }).catch(() => {});
+      bestEffort(emitTo('audience', 'present:laser', { x, y, active: true, color: laserColor }), 'emit present:laser');
     }
   }, [laserActive, laserColor]);
 
