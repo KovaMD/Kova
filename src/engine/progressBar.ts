@@ -7,6 +7,8 @@
 // the PPTX exporter reverse-engineers a cell by these exact class names (see
 // progressBarText in exportPptx.ts).
 
+import { escapeHtml } from './html';
+
 const DIRECTIVE_RE = /^!progress\[([^\]]*)\]\((.+)\)$/;
 // Looser: any non-empty `(…)`, matching a malformed directive too. `!sheet`
 // footer detection uses this to tell "the author meant a progress bar here"
@@ -42,10 +44,6 @@ export function clampPercent(value: number): number {
   return Math.max(0, Math.min(100, value));
 }
 
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
 /**
  * Inner markup of a progress bar — the header row (label + percent) and the
  * track/fill — without the outer `.sl-progress` element. Each call site adds
@@ -55,7 +53,7 @@ export function progressBarInnerHtml(label: string, value: number): string {
   const pct = clampPercent(value);
   return (
     '<div class="sl-progress__header">' +
-    `<span class="sl-progress__label">${esc(label)}</span>` +
+    `<span class="sl-progress__label">${escapeHtml(label)}</span>` +
     `<span class="sl-progress__pct">${pct}%</span>` +
     '</div>' +
     '<div class="sl-progress__track">' +

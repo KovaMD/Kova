@@ -5,6 +5,7 @@ import { mermaidSvgCache } from './mermaidSvgCache';
 import { imageMime } from './imageMime';
 import { videoMime } from './videoMime';
 import { type PdfExportOpts, planPage, SLIDE_PX_W } from './pdfLayout';
+import { escapeHtml } from '../html';
 
 export type { PdfExportOpts };
 
@@ -628,10 +629,6 @@ export async function resolveFontUrls(css: string, origin: string = window.locat
 }
 
 // ── Utilities ────────────────────────────────────────────────────────────────
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
-}
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
