@@ -1,5 +1,5 @@
 import yaml from 'js-yaml';
-import { invoke } from '@tauri-apps/api/core';
+import * as ipc from '../platform/ipc';
 
 export const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/i.test(
   (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.platform
@@ -31,7 +31,7 @@ export interface Keybindings {
 
 /** Load keybindings from the platform config dir (created from defaults if absent). */
 export async function loadKeybindings(): Promise<Keybindings> {
-  const [path, content] = await invoke<[string, string]>('load_keybindings');
+  const [path, content] = await ipc.loadKeybindings();
   return { path, combos: parseKeybindings(content) };
 }
 
