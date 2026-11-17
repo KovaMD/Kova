@@ -5,7 +5,7 @@
 // field lists, which tsc keeps in step with the TS interfaces. To regenerate
 // after an intentional change, run in src-tauri:
 //   UPDATE_FIXTURES=1 cargo test pending_cli_matches_fixture
-import fixture from './fixtures/pending-cli.json';
+import fixture from '../../src-tauri/fixtures/pending-cli.json';
 import {
   CLI_EXPORT_FORMATS,
   CLI_IMPORT_FORMATS,

@@ -1199,7 +1199,8 @@ mod tests {
 ///
 /// Serialises a set of sample `PendingCli` values (every variant and every
 /// optional field, both set and unset) and compares the JSON against the
-/// checked-in fixture `src/__tests__/fixtures/pending-cli.json`. The TS test
+/// checked-in fixture `src-tauri/fixtures/pending-cli.json` (inside
+/// src-tauri so the Nix build, which only sees src-tauri, can read it). The TS test
 /// `src/__tests__/cliContract.test.ts` checks the same fixture against the TS
 /// types, so changing a field on one side without the other fails a test.
 ///
@@ -1213,7 +1214,7 @@ mod contract_tests {
 
     const FIXTURE: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../src/__tests__/fixtures/pending-cli.json"
+        "/fixtures/pending-cli.json"
     );
 
     // Full struct literals (no `..Default::default()`) on purpose: adding a
