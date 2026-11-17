@@ -56,7 +56,7 @@ import { SlideRenderer } from './components/preview/SlideRenderer';
 import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml, resolveCustomThemeLibrary, sanitiseThemeOverrides, type ThemeParseResult, type ThemeOverridePatch, type ThemeLibrary } from './engine/theme';
 import { registerBundledFonts, registerCachedFont } from './engine/bundledFonts';
 import type { Slide, ListItem, Frontmatter } from './engine/types';
-import { parseAspectRatio } from './engine/types';
+import { parseAspectRatio, nextAspectRatio } from './engine/types';
 import { getSlideStepCount } from './engine/layout/steps';
 import { imageMime } from './engine/export/imageMime';
 import type { Theme } from './engine/theme';
@@ -1297,7 +1297,9 @@ export default function App() {
     setContent((prev) => {
       const { frontmatter: fm } = extractFrontmatter(prev);
       const current = fm.aspect_ratio as string | undefined;
-      const next = current === '4:3' ? '16:10' : current === '16:10' ? null : '4:3';
+      // 16:9 is the default, so cycling back to it removes the key.
+      const nextAr = nextAspectRatio(current);
+      const next = nextAr === '16:9' ? null : nextAr;
       const patched = patchFrontmatter(prev, { aspect_ratio: next });
       if (patched !== prev) setIsDirty(true);
       return patched;
