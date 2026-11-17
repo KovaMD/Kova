@@ -34,10 +34,7 @@ pub fn read_file(path: String) -> Result<String, String> {
 pub fn write_file(path: String, content: String, state: State<'_, AppState>) -> Result<(), String> {
     // Stamp a 500 ms suppression window before the rename so the watcher
     // ignores the inotify/FSEvents events caused by our own atomic write.
-    let until = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64 + 500;
+    let until = crate::util::now_millis() + 500;
     state.own_write_suppress_until.store(until, Ordering::Relaxed);
     file_io::write(&path, &content)
 }

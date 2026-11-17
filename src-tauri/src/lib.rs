@@ -3,6 +3,7 @@ mod commands;
 mod file_io;
 mod net_guard;
 mod wake_lock;
+mod util;
 mod watcher;
 
 use commands::{AppState, WatchState};

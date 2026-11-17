@@ -43,9 +43,18 @@ const cases: Array<[string, () => Promise<unknown>, string, Record<string, unkno
   ['probeUrl', () => ipc.probeUrl('https://x'), 'probe_url', { url: 'https://x' }],
   [
     'exportPdfNative',
-    () => ipc.exportPdfNative({ htmlContent: '<p/>', outputPath: '/o.pdf', widthMm: 297, heightMm: 167, pageCount: 3, pageWidthPx: 1123, pageHeightPx: 632 }),
+    () => ipc.exportPdfNative({
+      htmlContent: '<p/>',
+      outputPath: '/o.pdf',
+      page: { widthMm: 297, heightMm: 167, pageCount: 3, pageWidthPx: 1123, pageHeightPx: 632 },
+    }),
     'export_pdf_native',
-    { htmlContent: '<p/>', outputPath: '/o.pdf', widthMm: 297, heightMm: 167, pageCount: 3, pageWidthPx: 1123, pageHeightPx: 632 },
+    // `page` is a nested serde struct (PdfPageSpec, camelCase fields) in pdf.rs.
+    {
+      htmlContent: '<p/>',
+      outputPath: '/o.pdf',
+      page: { widthMm: 297, heightMm: 167, pageCount: 3, pageWidthPx: 1123, pageHeightPx: 632 },
+    },
   ],
 ];
 
