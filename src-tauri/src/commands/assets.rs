@@ -117,36 +117,6 @@ pub fn copy_image_to_assets(src: String, dest_dir: String) -> Result<String, Str
     }
 }
 
-// Scans markdown `content` for local `assets/…` references (in any syntax —
-// Markdown image links, `<img>`/`<video>` tags, `!video[]()`, etc. — since it
-// just looks for the literal "assets/" substring) and returns the raw
-// relative-path tokens, e.g. `assets/foo.png`, `assets/my%20file.jpg`.
-fn find_asset_tokens(content: &str) -> std::collections::HashSet<String> {
-    let mut refs: std::collections::HashSet<String> = std::collections::HashSet::new();
-    let needle = "assets/";
-    let mut start = 0usize;
-    while let Some(rel) = content[start..].find(needle) {
-        let abs = start + rel;
-        let rest = &content[abs..];
-        let end = rest
-            .find(|c: char| matches!(c, ')' | '"' | '\'' | ' ' | '\t' | '\n' | '\r'))
-            .unwrap_or(rest.len());
-        if end > needle.len() {
-            refs.insert(rest[..end].to_string());
-        }
-        start = abs + 1; // advance past this match to avoid re-scanning
-    }
-    refs
-}
-
-/// Scans a markdown file for local `assets/…` references and returns them as
-/// relative paths (e.g. `["assets/foo.png", "assets/bar.jpg"]`).
-#[tauri::command]
-pub fn scan_asset_refs(file_path: String) -> Result<Vec<String>, String> {
-    let content = file_io::read(&file_path)?;
-    Ok(find_asset_tokens(&content).into_iter().collect())
-}
-
 /// Writes `content` to `dest_path` and, if `asset_refs` is non-empty,
 /// copies those asset files (resolved relative to `src_path`) into an
 /// `assets/` folder next to the destination.
