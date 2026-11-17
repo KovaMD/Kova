@@ -119,14 +119,147 @@ fn atomic_write(dest: &std::path::Path, data: &[u8]) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    // These tests verify the home-boundary logic used under Flatpak (see the
-    // FLATPAK_ID gate in check_in_home) using portable path construction. The
-    // Windows UNC-prefix tests have been removed: check_in_home is a no-op on
-    // Windows (users may save anywhere), so those assertions are no longer
-    // meaningful. The FLATPAK_ID env-var gate itself isn't unit tested here —
-    // consistent with the unguarded APPIMAGE-detection checks elsewhere
-    // (main.rs, lifecycle.rs) — since mutating process-global env vars in
-    // parallel test runs is inherently racy.
+    use super::*;
+    use std::path::{Path, PathBuf};
+
+    /// A fresh, empty directory under the system temp dir, removed on drop.
+    /// Unique per test (pid + counter) so parallel tests never collide.
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new(label: &str) -> Self {
+            static SEQ: AtomicU64 = AtomicU64::new(0);
+            let n = SEQ.fetch_add(1, Ordering::Relaxed);
+            let dir = std::env::temp_dir()
+                .join(format!("kova-file-io-{}-{}-{}", label, std::process::id(), n));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            // Canonicalise so assertions compare like with like (macOS /var -> /private/var).
+            TempDir(std::fs::canonicalize(&dir).unwrap())
+        }
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn s(p: &Path) -> &str {
+        p.to_str().unwrap()
+    }
+
+    // ── safe_read_path / safe_write_path path resolution ─────────────────
+    // These run outside Flatpak (FLATPAK_ID is not set under `cargo test`),
+    // so the home-boundary check is a no-op and they pin down the resolution
+    // behaviour every platform relies on.
+
+    #[test]
+    fn read_ok_path_returns_canonical_path() {
+        let t = TempDir::new("read-ok");
+        let f = t.path().join("deck.md");
+        std::fs::write(&f, "# hi").unwrap();
+        assert_eq!(safe_read_path(s(&f)).unwrap(), f);
+    }
+
+    #[test]
+    fn read_resolves_dotdot_traversal() {
+        let t = TempDir::new("read-dotdot");
+        std::fs::create_dir(t.path().join("a")).unwrap();
+        let f = t.path().join("deck.md");
+        std::fs::write(&f, "x").unwrap();
+        let sneaky = t.path().join("a").join("..").join("deck.md");
+        assert_eq!(safe_read_path(s(&sneaky)).unwrap(), f);
+    }
+
+    #[test]
+    fn read_missing_file_is_an_error() {
+        let t = TempDir::new("read-missing");
+        let err = safe_read_path(s(&t.path().join("nope.md"))).unwrap_err();
+        assert!(err.starts_with("Failed to read file:"), "{err}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn read_resolves_symlink_to_its_target() {
+        let t = TempDir::new("read-symlink");
+        let target = t.path().join("real.md");
+        std::fs::write(&target, "x").unwrap();
+        let link = t.path().join("link.md");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        assert_eq!(safe_read_path(s(&link)).unwrap(), target);
+    }
+
+    #[test]
+    fn write_ok_path_for_new_file() {
+        let t = TempDir::new("write-ok");
+        let f = t.path().join("new.md");
+        assert_eq!(safe_write_path(s(&f)).unwrap(), f);
+    }
+
+    #[test]
+    fn write_resolves_dotdot_in_parent() {
+        let t = TempDir::new("write-dotdot");
+        std::fs::create_dir(t.path().join("a")).unwrap();
+        let sneaky = t.path().join("a").join("..").join("new.md");
+        assert_eq!(safe_write_path(s(&sneaky)).unwrap(), t.path().join("new.md"));
+    }
+
+    #[test]
+    fn write_missing_parent_is_an_error() {
+        let t = TempDir::new("write-missing-parent");
+        let f = t.path().join("no-such-dir").join("new.md");
+        let err = safe_write_path(s(&f)).unwrap_err();
+        assert!(err.starts_with("Failed to write file:"), "{err}");
+    }
+
+    #[test]
+    fn write_path_ending_in_dotdot_has_no_filename() {
+        let t = TempDir::new("write-no-name");
+        let p = t.path().join("..");
+        assert_eq!(
+            safe_write_path(s(&p)).unwrap_err(),
+            "Invalid path: no filename"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_resolves_symlinked_parent_dir() {
+        let t = TempDir::new("write-symlink-dir");
+        let real = t.path().join("real");
+        std::fs::create_dir(&real).unwrap();
+        let link = t.path().join("link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        assert_eq!(
+            safe_write_path(s(&link.join("new.md"))).unwrap(),
+            real.join("new.md")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn write_over_symlink_replaces_the_link_not_its_target() {
+        // safe_write_path only canonicalises the parent, so a filename that is
+        // itself a symlink is passed through unresolved. That is safe because
+        // the atomic write renames over the link, leaving the target alone.
+        let outside = TempDir::new("write-symlink-outside");
+        let target = outside.path().join("victim.txt");
+        std::fs::write(&target, "original").unwrap();
+        let t = TempDir::new("write-symlink-file");
+        let link = t.path().join("deck.md");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        write(s(&link), "new").unwrap();
+
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "original");
+        assert!(!std::fs::symlink_metadata(&link).unwrap().file_type().is_symlink());
+        assert_eq!(std::fs::read_to_string(&link).unwrap(), "new");
+    }
+
     #[cfg(target_os = "linux")]
     mod linux_home_boundary {
         use std::path::Path;
