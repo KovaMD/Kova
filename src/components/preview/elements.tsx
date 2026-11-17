@@ -7,6 +7,7 @@ import { QRCode } from 'react-qr-code';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import type { SlideElement, ListItem } from '../../engine/types';
 import { progressBarInnerHtml } from '../../engine/progressBar';
+import { youtubeThumb } from '../../engine/media/youtube';
 import { mermaidSvgCache } from '../../engine/export/mermaidSvgCache';
 import { buildMermaidRenderSource } from '../../engine/export/mermaidSource';
 import { cachedMermaidRender, getCachedMermaidSvg } from '../../engine/export/mermaidRenderQueue';
@@ -400,24 +401,6 @@ export function PollEmbed({ embed }: { embed: Extract<SlideElement, { type: 'pol
       <div className="sl-poll__open-hint">{t('preview.clickToOpenInBrowser')}</div>
     </div>
   );
-}
-
-function youtubeThumb(url: string): string | null {
-  const id = extractYoutubeId(url);
-  return id ? `https://img.youtube.com/vi/${id}/mqdefault.jpg` : null;
-}
-
-function extractYoutubeId(url: string): string | null {
-  const patterns = [
-    /[?&]v=([^&#]+)/,
-    /youtu\.be\/([^?&#]+)/,
-    /youtube\.com\/embed\/([^?&#]+)/,
-  ];
-  for (const re of patterns) {
-    const m = url.match(re);
-    if (m) return m[1];
-  }
-  return null;
 }
 
 // ── Syntax-highlighted code block ─────────────────────────────────────────────

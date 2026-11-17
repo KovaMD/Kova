@@ -6,6 +6,7 @@ import { queuedMermaidRender } from './mermaidRenderQueue';
 import { buildMermaidRenderSource } from './mermaidSource';
 import { imageMime } from './imageMime';
 import { videoMime } from './videoMime';
+import { extractYoutubeId } from '../media/youtube';
 import { buildExportMermaidInit, parseChannels } from './mermaidExportTheme';
 import { autoSplitElements, explodeListItems, groupProgressRuns, splitByColumnBreaks } from '../layout/elementGrouping';
 import mermaid from 'mermaid';
@@ -228,19 +229,6 @@ async function videoUrlToDataUrl(src: string): Promise<string> {
   } catch {
     return src;
   }
-}
-
-function extractYoutubeId(url: string): string | null {
-  const patterns = [
-    /[?&]v=([^&#]+)/,
-    /youtu\.be\/([^?&#]+)/,
-    /youtube\.com\/embed\/([^?&#]+)/,
-  ];
-  for (const re of patterns) {
-    const m = url.match(re);
-    if (m) return m[1];
-  }
-  return null;
 }
 
 function videoExtnFromDataUrl(dataUrl: string): string {
