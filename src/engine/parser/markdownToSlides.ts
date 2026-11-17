@@ -10,6 +10,7 @@ import type { Root, Node, Paragraph, List, ListItem as MdastListItem, Code, Bloc
 import type { Slide, SlideElement, ListItem, LayoutType, Frontmatter, ParsedDocument } from '../types';
 import { detectLayout } from '../layout/autoLayout';
 import { parseProgressDirective, progressBarInnerHtml } from '../progressBar';
+import { escapeHtml } from '../html';
 import { extractFrontmatter } from './frontmatter';
 import { extractSpeakerNotes } from './speakerNotes';
 import { extractBgImage } from './bgImage';
@@ -778,7 +779,7 @@ function blockquoteInnerHtml(bq: Blockquote): string {
   return bq.children.map((child) => {
     if (child.type === 'paragraph') return `<p>${inlineToHtml((child as Paragraph).children)}</p>`;
     if (child.type === 'list') return listToHtml(child as List);
-    return `<p>${escHtml(toString(child))}</p>`;
+    return `<p>${escapeHtml(toString(child))}</p>`;
   }).join('');
 }
 
@@ -844,22 +845,22 @@ function isAutolink(node: { url: string; children: unknown[] }): boolean {
 function inlineToHtml(children: Node[]): string {
   return (children as any[]).map((node) => {
     switch (node.type) {
-      case 'text':        return substituteIconShortcodes(escHtml(node.value as string)).replace(/\n/g, '<br>');
+      case 'text':        return substituteIconShortcodes(escapeHtml(node.value as string)).replace(/\n/g, '<br>');
       case 'strong':      return `<strong>${inlineToHtml(node.children)}</strong>`;
       case 'emphasis':    return `<em>${inlineToHtml(node.children)}</em>`;
       case 'delete':      return `<del>${inlineToHtml(node.children)}</del>`;
-      case 'inlineCode':  return `<code>${escHtml(node.value as string)}</code>`;
+      case 'inlineCode':  return `<code>${escapeHtml(node.value as string)}</code>`;
       case 'link': {
         const cls = isAutolink(node) ? 'sl-link--auto' : 'sl-link';
         return `<a href="${escLinkUrl(node.url as string)}" class="${cls}">${inlineToHtml(node.children)}</a>`;
       }
-      case 'image':       return `<img src="${escUrl(node.url as string)}" alt="${escHtml(node.alt ?? '')}" />`;
+      case 'image':       return `<img src="${escUrl(node.url as string)}" alt="${escapeHtml(node.alt ?? '')}" />`;
       case 'break':       return '<br>';
       case 'inlineMath': {
         try {
           return katex.renderToString(node.value as string, { displayMode: false, throwOnError: false });
         } catch {
-          return `<code>${escHtml(node.value as string)}</code>`;
+          return `<code>${escapeHtml(node.value as string)}</code>`;
         }
       }
       // Raw HTML inlines from the editor (e.g. Mod-U → <u>…</u>). remark emits
@@ -877,17 +878,9 @@ function inlineToHtml(children: Node[]): string {
 function tableCellHtml(raw: string, children: Node[]): string {
   const progress = parseProgressDirective(raw);
   if (!progress || !('value' in progress)) {
-    return children.length ? inlineToHtml(children) : escHtml(raw);
+    return children.length ? inlineToHtml(children) : escapeHtml(raw);
   }
   return `<div class="sl-progress sl-progress--table">${progressBarInnerHtml(progress.label, progress.value)}</div>`;
-}
-
-// Escapes '"' too, not just <>&: this is also used to build attribute values
-// (e.g. an inline image's alt="…", always double-quoted in this file), where
-// an unescaped '"' would let crafted markdown break out of the attribute and
-// inject arbitrary HTML/attributes.
-function escHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 // `:name:` icon shortcodes (issue #263) — inline, so this runs on every text
@@ -907,7 +900,7 @@ function substituteIconShortcodes(s: string): string {
 // all. Only asterisks are parsed here, not underscores — citations commonly
 // contain DOIs/URLs like 10.1000/journal_name where `_` is literal.
 function referenceInlineToHtml(raw: string): string {
-  let html = escHtml(raw);
+  let html = escapeHtml(raw);
   html = html.replace(/`([^`]+)`/g, (_m, code) => `<code>${code}</code>`);
   html = html.replace(/\*\*([^*]+)\*\*/g, (_m, b) => `<strong>${b}</strong>`);
   html = html.replace(/\*([^*]+)\*/g, (_m, i) => `<em>${i}</em>`);
