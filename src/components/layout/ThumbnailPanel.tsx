@@ -3,6 +3,7 @@ import type { Slide, AspectRatio } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
 import { DEFAULT_THEME } from '../../engine/theme';
 import { SlideRenderer } from '../preview/SlideRenderer';
+import { SLIDE_W } from '../../engine/constants';
 import { useT } from '../../i18n';
 
 interface Props {
@@ -28,7 +29,6 @@ interface Props {
   aspectRatio?: AspectRatio;
 }
 
-const SLIDE_W = 960;
 const THUMB_W = 140;
 // How far beyond the visible list a thumbnail starts rendering, so a slide is
 // usually ready by the time it scrolls into view.

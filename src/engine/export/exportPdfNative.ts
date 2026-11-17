@@ -60,7 +60,7 @@ export async function buildPrintDocument(
   // 2. Extract all document CSS with font URLs resolved to data URIs.
   const css = await extractAllCss();
 
-  // Each slide is a 960×native box scaled into a frame sized to the slide's own
+  // Each slide is a SLIDE_W×native box scaled into a frame sized to the slide's own
   // proportions (so the N-up border hugs the slide), centred in its slot.
   const slot = (el: HTMLElement) =>
     `<div class="kova-slot"><div class="kova-frame"><div class="kova-scale">${el.outerHTML}</div></div></div>`;
