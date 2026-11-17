@@ -9,7 +9,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "src-tauri/**", "node_modules/**", "public/**", "packaging/**", "infra/**", "coverage/**"],
+    ignores: ["dist/**", "src-tauri/**", "node_modules/**", "public/**", "packaging/**", "infra/**", "coverage/**", ".claude/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
