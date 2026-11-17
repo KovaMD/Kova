@@ -15,6 +15,7 @@ import html2canvas from 'html2canvas';
 import 'katex/dist/katex.min.css';
 import hljs from 'highlight.js';
 import type { Slide, SlideElement, Frontmatter } from '../types';
+import { parseAspectRatio } from '../types';
 import type { Theme } from '../theme';
 import { resolveTemplate } from '../theme';
 import { formatFallbackDate } from '../../i18n';
@@ -313,11 +314,22 @@ export async function exportToPptx(
   // triggered, and shouldn't add weight to the app's initial bundle.
   const { default: PptxGenJS } = await import('pptxgenjs');
   const pres = new PptxGenJS();
-  const is4x3 = (frontmatter.aspect_ratio as string | undefined) === '4:3';
-  // LAYOUT_16x9 = 10" × 5.625", which matches W=10 and H=5.625 below.
+  // Same ratio parsing as the preview, PDF and presenter, so every output
+  // agrees. Width is fixed at W=10", height follows the ratio: 16:9 → 5.625",
+  // 4:3 → 7.5", 16:10 → 6.25".
+  const ratio = parseAspectRatio(frontmatter.aspect_ratio as string | undefined);
+  const H = (W * ratio.h) / ratio.w;
+  // LAYOUT_16x9 = 10" × 5.625" and LAYOUT_4x3 = 10" × 7.5" match W=10 above.
   // LAYOUT_WIDE is 13.33" × 7.5" — using that with W=10 would misplace everything.
-  pres.layout = is4x3 ? 'LAYOUT_4x3' : 'LAYOUT_16x9';
-  const H = is4x3 ? 7.5 : 5.625;
+  // pptxgenjs has no 10" × 6.25" built-in, so 16:10 gets a custom layout.
+  if (ratio.w === 4 && ratio.h === 3) {
+    pres.layout = 'LAYOUT_4x3';
+  } else if (ratio.w === 16 && ratio.h === 10) {
+    pres.defineLayout({ name: 'KOVA_16x10', width: W, height: H });
+    pres.layout = 'KOVA_16x10';
+  } else {
+    pres.layout = 'LAYOUT_16x9';
+  }
 
   // Falls back to the deck's cover slide (first H1) when frontmatter has no
   // explicit `title:` — mirrors the same fallback used for the live preview

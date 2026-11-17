@@ -7,7 +7,7 @@ aspect_ratio: "16:10"
 
 # Sixteen by Ten
 
-Characterises known bug B1: a 16:10 deck currently exports as 16:9.
+Pins the 16:10 export at 10 x 6.25 in (bug B1, fixed: it used to export as 16:9).
 
 ---
 

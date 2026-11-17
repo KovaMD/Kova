@@ -10,8 +10,8 @@
 <p:notesMasterIdLst>
 <p:notesMasterId r:id="rId4"/>
 </p:notesMasterIdLst>
-<p:sldSz cx="9144000" cy="5143500"/>
-<p:notesSz cx="5143500" cy="9144000"/>
+<p:sldSz cx="9144000" cy="5715000"/>
+<p:notesSz cx="5715000" cy="9144000"/>
 <p:defaultTextStyle>
 <a:lvl1pPr marL="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
 <a:defRPr sz="1800" kern="1200">
