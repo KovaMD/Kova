@@ -2,6 +2,8 @@
 // submenu (macOS native menu + Windows/Linux in-window menu). App-managed
 // state, not a user preference.
 
+import { readJson, writeJson } from './storage';
+
 const KEY = 'kova:recentFiles';
 const MAX = 10;
 const WIN_EXTENDED_PREFIX = '\\\\?\\';
@@ -16,39 +18,32 @@ function normalizePath(path: string): string {
 }
 
 export function loadRecentFiles(): string[] {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    const seen = new Set<string>();
-    const result: string[] = [];
-    for (const p of parsed) {
-      if (typeof p !== 'string') continue;
-      const norm = normalizePath(p);
-      if (seen.has(norm)) continue;
-      seen.add(norm);
-      result.push(norm);
-      if (result.length >= MAX) break;
-    }
-    return result;
-  } catch {
-    return [];
+  const parsed = readJson<unknown[]>(KEY, [], Array.isArray);
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const p of parsed) {
+    if (typeof p !== 'string') continue;
+    const norm = normalizePath(p);
+    if (seen.has(norm)) continue;
+    seen.add(norm);
+    result.push(norm);
+    if (result.length >= MAX) break;
   }
+  return result;
 }
 
 // Prepend `path` (deduped), cap at MAX, persist, return the new list.
 export function addRecentFile(path: string): string[] {
   const norm = normalizePath(path);
   const next = [norm, ...loadRecentFiles().filter((p) => p !== norm)].slice(0, MAX);
-  try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* full/unavailable — recents are a convenience */ }
+  writeJson(KEY, next); // full/unavailable — recents are a convenience
   return next;
 }
 
 export function removeRecentFile(path: string): string[] {
   const norm = normalizePath(path);
   const next = loadRecentFiles().filter((p) => p !== norm);
-  try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  writeJson(KEY, next);
   return next;
 }
 

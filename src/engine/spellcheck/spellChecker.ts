@@ -1,4 +1,5 @@
 import Typo from 'typo-js';
+import { readJson } from '../../store/storage';
 
 // All supported languages — sorted by display name for the UI dropdown
 export type SpellCheckLanguage =
@@ -87,8 +88,7 @@ const changeListeners = new Set<() => void>();
 const spellCheckCache = new Map<string, boolean>();
 
 function loadCustomWords(): string[] {
-  try { return JSON.parse(localStorage.getItem(CUSTOM_WORDS_KEY) ?? '[]'); }
-  catch { return []; }
+  return readJson<string[]>(CUSTOM_WORDS_KEY, []);
 }
 
 function saveCustomWords(): void {
