@@ -1,6 +1,22 @@
 use tauri::AppHandle;
 
+use crate::file_io;
+
 // ── Native PDF export ────────────────────────────────────────────────────────
+
+/// Runs the PDF output path through the same checks every other file write
+/// uses (`file_io::safe_write_path`): the parent directory must exist, `..`
+/// and symlinks are resolved, and under Flatpak the result must sit inside
+/// the user's home directory. Returns the resolved path as a plain string
+/// (Windows `\\?\` prefix stripped) for the platform print engines.
+fn validate_output_path(output_path: &str) -> Result<String, String> {
+    let resolved = file_io::safe_write_path(output_path)?;
+    let resolved = resolved
+        .into_os_string()
+        .into_string()
+        .map_err(|_| "Invalid path: not valid UTF-8".to_string())?;
+    Ok(file_io::strip_verbatim_prefix(resolved))
+}
 
 /// Render a self-contained HTML document to a PDF file using the platform's
 /// native WebView print API (WKWebView on macOS, WebView2 on Windows).
@@ -18,6 +34,10 @@ pub async fn export_pdf_native(
     page_height_px: f64,
 ) -> Result<(), String> {
     use tauri::Manager;
+
+    // Validate before doing any work, so a bad path fails fast and the print
+    // engines below only ever see a resolved, permitted location.
+    let output_path = validate_output_path(&output_path)?;
 
     // Write HTML to a temp file so the hidden WebviewWindow can navigate to it.
     let cache_dir = app
@@ -158,7 +178,9 @@ mod platform_macos {
             pages.push(capture_page(window, f64::from(i) * page_h, page_w, page_h).await?);
         }
         let merged = unsafe { merge_pdfs(&pages) }?;
-        std::fs::write(output_path, &merged).map_err(|e| format!("write PDF: {e}"))
+        // Atomic write (temp file + rename) so a failure never leaves a
+        // half-written PDF in place of an existing one.
+        crate::file_io::write_bytes(output_path, &merged)
     }
 
     // Capture a single page-sized rect of the web content as a one-page PDF.
@@ -503,5 +525,89 @@ mod platform_linux {
         })
         .await
         .map_err(|e| format!("{e}"))?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_output_path;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    fn temp_scratch_dir(label: &str) -> std::path::PathBuf {
+        static COUNTER: AtomicU32 = AtomicU32::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir()
+            .join(format!("kova-pdf-test-{label}-{}-{n}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn accepts_path_in_existing_directory() {
+        let dir = temp_scratch_dir("ok");
+        let out = dir.join("deck.pdf");
+        let validated = validate_output_path(out.to_str().unwrap()).unwrap();
+        let expected = std::fs::canonicalize(&dir).unwrap().join("deck.pdf");
+        assert_eq!(std::path::PathBuf::from(validated), expected);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn resolves_dot_dot_components() {
+        let dir = temp_scratch_dir("dotdot");
+        std::fs::create_dir_all(dir.join("sub")).unwrap();
+        let out = dir.join("sub").join("..").join("deck.pdf");
+        let validated = validate_output_path(out.to_str().unwrap()).unwrap();
+        let expected = std::fs::canonicalize(&dir).unwrap().join("deck.pdf");
+        assert_eq!(std::path::PathBuf::from(validated), expected);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_missing_parent_directory() {
+        let dir = temp_scratch_dir("missing");
+        let out = dir.join("does-not-exist").join("deck.pdf");
+        assert!(validate_output_path(out.to_str().unwrap()).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_path_without_filename() {
+        assert!(validate_output_path("/").is_err());
+        assert!(validate_output_path("").is_err());
+    }
+
+    // The Flatpak home-boundary check reads FLATPAK_ID and HOME from the
+    // process environment. Setting them inside this test process would race
+    // with every other test that writes under the OS temp dir (outside HOME),
+    // so instead re-run this same test binary as a child process with the
+    // variables set, executing only the ignored `flatpak_child` test below.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn rejects_path_outside_home_under_flatpak() {
+        let home = temp_scratch_dir("flatpak-home");
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "commands::pdf::tests::flatpak_child", "--ignored", "--quiet"])
+            .env("FLATPAK_ID", "md.kova.app")
+            .env("HOME", &home)
+            .env("KOVA_PDF_FLATPAK_CHILD", "1")
+            .status()
+            .unwrap();
+        let _ = std::fs::remove_dir_all(&home);
+        assert!(status.success(), "flatpak_child test failed");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore = "run only as a child of rejects_path_outside_home_under_flatpak"]
+    fn flatpak_child() {
+        assert_eq!(std::env::var("KOVA_PDF_FLATPAK_CHILD").as_deref(), Ok("1"));
+        let home = std::path::PathBuf::from(std::env::var("HOME").unwrap());
+        // Outside the (temporary) home directory: refused under Flatpak.
+        let err = validate_output_path("/kova-r2-outside-home.pdf").unwrap_err();
+        assert!(err.contains("outside your home directory"), "{err}");
+        // Inside it: still allowed.
+        let inside = home.join("deck.pdf");
+        assert!(validate_output_path(inside.to_str().unwrap()).is_ok());
     }
 }
