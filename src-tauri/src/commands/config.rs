@@ -4,13 +4,24 @@ use tauri::{AppHandle, State};
 
 const DEFAULT_KEYBINDINGS: &str = include_str!("../../resources/default_keybindings.yaml");
 
+/// Kova's folder inside the platform config dir (e.g. `~/.config/kova` on
+/// Linux). Only builds the path; never creates anything.
+fn kova_config_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    use tauri::Manager;
+    Ok(app.path().config_dir().map_err(|e| e.to_string())?.join("kova"))
+}
+
+/// The custom-themes folder inside Kova's config dir. Only builds the path;
+/// callers that need it to exist create it themselves (see ensure_themes_dir).
+fn themes_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(kova_config_dir(app)?.join("themes"))
+}
+
 /// Reads keybindings.yaml from the platform config dir, creating it from defaults if absent.
 /// Returns (absolute_path, yaml_content).
 #[tauri::command]
 pub fn load_keybindings(app: AppHandle) -> Result<(String, String), String> {
-    use tauri::Manager;
-    let config_dir = app.path().config_dir().map_err(|e| e.to_string())?.join("kova");
-    let path = config_dir.join("keybindings.yaml");
+    let path = kova_config_dir(&app)?.join("keybindings.yaml");
 
     if !path.exists() {
         if let Some(parent) = path.parent() {
@@ -31,9 +42,8 @@ const EXAMPLE_THEME: &str = include_str!("../../resources/example_theme.yaml");
 /// separate frontend mount effects with no ordering guarantee across the IPC
 /// boundary — can't race each other into skipping the bootstrap.
 fn ensure_themes_dir(app: &AppHandle, state: &AppState) -> Result<PathBuf, String> {
-    use tauri::Manager;
     let _guard = state.themes_dir_init.lock().unwrap_or_else(|e| e.into_inner());
-    let themes_dir = app.path().config_dir().map_err(|e| e.to_string())?.join("kova").join("themes");
+    let themes_dir = themes_dir(app)?;
     if !themes_dir.exists() {
         std::fs::create_dir_all(&themes_dir).map_err(|e| e.to_string())?;
         std::fs::write(themes_dir.join("example.yaml"), EXAMPLE_THEME)
@@ -104,9 +114,8 @@ fn validate_theme_id(id: &str) -> Result<(), String> {
 /// Writes a theme YAML file to the platform config themes dir (remote install).
 #[tauri::command]
 pub fn save_theme(app: AppHandle, id: String, yaml: String) -> Result<(), String> {
-    use tauri::Manager;
     validate_theme_id(&id)?;
-    let themes_dir = app.path().config_dir().map_err(|e| e.to_string())?.join("kova").join("themes");
+    let themes_dir = themes_dir(&app)?;
     std::fs::create_dir_all(&themes_dir).map_err(|e| e.to_string())?;
     let path = themes_dir.join(format!("{id}.yaml"));
     std::fs::write(path, yaml).map_err(|e| e.to_string())?;
@@ -116,10 +125,8 @@ pub fn save_theme(app: AppHandle, id: String, yaml: String) -> Result<(), String
 /// Removes a theme YAML file from the platform config themes dir (remote uninstall). Silent if file absent.
 #[tauri::command]
 pub fn delete_theme(app: AppHandle, id: String) -> Result<(), String> {
-    use tauri::Manager;
     validate_theme_id(&id)?;
-    let path = app.path().config_dir().map_err(|e| e.to_string())?.join("kova")
-        .join("themes").join(format!("{id}.yaml"));
+    let path = themes_dir(&app)?.join(format!("{id}.yaml"));
     if path.exists() {
         std::fs::remove_file(path).map_err(|e| e.to_string())?;
     }
@@ -136,7 +143,6 @@ pub async fn download_and_cache_font(
     sha256: String,
 ) -> Result<String, String> {
     use sha2::{Digest, Sha256};
-    use tauri::Manager;
 
     use crate::net_guard::{fetch_capped, preflight, FetchError, FetchKind, FetchOpts};
 
@@ -173,13 +179,7 @@ pub async fn download_and_cache_font(
         return Err("sha256 must be a 64-character hex string".into());
     }
 
-    let fonts_dir = app
-        .path()
-        .config_dir()
-        .map_err(|e| e.to_string())?
-        .join("kova")
-        .join("themes")
-        .join("fonts");
+    let fonts_dir = themes_dir(&app)?.join("fonts");
 
     let (dest, already_cached) = {
         let fonts_dir = fonts_dir.clone();
