@@ -18,6 +18,23 @@ fn validate_output_path(output_path: &str) -> Result<String, String> {
     Ok(file_io::strip_verbatim_prefix(resolved))
 }
 
+/// Page geometry for a native PDF export, sent by the frontend as the `page`
+/// argument of `export_pdf_native` (TS type `PdfPageSpec` in
+/// src/platform/ipc.ts). Field names are camelCase on the wire.
+///
+/// Windows and Linux paginate from `@page` using `width_mm`/`height_mm`;
+/// macOS instead captures `page_count` rects of `page_width_px` x
+/// `page_height_px` and merges them.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PdfPageSpec {
+    pub width_mm: f64,
+    pub height_mm: f64,
+    pub page_count: u32,
+    pub page_width_px: f64,
+    pub page_height_px: f64,
+}
+
 /// Render a self-contained HTML document to a PDF file using the platform's
 /// native WebView print API (WKWebView on macOS, WebView2 on Windows).
 /// The HTML must be fully self-contained (all fonts and images embedded as
@@ -27,13 +44,11 @@ pub async fn export_pdf_native(
     app: AppHandle,
     html_content: String,
     output_path: String,
-    width_mm: f64,
-    height_mm: f64,
-    page_count: u32,
-    page_width_px: f64,
-    page_height_px: f64,
+    page: PdfPageSpec,
 ) -> Result<(), String> {
     use tauri::Manager;
+
+    let PdfPageSpec { width_mm, height_mm, page_count, page_width_px, page_height_px } = page;
 
     // Validate before doing any work, so a bad path fails fast and the print
     // engines below only ever see a resolved, permitted location.
@@ -523,8 +538,48 @@ mod platform_linux {
 
 #[cfg(test)]
 mod tests {
-    use super::validate_output_path;
+    use super::{validate_output_path, PdfPageSpec};
     use std::sync::atomic::{AtomicU32, Ordering};
+
+    /// The exact JSON shape the frontend sends as the `page` argument
+    /// (`PdfPageSpec` in src/platform/ipc.ts): camelCase field names.
+    #[test]
+    fn pdf_page_spec_reads_the_frontend_camel_case_shape() {
+        let json = r#"{"widthMm":297,"heightMm":167.0625,"pageCount":3,"pageWidthPx":1123,"pageHeightPx":632}"#;
+        let spec: PdfPageSpec = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            spec,
+            PdfPageSpec {
+                width_mm: 297.0,
+                height_mm: 167.0625,
+                page_count: 3,
+                page_width_px: 1123.0,
+                page_height_px: 632.0,
+            }
+        );
+    }
+
+    #[test]
+    fn pdf_page_spec_serde_round_trip() {
+        let spec = PdfPageSpec {
+            width_mm: 210.0,
+            height_mm: 297.0,
+            page_count: 12,
+            page_width_px: 793.7,
+            page_height_px: 1122.5,
+        };
+        let json = serde_json::to_string(&spec).unwrap();
+        assert!(json.contains("\"pageWidthPx\""), "{json}");
+        let back: PdfPageSpec = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, spec);
+    }
+
+    #[test]
+    fn pdf_page_spec_rejects_snake_case_keys() {
+        // Guards against the frontend and Rust drifting apart on key casing.
+        let json = r#"{"width_mm":1,"height_mm":1,"page_count":1,"page_width_px":1,"page_height_px":1}"#;
+        assert!(serde_json::from_str::<PdfPageSpec>(json).is_err());
+    }
 
     fn temp_scratch_dir(label: &str) -> std::path::PathBuf {
         static COUNTER: AtomicU32 = AtomicU32::new(0);

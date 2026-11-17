@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { exportPdfNative as exportPdfNativeIpc, fetchUrlB64, readFileB64 } from '../../platform/ipc';
 import type { AspectRatio, Slide } from '../types';
 import { getSlideStepValues } from '../layout/steps';
 import { mermaidSvgCache } from './mermaidSvgCache';
@@ -21,15 +21,17 @@ export async function exportPdfNative(
   const plan = planPage(aspectRatio, opts);
   const perPage = opts.perPage ?? 1;
   const pageCount = perPage > 1 ? Math.ceil(slideElements.length / perPage) : slideElements.length;
-  await invoke('export_pdf_native', {
+  await exportPdfNativeIpc({
     htmlContent: html,
     outputPath: savePath,
-    widthMm: plan.pageWmm,
-    heightMm: plan.pageHmm,
-    // Per-page capture rects for the macOS path (one createPDF per page, then merge).
-    pageCount,
-    pageWidthPx: plan.pageWpx,
-    pageHeightPx: plan.pageHpx,
+    page: {
+      widthMm: plan.pageWmm,
+      heightMm: plan.pageHmm,
+      // Per-page capture rects for the macOS path (one createPDF per page, then merge).
+      pageCount,
+      pageWidthPx: plan.pageWpx,
+      pageHeightPx: plan.pageHpx,
+    },
   });
 }
 
@@ -501,10 +503,10 @@ async function resolveImages(el: HTMLElement): Promise<void> {
     try {
       if (src.startsWith('asset://')) {
         const path = decodeURIComponent(src.replace(/^asset:\/\/[^/]*/, ''));
-        const b64  = await invoke<string>('read_file_b64', { path });
+        const b64  = await readFileB64(path);
         dataUrl = `data:${imageMime(path)};base64,${b64}`;
       } else if (src.startsWith('https://') || src.startsWith('http://')) {
-        const [b64, mime] = await invoke<[string, string]>('fetch_url_b64', { url: src });
+        const [b64, mime] = await fetchUrlB64(src);
         dataUrl = `data:${mime};base64,${b64}`;
       } else if (src.startsWith('tauri://') || src.startsWith('/')) {
         const fetchUrl = src.startsWith('/') ? `tauri://localhost${src}` : src;
@@ -544,10 +546,10 @@ async function resolveVideos(el: HTMLElement): Promise<void> {
     try {
       if (src.startsWith('asset://')) {
         const path = decodeURIComponent(src.replace(/^asset:\/\/[^/]*/, ''));
-        const b64  = await invoke<string>('read_file_b64', { path });
+        const b64  = await readFileB64(path);
         dataUrl = `data:${videoMime(path)};base64,${b64}`;
       } else if (src.startsWith('https://') || src.startsWith('http://')) {
-        const [b64, mime] = await invoke<[string, string]>('fetch_url_b64', { url: src });
+        const [b64, mime] = await fetchUrlB64(src);
         dataUrl = `data:${mime};base64,${b64}`;
       } else if (src.startsWith('tauri://') || src.startsWith('/')) {
         const fetchUrl = src.startsWith('/') ? `tauri://localhost${src}` : src;
@@ -608,7 +610,7 @@ export async function resolveFontUrls(css: string, origin: string = window.locat
       if (ASSET_URL_RE.test(url)) {
         // Drop the slash left in front of a Windows drive letter (/C:\...).
         const path = decodeURIComponent(url.replace(ASSET_URL_RE, '')).replace(/^\/(?=[A-Za-z]:)/, '');
-        const b64  = await invoke<string>('read_file_b64', { path });
+        const b64  = await readFileB64(path);
         dataUrl = `data:${extToFontMime(path)};base64,${b64}`;
       } else if (url.startsWith('/') || url.startsWith(`${origin}/`)) {
         const res = await fetch(url.startsWith('/') ? `${origin}${url}` : url);

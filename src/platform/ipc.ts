@@ -46,7 +46,7 @@ export interface SetupAudienceWindowArgs {
   /** Logical coordinates of the target monitor. */
   x: number;
   y: number;
-  /** Physical coordinates (Rust `_physical_x` / `_physical_y`). */
+  /** Physical coordinates (Rust `physical_x` / `physical_y`). */
   physicalX: number;
   physicalY: number;
 }
@@ -55,14 +55,23 @@ export interface DownloadAndCacheFontArgs { url: string; sha256: string }
 export interface SetWakeLockArgs { active: boolean }
 export interface CliExitArgs { message?: string; code: number }
 export interface CliStdoutArgs { text: string }
-export interface ExportPdfNativeArgs {
-  htmlContent: string;
-  outputPath: string;
+/**
+ * Page geometry for export_pdf_native (Rust `PdfPageSpec` in pdf.rs, which
+ * deserialises these camelCase field names). Windows/Linux paginate from
+ * `@page` using widthMm/heightMm; macOS captures `pageCount` rects of
+ * pageWidthPx x pageHeightPx and merges them.
+ */
+export interface PdfPageSpec {
   widthMm: number;
   heightMm: number;
   pageCount: number;
   pageWidthPx: number;
   pageHeightPx: number;
+}
+export interface ExportPdfNativeArgs {
+  htmlContent: string;
+  outputPath: string;
+  page: PdfPageSpec;
 }
 
 // ── Result types ─────────────────────────────────────────────────────────────
