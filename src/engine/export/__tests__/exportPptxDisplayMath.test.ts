@@ -25,23 +25,22 @@ let originalGetContext: typeof HTMLCanvasElement.prototype.getContext;
 
 beforeAll(() => {
   originalGetContext = HTMLCanvasElement.prototype.getContext;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (HTMLCanvasElement.prototype as any).getContext = function (this: HTMLCanvasElement, kind: string) {
+  const stubContext = (canvas: HTMLCanvasElement) => ({
+    set fillStyle(v: string) { lastFill.set(canvas, hexToRgb(v)); },
+    get fillStyle() { return '#000000'; },
+    fillRect() { /* no-op: colour is already recorded by the fillStyle setter */ },
+    getImageData(_x: number, _y: number, w: number, h: number) {
+      const [r, g, b] = lastFill.get(canvas) ?? [255, 255, 255];
+      const data = new Uint8ClampedArray(w * h * 4);
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = 255;
+      }
+      return { data };
+    },
+  });
+  (HTMLCanvasElement.prototype as unknown as { getContext: unknown }).getContext = function (this: HTMLCanvasElement, kind: string) {
     if (kind !== '2d') return null;
-    const canvas = this;
-    return {
-      set fillStyle(v: string) { lastFill.set(canvas, hexToRgb(v)); },
-      get fillStyle() { return '#000000'; },
-      fillRect() { /* no-op: colour is already recorded by the fillStyle setter */ },
-      getImageData(_x: number, _y: number, w: number, h: number) {
-        const [r, g, b] = lastFill.get(canvas) ?? [255, 255, 255];
-        const data = new Uint8ClampedArray(w * h * 4);
-        for (let i = 0; i < data.length; i += 4) {
-          data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = 255;
-        }
-        return { data };
-      },
-    };
+    return stubContext(this);
   };
 });
 afterAll(() => { HTMLCanvasElement.prototype.getContext = originalGetContext; });
@@ -87,8 +86,7 @@ describe('exportPptx display math (issue #196)', () => {
 
   it('falls back to the LaTeX source as plain text when the capture is blank (e.g. the WebKit foreignObject issue)', async () => {
     const html2canvas = (await import('html2canvas')).default;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (html2canvas as any).mockImplementationOnce(async () => {
+    vi.mocked(html2canvas).mockImplementationOnce(async () => {
       const canvas = document.createElement('canvas');
       canvas.width = 10;
       canvas.height = 10;

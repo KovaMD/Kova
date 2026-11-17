@@ -83,7 +83,6 @@ function AudienceAppInner({ showProgressBar }: { showProgressBar: boolean }) {
 
     setup();
     return () => { unlistenInit?.(); unlistenNav?.(); unlistenExit?.(); unlistenLaser?.(); unlistenBlank?.(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Register the active theme's bundled/remote fonts in *this* window's document.
@@ -109,7 +108,6 @@ function AudienceAppInner({ showProgressBar }: { showProgressBar: boolean }) {
           console.warn(`[kova] remote font "${font.family}" failed: ${err}`);
         });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initData?.theme.remoteFonts]);
 
   // Table-of-contents click on the audience-facing screen — resolve the real

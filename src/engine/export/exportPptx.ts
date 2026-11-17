@@ -600,7 +600,7 @@ async function applyPptxPostProcessing(base64: string, perSlideTargets: StepTarg
 
 // ── Per-slide dispatcher ──────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- pptxgenjs slide surface is untyped here; proper pptx types land in Phase 5
 type PS = any;
 
 function addSlide(

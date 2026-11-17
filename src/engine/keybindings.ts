@@ -2,8 +2,7 @@ import yaml from 'js-yaml';
 import { invoke } from '@tauri-apps/api/core';
 
 export const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/i.test(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (navigator as any).userAgentData?.platform ?? navigator.platform
+  (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.platform
 );
 
 // snake_case file keys → camelCase action ids

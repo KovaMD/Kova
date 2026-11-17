@@ -5,7 +5,7 @@ import remarkMath from 'remark-math';
 import katex from 'katex';
 import { parseColorValue } from './colorValue';
 import { toString } from 'mdast-util-to-string';
-import type { Root, Node, Paragraph, List, ListItem as MdastListItem, Code, Blockquote, Table, Heading } from 'mdast';
+import type { Root, Node, Paragraph, PhrasingContent, List, ListItem as MdastListItem, Code, Blockquote, Table, Heading } from 'mdast';
 
 import type { Slide, SlideElement, ListItem, LayoutType, Frontmatter, ParsedDocument } from '../types';
 import { detectLayout } from '../layout/autoLayout';
@@ -197,7 +197,9 @@ function parseSlide(raw: string, index: number, constants: Map<string, Value>): 
   const { content, notes } = extractSpeakerNotes(cleanContent);
 
   const tree = processor.parse(content) as Root;
-  let { title, titleLevel, subheadings, elements } = convertRoot(tree, placeholders, sheets, content, constants);
+  const converted = convertRoot(tree, placeholders, sheets, content, constants);
+  const { title, titleLevel, subheadings } = converted;
+  let { elements } = converted;
 
   let layout = layoutOverride ?? detectLayout(elements, titleLevel, !!title);
   let backgroundImage: Slide['backgroundImage'];
@@ -746,11 +748,11 @@ function capitalize(s: string): string {
 function extractCallout(bq: Blockquote): { calloutType: string; title: string; children: Node[] } | null {
   const first = bq.children[0];
   if (!first || first.type !== 'paragraph') return null;
-  const kids = [...(first as Paragraph).children] as any[];
+  const kids: PhrasingContent[] = [...(first as Paragraph).children];
   const firstKid = kids[0];
   if (!firstKid || firstKid.type !== 'text') return null;
 
-  const value = firstKid.value as string;
+  const value = firstKid.value;
   const nl = value.indexOf('\n');
   const firstLine = nl < 0 ? value : value.slice(0, nl);
   const m = firstLine.match(CALLOUT_RE);
@@ -787,15 +789,15 @@ function blockquoteInnerHtml(bq: Blockquote): string {
 // off the last text node, keeping the body's inline nodes intact for formatting.
 function extractAttribution(bq: Blockquote): { children: Node[]; attribution: string } | null {
   if (bq.children.length !== 1 || bq.children[0].type !== 'paragraph') return null;
-  const kids = [...(bq.children[0] as Paragraph).children] as any[];
+  const kids: PhrasingContent[] = [...(bq.children[0] as Paragraph).children];
   const last = kids[kids.length - 1];
   if (!last || last.type !== 'text') return null;
   const nl = (last.value as string).lastIndexOf('\n');
   if (nl < 0) return null;
   const tail = (last.value as string).slice(nl + 1);
-  if (!/^\s*[—–\-]/.test(tail)) return null;
+  if (!/^\s*[—–-]/.test(tail)) return null;
   const children = [...kids.slice(0, -1), { ...last, value: (last.value as string).slice(0, nl) }] as Node[];
-  return { children, attribution: tail.replace(/^\s*[—–\-]\s*/, '') };
+  return { children, attribution: tail.replace(/^\s*[—–-]\s*/, '') };
 }
 
 function listToHtml(l: List): string {
@@ -843,7 +845,7 @@ function isAutolink(node: { url: string; children: unknown[] }): boolean {
 }
 
 function inlineToHtml(children: Node[]): string {
-  return (children as any[]).map((node) => {
+  return (children as PhrasingContent[]).map((node) => {
     switch (node.type) {
       case 'text':        return substituteIconShortcodes(escapeHtml(node.value as string)).replace(/\n/g, '<br>');
       case 'strong':      return `<strong>${inlineToHtml(node.children)}</strong>`;
@@ -870,7 +872,7 @@ function inlineToHtml(children: Node[]): string {
         if (v === '<u>' || v === '</u>') return String(node.value).trim();
         return '';
       }
-      default:            return node.children ? inlineToHtml(node.children) : '';
+      default:            return 'children' in node && node.children ? inlineToHtml(node.children) : '';
     }
   }).join('');
 }

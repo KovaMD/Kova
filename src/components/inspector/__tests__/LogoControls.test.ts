@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
-const { open } = vi.hoisted(() => ({ open: vi.fn(async (_opts?: unknown) => null) }));
+const { open } = vi.hoisted(() => ({ open: vi.fn<(opts?: unknown) => Promise<null>>(async () => null) }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open }));
 
 import { LogoControls } from '../LogoControls';

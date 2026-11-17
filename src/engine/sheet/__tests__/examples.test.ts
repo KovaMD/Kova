@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseDocument } from '../../parser/markdownToSlides';
+import type { SlideElement } from '../../types';
+
+type TableElement = Extract<SlideElement, { type: 'table' }>;
 
 // The example decks double as fixtures: if a slide there is broken, so is the
 // feature. sheet-reference.md has an "Errors" slide that is *meant* to fail, so
@@ -8,7 +11,7 @@ import { parseDocument } from '../../parser/markdownToSlides';
 function cells(file: string): string[] {
   const { slides } = parseDocument(readFileSync(`examples/${file}`, 'utf8'));
   return slides.flatMap((s) =>
-    s.elements.filter((e) => e.type === 'table').flatMap((e: any) => e.rows.flat() as string[]),
+    s.elements.filter((e): e is TableElement => e.type === 'table').flatMap((e) => e.rows.flat()),
   );
 }
 
