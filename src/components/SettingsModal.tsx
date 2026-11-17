@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { bestEffort } from '../platform/bestEffort';
 import { ModalShell, ModalCloseButton } from './ModalShell';
 import type { AppSettings, PresentationMode, NotesFontSize, LaserColor, StartupBehavior } from '../store/settings';
 import { EDITOR_FONT_OPTIONS, LASER_COLOR_OPTIONS } from '../store/settings';
@@ -196,9 +197,9 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
   const pendingUpdate = useRef<AvailableUpdate | null>(null);
   const [selfUpdateSupported, setSelfUpdateSupported] = useState(true);
   useEffect(() => {
-    canSelfUpdate().then((supported) => {
+    bestEffort(canSelfUpdate().then((supported) => {
       setSelfUpdateSupported(supported);
-    }).catch(() => {});
+    }), 'canSelfUpdate');
   }, []);
 
   const [aboutView, setAboutView] = useState<'main' | 'licenses'>('main');
@@ -1097,7 +1098,7 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
                   <button
                     key={item.kind === 'link' ? item.url : 'licenses'}
                     type="button"
-                    onClick={() => item.kind === 'link' ? openUrl(item.url).catch(() => {}) : setAboutView('licenses')}
+                    onClick={() => item.kind === 'link' ? bestEffort(openUrl(item.url), 'openUrl') : setAboutView('licenses')}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
                       width: '100%', textAlign: 'left', fontFamily: 'inherit',

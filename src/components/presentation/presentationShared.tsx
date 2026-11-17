@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { bestEffort } from '../../platform/bestEffort';
 
 // Virtual slide width every overlay scales from (matches ThumbnailPanel).
 export const SLIDE_W = 960;
@@ -104,7 +105,7 @@ export function NotesText({ text }: { text: string }) {
           <a
             key={i}
             href={href}
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openUrl(href).catch(() => {}); }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); bestEffort(openUrl(href), 'openUrl'); }}
           >
             {seg.text}
           </a>
