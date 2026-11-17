@@ -1985,6 +1985,7 @@ version = "0.8.3"
 dependencies = [
  "base64 0.22.1",
  "block2",
+ "bytes",
  "dirs 5.0.1",
  "gdk",
  "gio",

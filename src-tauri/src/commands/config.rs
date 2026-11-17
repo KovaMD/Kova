@@ -131,20 +131,34 @@ pub async fn download_and_cache_font(
     use sha2::{Digest, Sha256};
     use tauri::Manager;
 
-    // URL must be HTTPS to prevent cleartext interception.
-    if !url.starts_with("https://") {
-        return Err("font URL must use HTTPS".into());
-    }
+    use crate::net_guard::{fetch_capped, preflight, FetchError, FetchKind, FetchOpts};
 
     // url/sha256 come from a theme file's `remoteFonts` list — attacker-
     // influenceable content (a shared/imported theme), same trust tier as an
     // opened document. Route through the same SSRF guard fetch_url_b64/
-    // fetch_url_text use, rather than a bare reqwest::get with no address
-    // validation at all (see the matching comment in commands/network.rs).
-    let parsed_url = reqwest::Url::parse(&url).map_err(|e| format!("invalid URL: {e}"))?;
-    if crate::net_guard::url_host_is_blocked(&parsed_url) {
-        return Err("refusing to connect to a non-public address".into());
-    }
+    // fetch_url_text use (net_guard::fetch_capped). HTTPS only, to prevent
+    // cleartext interception.
+    const MAX_FONT_BYTES: u64 = 20 * 1024 * 1024; // 20 MB
+    let opts = FetchOpts {
+        https_only: true,
+        max_bytes: MAX_FONT_BYTES,
+        accept: None,
+        kind: FetchKind::Get,
+    };
+    // This command has always worded its errors differently from the
+    // network commands; keep those strings.
+    let font_err = |e: FetchError| -> String {
+        match e {
+            FetchError::BadScheme { .. } => "font URL must use HTTPS".into(),
+            FetchError::Send(e) | FetchError::Read(e) => format!("download failed: {e}"),
+            FetchError::Status(s) => format!("download failed: HTTP {s}"),
+            FetchError::TooLarge { .. } => "font file too large (max 20 MB)".into(),
+            other => other.to_string(),
+        }
+    };
+    // Check the URL up front (before the hash and cache checks), as before;
+    // fetch_capped repeats the same check itself below.
+    preflight(&url, &opts).map_err(font_err)?;
 
     // sha256 must be exactly 64 lowercase hex chars — used as the filename,
     // so this also prevents any path-traversal via crafted hash strings.
@@ -177,31 +191,7 @@ pub async fn download_and_cache_font(
         return Ok(dest.to_string_lossy().into_owned());
     }
 
-    const MAX_FONT_BYTES: u64 = 20 * 1024 * 1024; // 20 MB
-
-    let client = crate::net_guard::build_ssrf_safe_client()?;
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("download failed: {e}"))?;
-
-    if !response.status().is_success() {
-        return Err(format!("download failed: HTTP {}", response.status()));
-    }
-
-    if response.content_length().unwrap_or(0) > MAX_FONT_BYTES {
-        return Err("font file too large (max 20 MB)".into());
-    }
-
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| format!("download failed: {e}"))?;
-
-    if bytes.len() as u64 > MAX_FONT_BYTES {
-        return Err("font file too large (max 20 MB)".into());
-    }
+    let bytes = fetch_capped(&url, &opts).await.map_err(font_err)?.bytes;
 
     // Verify integrity before writing to disk.
     let actual = format!("{:x}", Sha256::digest(&bytes));
