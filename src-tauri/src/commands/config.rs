@@ -90,13 +90,22 @@ pub fn start_watching_themes(app: AppHandle, state: State<'_, AppState>) -> Resu
     Ok(())
 }
 
+/// Checks a theme id before it is used as a file name. Allows letters and
+/// digits (any script, since `is_alphanumeric` is Unicode-aware), `-` and
+/// `_`; anything else, including `.` and path separators, is rejected so an
+/// id can never escape the themes directory.
+fn validate_theme_id(id: &str) -> Result<(), String> {
+    if id.is_empty() || !id.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        return Err("invalid theme id".into());
+    }
+    Ok(())
+}
+
 /// Writes a theme YAML file to the platform config themes dir (remote install).
 #[tauri::command]
 pub fn save_theme(app: AppHandle, id: String, yaml: String) -> Result<(), String> {
     use tauri::Manager;
-    if id.is_empty() || !id.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
-        return Err("invalid theme id".into());
-    }
+    validate_theme_id(&id)?;
     let themes_dir = app.path().config_dir().map_err(|e| e.to_string())?.join("kova").join("themes");
     std::fs::create_dir_all(&themes_dir).map_err(|e| e.to_string())?;
     let path = themes_dir.join(format!("{id}.yaml"));
@@ -108,9 +117,7 @@ pub fn save_theme(app: AppHandle, id: String, yaml: String) -> Result<(), String
 #[tauri::command]
 pub fn delete_theme(app: AppHandle, id: String) -> Result<(), String> {
     use tauri::Manager;
-    if id.is_empty() || !id.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
-        return Err("invalid theme id".into());
-    }
+    validate_theme_id(&id)?;
     let path = app.path().config_dir().map_err(|e| e.to_string())?.join("kova")
         .join("themes").join(format!("{id}.yaml"));
     if path.exists() {
@@ -210,4 +217,40 @@ pub async fn download_and_cache_font(
     }
 
     Ok(dest.to_string_lossy().into_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_theme_id;
+
+    #[test]
+    fn rejects_empty_id() {
+        assert_eq!(validate_theme_id(""), Err("invalid theme id".to_string()));
+    }
+
+    #[test]
+    fn rejects_parent_dir_traversal() {
+        assert!(validate_theme_id("../x").is_err());
+        assert!(validate_theme_id("..").is_err());
+    }
+
+    #[test]
+    fn rejects_path_separators_and_dots() {
+        assert!(validate_theme_id("a/b").is_err());
+        assert!(validate_theme_id("a\\b").is_err());
+        assert!(validate_theme_id("a.yaml").is_err());
+        assert!(validate_theme_id("a b").is_err());
+    }
+
+    #[test]
+    fn accepts_unicode_letters() {
+        assert!(validate_theme_id("tema-čšž").is_ok());
+        assert!(validate_theme_id("Größe").is_ok());
+        assert!(validate_theme_id("日本").is_ok());
+    }
+
+    #[test]
+    fn accepts_ascii_ids_with_dash_and_underscore() {
+        assert_eq!(validate_theme_id("my-theme_2"), Ok(()));
+    }
 }
