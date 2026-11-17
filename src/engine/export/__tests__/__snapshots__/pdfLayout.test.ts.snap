@@ -1,0 +1,1483 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildPrintDocument golden structure (P0-06) > matches the golden page structure and print CSS: 2-up Letter > pages 1`] = `
+[
+  "kova-page > kova-content kova-grid [S1, S2]",
+  "kova-page > kova-content kova-grid [S3, S4]",
+  "kova-page > kova-content kova-grid [S5]",
+]
+`;
+
+exports[`buildPrintDocument golden structure (P0-06) > matches the golden page structure and print CSS: 2-up Letter > print css 1`] = `
+"@page {
+  size: 279mm 216mm;
+  margin: 0;
+}
+*, *::before, *::after {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  color-adjust: exact !important;
+}
+@media print {
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+}
+/* Override app-level constraints (e.g. html/body { height:100%; overflow:hidden })
+   that would collapse the print document to a single page. These must come after
+   the extracted CSS and use !important to win specificity. */
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  zoom: 1 !important;
+}
+.kova-page {
+  display: block !important;
+  width: 1054px !important;
+  height: 816px !important;
+  overflow: hidden !important;
+  break-after: page;
+  page-break-after: always;
+  position: relative !important;
+  margin: 0 !important;
+  background: #0a0b0c !important;
+}
+.kova-page:last-child {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.kova-content {
+  position: absolute !important;
+  inset: 38px !important;
+  box-sizing: border-box !important;
+}
+.kova-center { display: flex !important; align-items: center !important; justify-content: center !important; }
+.kova-col    { display: flex !important; flex-direction: column !important; }
+.kova-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 477.5px) !important;
+  grid-auto-rows: 740px !important;
+  gap: 23px !important;
+  align-content: center !important;
+  justify-content: center !important;
+}
+.kova-slot {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+}
+.kova-grid .kova-slot { width: 477.5px !important; height: 740px !important; }
+.kova-col  .kova-slot { width: 100% !important; height: 740px !important; flex: 0 0 auto !important; }
+.kova-center .kova-slot { width: 100% !important; height: 100% !important; }
+.kova-frame {
+  position: relative !important;
+  box-sizing: border-box !important;
+  width: 477.5px !important;
+  height: 268.59375px !important;
+  overflow: hidden !important;
+  flex: 0 0 auto !important;
+  background: #0a0b0c !important;
+}
+.kova-grid .kova-frame { border: 1px solid #c8c8c8 !important; }
+.kova-scale {
+  width: 960px !important;
+  height: 540px !important;
+  transform: scale(0.4973958333333333) !important;
+  transform-origin: top left !important;
+}
+.kova-notes {
+  flex: 1 1 auto !important;
+  box-sizing: border-box !important;
+  margin-top: 23px !important;
+  padding: 20px 24px !important;
+  font: 18px/1.55 -apple-system, system-ui, sans-serif !important;
+  color: #111 !important;
+  background: #fff !important;
+  white-space: pre-wrap !important;
+  overflow: hidden !important;
+  border-top: 2px solid #999 !important;
+}
+"
+`;
+
+exports[`buildPrintDocument golden structure (P0-06) > matches the golden page structure and print CSS: 4-up A4 > pages 1`] = `
+[
+  "kova-page > kova-content kova-grid [S1, S2, S3, S4]",
+  "kova-page > kova-content kova-grid [S5]",
+]
+`;
+
+exports[`buildPrintDocument golden structure (P0-06) > matches the golden page structure and print CSS: 4-up A4 > print css 1`] = `
+"@page {
+  size: 297mm 210mm;
+  margin: 0;
+}
+*, *::before, *::after {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  color-adjust: exact !important;
+}
+@media print {
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+}
+/* Override app-level constraints (e.g. html/body { height:100%; overflow:hidden })
+   that would collapse the print document to a single page. These must come after
+   the extracted CSS and use !important to win specificity. */
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  zoom: 1 !important;
+}
+.kova-page {
+  display: block !important;
+  width: 1123px !important;
+  height: 794px !important;
+  overflow: hidden !important;
+  break-after: page;
+  page-break-after: always;
+  position: relative !important;
+  margin: 0 !important;
+  background: #0a0b0c !important;
+}
+.kova-page:last-child {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.kova-content {
+  position: absolute !important;
+  inset: 38px !important;
+  box-sizing: border-box !important;
+}
+.kova-center { display: flex !important; align-items: center !important; justify-content: center !important; }
+.kova-col    { display: flex !important; flex-direction: column !important; }
+.kova-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 512px) !important;
+  grid-auto-rows: 347.5px !important;
+  gap: 23px !important;
+  align-content: center !important;
+  justify-content: center !important;
+}
+.kova-slot {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+}
+.kova-grid .kova-slot { width: 512px !important; height: 347.5px !important; }
+.kova-col  .kova-slot { width: 100% !important; height: 347.5px !important; flex: 0 0 auto !important; }
+.kova-center .kova-slot { width: 100% !important; height: 100% !important; }
+.kova-frame {
+  position: relative !important;
+  box-sizing: border-box !important;
+  width: 512px !important;
+  height: 288px !important;
+  overflow: hidden !important;
+  flex: 0 0 auto !important;
+  background: #0a0b0c !important;
+}
+.kova-grid .kova-frame { border: 1px solid #c8c8c8 !important; }
+.kova-scale {
+  width: 960px !important;
+  height: 540px !important;
+  transform: scale(0.5333333333333333) !important;
+  transform-origin: top left !important;
+}
+.kova-notes {
+  flex: 1 1 auto !important;
+  box-sizing: border-box !important;
+  margin-top: 23px !important;
+  padding: 20px 24px !important;
+  font: 18px/1.55 -apple-system, system-ui, sans-serif !important;
+  color: #111 !important;
+  background: #fff !important;
+  white-space: pre-wrap !important;
+  overflow: hidden !important;
+  border-top: 2px solid #999 !important;
+}
+"
+`;
+
+exports[`buildPrintDocument golden structure (P0-06) > matches the golden page structure and print CSS: 6-up A4 > pages 1`] = `
+[
+  "kova-page > kova-content kova-grid [S1, S2, S3, S4, S5]",
+]
+`;
+
+exports[`buildPrintDocument golden structure (P0-06) > matches the golden page structure and print CSS: 6-up A4 > print css 1`] = `
+"@page {
+  size: 297mm 210mm;
+  margin: 0;
+}
+*, *::before, *::after {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  color-adjust: exact !important;
+}
+@media print {
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+}
+/* Override app-level constraints (e.g. html/body { height:100%; overflow:hidden })
+   that would collapse the print document to a single page. These must come after
+   the extracted CSS and use !important to win specificity. */
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  zoom: 1 !important;
+}
+.kova-page {
+  display: block !important;
+  width: 1123px !important;
+  height: 794px !important;
+  overflow: hidden !important;
+  break-after: page;
+  page-break-after: always;
+  position: relative !important;
+  margin: 0 !important;
+  background: #0a0b0c !important;
+}
+.kova-page:last-child {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.kova-content {
+  position: absolute !important;
+  inset: 38px !important;
+  box-sizing: border-box !important;
+}
+.kova-center { display: flex !important; align-items: center !important; justify-content: center !important; }
+.kova-col    { display: flex !important; flex-direction: column !important; }
+.kova-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 333.6666666666667px) !important;
+  grid-auto-rows: 347.5px !important;
+  gap: 23px !important;
+  align-content: center !important;
+  justify-content: center !important;
+}
+.kova-slot {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+}
+.kova-grid .kova-slot { width: 333.6666666666667px !important; height: 347.5px !important; }
+.kova-col  .kova-slot { width: 100% !important; height: 347.5px !important; flex: 0 0 auto !important; }
+.kova-center .kova-slot { width: 100% !important; height: 100% !important; }
+.kova-frame {
+  position: relative !important;
+  box-sizing: border-box !important;
+  width: 333.6666666666667px !important;
+  height: 187.68750000000003px !important;
+  overflow: hidden !important;
+  flex: 0 0 auto !important;
+  background: #0a0b0c !important;
+}
+.kova-grid .kova-frame { border: 1px solid #c8c8c8 !important; }
+.kova-scale {
+  width: 960px !important;
+  height: 540px !important;
+  transform: scale(0.3475694444444445) !important;
+  transform-origin: top left !important;
+}
+.kova-notes {
+  flex: 1 1 auto !important;
+  box-sizing: border-box !important;
+  margin-top: 23px !important;
+  padding: 20px 24px !important;
+  font: 18px/1.55 -apple-system, system-ui, sans-serif !important;
+  color: #111 !important;
+  background: #fff !important;
+  white-space: pre-wrap !important;
+  overflow: hidden !important;
+  border-top: 2px solid #999 !important;
+}
+"
+`;
+
+exports[`buildPrintDocument golden structure (P0-06) > matches the golden page structure and print CSS: notes A4 > pages 1`] = `
+[
+  "kova-page > kova-content kova-col [S1] notes="First &lt;note&gt; &amp; more"",
+  "kova-page > kova-content kova-col [S2] notes=""",
+  "kova-page > kova-content kova-col [S3] notes="padded"",
+  "kova-page > kova-content kova-col [S4] notes=""",
+  "kova-page > kova-content kova-col [S5] notes="Last"",
+]
+`;
+
+exports[`buildPrintDocument golden structure (P0-06) > matches the golden page structure and print CSS: notes A4 > print css 1`] = `
+"@page {
+  size: 297mm 210mm;
+  margin: 0;
+}
+*, *::before, *::after {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  color-adjust: exact !important;
+}
+@media print {
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+}
+/* Override app-level constraints (e.g. html/body { height:100%; overflow:hidden })
+   that would collapse the print document to a single page. These must come after
+   the extracted CSS and use !important to win specificity. */
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  zoom: 1 !important;
+}
+.kova-page {
+  display: block !important;
+  width: 1123px !important;
+  height: 794px !important;
+  overflow: hidden !important;
+  break-after: page;
+  page-break-after: always;
+  position: relative !important;
+  margin: 0 !important;
+  background: #0a0b0c !important;
+}
+.kova-page:last-child {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.kova-content {
+  position: absolute !important;
+  inset: 38px !important;
+  box-sizing: border-box !important;
+}
+.kova-center { display: flex !important; align-items: center !important; justify-content: center !important; }
+.kova-col    { display: flex !important; flex-direction: column !important; }
+.kova-grid {
+  display: grid !important;
+  grid-template-columns: repeat(1, 1047px) !important;
+  grid-auto-rows: 465px !important;
+  gap: 23px !important;
+  align-content: center !important;
+  justify-content: center !important;
+}
+.kova-slot {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+}
+.kova-grid .kova-slot { width: 1047px !important; height: 465px !important; }
+.kova-col  .kova-slot { width: 100% !important; height: 465px !important; flex: 0 0 auto !important; }
+.kova-center .kova-slot { width: 100% !important; height: 100% !important; }
+.kova-frame {
+  position: relative !important;
+  box-sizing: border-box !important;
+  width: 826.6666666666667px !important;
+  height: 465px !important;
+  overflow: hidden !important;
+  flex: 0 0 auto !important;
+  background: #0a0b0c !important;
+}
+.kova-grid .kova-frame { border: 1px solid #c8c8c8 !important; }
+.kova-scale {
+  width: 960px !important;
+  height: 540px !important;
+  transform: scale(0.8611111111111112) !important;
+  transform-origin: top left !important;
+}
+.kova-notes {
+  flex: 1 1 auto !important;
+  box-sizing: border-box !important;
+  margin-top: 23px !important;
+  padding: 20px 24px !important;
+  font: 18px/1.55 -apple-system, system-ui, sans-serif !important;
+  color: #111 !important;
+  background: #fff !important;
+  white-space: pre-wrap !important;
+  overflow: hidden !important;
+  border-top: 2px solid #999 !important;
+}
+"
+`;
+
+exports[`buildPrintDocument golden structure (P0-06) > matches the golden page structure and print CSS: single A4 > pages 1`] = `
+[
+  "kova-page > kova-content kova-center [S1]",
+  "kova-page > kova-content kova-center [S2]",
+  "kova-page > kova-content kova-center [S3]",
+  "kova-page > kova-content kova-center [S4]",
+  "kova-page > kova-content kova-center [S5]",
+]
+`;
+
+exports[`buildPrintDocument golden structure (P0-06) > matches the golden page structure and print CSS: single A4 > print css 1`] = `
+"@page {
+  size: 297mm 210mm;
+  margin: 0;
+}
+*, *::before, *::after {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  color-adjust: exact !important;
+}
+@media print {
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+}
+/* Override app-level constraints (e.g. html/body { height:100%; overflow:hidden })
+   that would collapse the print document to a single page. These must come after
+   the extracted CSS and use !important to win specificity. */
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  zoom: 1 !important;
+}
+.kova-page {
+  display: block !important;
+  width: 1123px !important;
+  height: 794px !important;
+  overflow: hidden !important;
+  break-after: page;
+  page-break-after: always;
+  position: relative !important;
+  margin: 0 !important;
+  background: #0a0b0c !important;
+}
+.kova-page:last-child {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.kova-content {
+  position: absolute !important;
+  inset: 38px !important;
+  box-sizing: border-box !important;
+}
+.kova-center { display: flex !important; align-items: center !important; justify-content: center !important; }
+.kova-col    { display: flex !important; flex-direction: column !important; }
+.kova-grid {
+  display: grid !important;
+  grid-template-columns: repeat(1, 1047px) !important;
+  grid-auto-rows: 718px !important;
+  gap: 23px !important;
+  align-content: center !important;
+  justify-content: center !important;
+}
+.kova-slot {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+}
+.kova-grid .kova-slot { width: 1047px !important; height: 718px !important; }
+.kova-col  .kova-slot { width: 100% !important; height: 718px !important; flex: 0 0 auto !important; }
+.kova-center .kova-slot { width: 100% !important; height: 100% !important; }
+.kova-frame {
+  position: relative !important;
+  box-sizing: border-box !important;
+  width: 1047px !important;
+  height: 588.9375px !important;
+  overflow: hidden !important;
+  flex: 0 0 auto !important;
+  background: #0a0b0c !important;
+}
+.kova-grid .kova-frame { border: 1px solid #c8c8c8 !important; }
+.kova-scale {
+  width: 960px !important;
+  height: 540px !important;
+  transform: scale(1.090625) !important;
+  transform-origin: top left !important;
+}
+.kova-notes {
+  flex: 1 1 auto !important;
+  box-sizing: border-box !important;
+  margin-top: 23px !important;
+  padding: 20px 24px !important;
+  font: 18px/1.55 -apple-system, system-ui, sans-serif !important;
+  color: #111 !important;
+  background: #fff !important;
+  white-space: pre-wrap !important;
+  overflow: hidden !important;
+  border-top: 2px solid #999 !important;
+}
+"
+`;
+
+exports[`buildPrintDocument golden structure (P0-06) > matches the golden page structure and print CSS: slide paper > pages 1`] = `
+[
+  "kova-page > kova-content kova-center [S1]",
+  "kova-page > kova-content kova-center [S2]",
+  "kova-page > kova-content kova-center [S3]",
+  "kova-page > kova-content kova-center [S4]",
+  "kova-page > kova-content kova-center [S5]",
+]
+`;
+
+exports[`buildPrintDocument golden structure (P0-06) > matches the golden page structure and print CSS: slide paper > print css 1`] = `
+"@page {
+  size: 254mm 142.88mm;
+  margin: 0;
+}
+*, *::before, *::after {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  color-adjust: exact !important;
+}
+@media print {
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+}
+/* Override app-level constraints (e.g. html/body { height:100%; overflow:hidden })
+   that would collapse the print document to a single page. These must come after
+   the extracted CSS and use !important to win specificity. */
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  zoom: 1 !important;
+}
+.kova-page {
+  display: block !important;
+  width: 960px !important;
+  height: 540px !important;
+  overflow: hidden !important;
+  break-after: page;
+  page-break-after: always;
+  position: relative !important;
+  margin: 0 !important;
+  background: #0a0b0c !important;
+}
+.kova-page:last-child {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.kova-content {
+  position: absolute !important;
+  inset: 0px !important;
+  box-sizing: border-box !important;
+}
+.kova-center { display: flex !important; align-items: center !important; justify-content: center !important; }
+.kova-col    { display: flex !important; flex-direction: column !important; }
+.kova-grid {
+  display: grid !important;
+  grid-template-columns: repeat(1, 960px) !important;
+  grid-auto-rows: 540px !important;
+  gap: 0px !important;
+  align-content: center !important;
+  justify-content: center !important;
+}
+.kova-slot {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+}
+.kova-grid .kova-slot { width: 960px !important; height: 540px !important; }
+.kova-col  .kova-slot { width: 100% !important; height: 540px !important; flex: 0 0 auto !important; }
+.kova-center .kova-slot { width: 100% !important; height: 100% !important; }
+.kova-frame {
+  position: relative !important;
+  box-sizing: border-box !important;
+  width: 960px !important;
+  height: 540px !important;
+  overflow: hidden !important;
+  flex: 0 0 auto !important;
+  background: #0a0b0c !important;
+}
+.kova-grid .kova-frame { border: 1px solid #c8c8c8 !important; }
+.kova-scale {
+  width: 960px !important;
+  height: 540px !important;
+  transform: scale(1) !important;
+  transform-origin: top left !important;
+}
+.kova-notes {
+  flex: 1 1 auto !important;
+  box-sizing: border-box !important;
+  margin-top: 0px !important;
+  padding: 20px 24px !important;
+  font: 18px/1.55 -apple-system, system-ui, sans-serif !important;
+  color: #111 !important;
+  background: #fff !important;
+  white-space: pre-wrap !important;
+  overflow: hidden !important;
+  border-top: 2px solid #999 !important;
+}
+"
+`;
+
+exports[`pdfLayout golden plans (P0-06) > matches the golden page plans for 4:3 1`] = `
+{
+  "a4 1-up": {
+    "cellHpx": 718,
+    "cellWpx": 1047,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 720,
+    "slideScale": 0.9972222222222222,
+  },
+  "a4 2-up": {
+    "cellHpx": 718,
+    "cellWpx": 512,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 720,
+    "slideScale": 0.5333333333333333,
+  },
+  "a4 4-up": {
+    "cellHpx": 347.5,
+    "cellWpx": 512,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 2,
+    "slideNativeHpx": 720,
+    "slideScale": 0.4826388888888889,
+  },
+  "a4 6-up": {
+    "cellHpx": 347.5,
+    "cellWpx": 333.6666666666667,
+    "cols": 3,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 2,
+    "slideNativeHpx": 720,
+    "slideScale": 0.3475694444444445,
+  },
+  "a4 notes": {
+    "cellHpx": 465,
+    "cellWpx": 1047,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "notes",
+    "notesTopPx": 526,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 720,
+    "slideScale": 0.6458333333333334,
+  },
+  "default": {
+    "cellHpx": 718,
+    "cellWpx": 1047,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 720,
+    "slideScale": 0.9972222222222222,
+  },
+  "fullBleed": {
+    "cellHpx": 720,
+    "cellWpx": 960,
+    "cols": 1,
+    "gapPx": 0,
+    "marginPx": 0,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 190.5,
+    "pageHpx": 720,
+    "pageWmm": 254,
+    "pageWpx": 960,
+    "rows": 1,
+    "slideNativeHpx": 720,
+    "slideScale": 1,
+  },
+  "letter 1-up": {
+    "cellHpx": 740,
+    "cellWpx": 978,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 1,
+    "slideNativeHpx": 720,
+    "slideScale": 1.01875,
+  },
+  "letter 2-up": {
+    "cellHpx": 740,
+    "cellWpx": 477.5,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 1,
+    "slideNativeHpx": 720,
+    "slideScale": 0.4973958333333333,
+  },
+  "letter 4-up": {
+    "cellHpx": 358.5,
+    "cellWpx": 477.5,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 2,
+    "slideNativeHpx": 720,
+    "slideScale": 0.4973958333333333,
+  },
+  "letter 6-up": {
+    "cellHpx": 358.5,
+    "cellWpx": 310.6666666666667,
+    "cols": 3,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 2,
+    "slideNativeHpx": 720,
+    "slideScale": 0.3236111111111111,
+  },
+  "letter notes": {
+    "cellHpx": 480,
+    "cellWpx": 978,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "notes",
+    "notesTopPx": 541,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 1,
+    "slideNativeHpx": 720,
+    "slideScale": 0.6666666666666666,
+  },
+  "slide 1-up": {
+    "cellHpx": 720,
+    "cellWpx": 960,
+    "cols": 1,
+    "gapPx": 0,
+    "marginPx": 0,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 190.5,
+    "pageHpx": 720,
+    "pageWmm": 254,
+    "pageWpx": 960,
+    "rows": 1,
+    "slideNativeHpx": 720,
+    "slideScale": 1,
+  },
+  "slide 2-up": {
+    "cellHpx": 718,
+    "cellWpx": 512,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 720,
+    "slideScale": 0.5333333333333333,
+  },
+  "slide 4-up": {
+    "cellHpx": 347.5,
+    "cellWpx": 512,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 2,
+    "slideNativeHpx": 720,
+    "slideScale": 0.4826388888888889,
+  },
+  "slide 6-up": {
+    "cellHpx": 347.5,
+    "cellWpx": 333.6666666666667,
+    "cols": 3,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 2,
+    "slideNativeHpx": 720,
+    "slideScale": 0.3475694444444445,
+  },
+  "slide notes": {
+    "cellHpx": 465,
+    "cellWpx": 1047,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "notes",
+    "notesTopPx": 526,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 720,
+    "slideScale": 0.6458333333333334,
+  },
+}
+`;
+
+exports[`pdfLayout golden plans (P0-06) > matches the golden page plans for 16:9 1`] = `
+{
+  "a4 1-up": {
+    "cellHpx": 718,
+    "cellWpx": 1047,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 540,
+    "slideScale": 1.090625,
+  },
+  "a4 2-up": {
+    "cellHpx": 718,
+    "cellWpx": 512,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 540,
+    "slideScale": 0.5333333333333333,
+  },
+  "a4 4-up": {
+    "cellHpx": 347.5,
+    "cellWpx": 512,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 2,
+    "slideNativeHpx": 540,
+    "slideScale": 0.5333333333333333,
+  },
+  "a4 6-up": {
+    "cellHpx": 347.5,
+    "cellWpx": 333.6666666666667,
+    "cols": 3,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 2,
+    "slideNativeHpx": 540,
+    "slideScale": 0.3475694444444445,
+  },
+  "a4 notes": {
+    "cellHpx": 465,
+    "cellWpx": 1047,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "notes",
+    "notesTopPx": 526,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 540,
+    "slideScale": 0.8611111111111112,
+  },
+  "default": {
+    "cellHpx": 718,
+    "cellWpx": 1047,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 540,
+    "slideScale": 1.090625,
+  },
+  "fullBleed": {
+    "cellHpx": 540,
+    "cellWpx": 960,
+    "cols": 1,
+    "gapPx": 0,
+    "marginPx": 0,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 142.88,
+    "pageHpx": 540,
+    "pageWmm": 254,
+    "pageWpx": 960,
+    "rows": 1,
+    "slideNativeHpx": 540,
+    "slideScale": 1,
+  },
+  "letter 1-up": {
+    "cellHpx": 740,
+    "cellWpx": 978,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 1,
+    "slideNativeHpx": 540,
+    "slideScale": 1.01875,
+  },
+  "letter 2-up": {
+    "cellHpx": 740,
+    "cellWpx": 477.5,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 1,
+    "slideNativeHpx": 540,
+    "slideScale": 0.4973958333333333,
+  },
+  "letter 4-up": {
+    "cellHpx": 358.5,
+    "cellWpx": 477.5,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 2,
+    "slideNativeHpx": 540,
+    "slideScale": 0.4973958333333333,
+  },
+  "letter 6-up": {
+    "cellHpx": 358.5,
+    "cellWpx": 310.6666666666667,
+    "cols": 3,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 2,
+    "slideNativeHpx": 540,
+    "slideScale": 0.3236111111111111,
+  },
+  "letter notes": {
+    "cellHpx": 480,
+    "cellWpx": 978,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "notes",
+    "notesTopPx": 541,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 1,
+    "slideNativeHpx": 540,
+    "slideScale": 0.8888888888888888,
+  },
+  "slide 1-up": {
+    "cellHpx": 540,
+    "cellWpx": 960,
+    "cols": 1,
+    "gapPx": 0,
+    "marginPx": 0,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 142.88,
+    "pageHpx": 540,
+    "pageWmm": 254,
+    "pageWpx": 960,
+    "rows": 1,
+    "slideNativeHpx": 540,
+    "slideScale": 1,
+  },
+  "slide 2-up": {
+    "cellHpx": 718,
+    "cellWpx": 512,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 540,
+    "slideScale": 0.5333333333333333,
+  },
+  "slide 4-up": {
+    "cellHpx": 347.5,
+    "cellWpx": 512,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 2,
+    "slideNativeHpx": 540,
+    "slideScale": 0.5333333333333333,
+  },
+  "slide 6-up": {
+    "cellHpx": 347.5,
+    "cellWpx": 333.6666666666667,
+    "cols": 3,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 2,
+    "slideNativeHpx": 540,
+    "slideScale": 0.3475694444444445,
+  },
+  "slide notes": {
+    "cellHpx": 465,
+    "cellWpx": 1047,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "notes",
+    "notesTopPx": 526,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 540,
+    "slideScale": 0.8611111111111112,
+  },
+}
+`;
+
+exports[`pdfLayout golden plans (P0-06) > matches the golden page plans for 16:10 1`] = `
+{
+  "a4 1-up": {
+    "cellHpx": 718,
+    "cellWpx": 1047,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 600,
+    "slideScale": 1.090625,
+  },
+  "a4 2-up": {
+    "cellHpx": 718,
+    "cellWpx": 512,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 600,
+    "slideScale": 0.5333333333333333,
+  },
+  "a4 4-up": {
+    "cellHpx": 347.5,
+    "cellWpx": 512,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 2,
+    "slideNativeHpx": 600,
+    "slideScale": 0.5333333333333333,
+  },
+  "a4 6-up": {
+    "cellHpx": 347.5,
+    "cellWpx": 333.6666666666667,
+    "cols": 3,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 2,
+    "slideNativeHpx": 600,
+    "slideScale": 0.3475694444444445,
+  },
+  "a4 notes": {
+    "cellHpx": 465,
+    "cellWpx": 1047,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "notes",
+    "notesTopPx": 526,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 600,
+    "slideScale": 0.775,
+  },
+  "default": {
+    "cellHpx": 718,
+    "cellWpx": 1047,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 600,
+    "slideScale": 1.090625,
+  },
+  "fullBleed": {
+    "cellHpx": 600,
+    "cellWpx": 960,
+    "cols": 1,
+    "gapPx": 0,
+    "marginPx": 0,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 158.75,
+    "pageHpx": 600,
+    "pageWmm": 254,
+    "pageWpx": 960,
+    "rows": 1,
+    "slideNativeHpx": 600,
+    "slideScale": 1,
+  },
+  "letter 1-up": {
+    "cellHpx": 740,
+    "cellWpx": 978,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 1,
+    "slideNativeHpx": 600,
+    "slideScale": 1.01875,
+  },
+  "letter 2-up": {
+    "cellHpx": 740,
+    "cellWpx": 477.5,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 1,
+    "slideNativeHpx": 600,
+    "slideScale": 0.4973958333333333,
+  },
+  "letter 4-up": {
+    "cellHpx": 358.5,
+    "cellWpx": 477.5,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 2,
+    "slideNativeHpx": 600,
+    "slideScale": 0.4973958333333333,
+  },
+  "letter 6-up": {
+    "cellHpx": 358.5,
+    "cellWpx": 310.6666666666667,
+    "cols": 3,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 2,
+    "slideNativeHpx": 600,
+    "slideScale": 0.3236111111111111,
+  },
+  "letter notes": {
+    "cellHpx": 480,
+    "cellWpx": 978,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "notes",
+    "notesTopPx": 541,
+    "pageHmm": 216,
+    "pageHpx": 816,
+    "pageWmm": 279,
+    "pageWpx": 1054,
+    "rows": 1,
+    "slideNativeHpx": 600,
+    "slideScale": 0.8,
+  },
+  "slide 1-up": {
+    "cellHpx": 600,
+    "cellWpx": 960,
+    "cols": 1,
+    "gapPx": 0,
+    "marginPx": 0,
+    "mode": "single",
+    "notesTopPx": 0,
+    "pageHmm": 158.75,
+    "pageHpx": 600,
+    "pageWmm": 254,
+    "pageWpx": 960,
+    "rows": 1,
+    "slideNativeHpx": 600,
+    "slideScale": 1,
+  },
+  "slide 2-up": {
+    "cellHpx": 718,
+    "cellWpx": 512,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 600,
+    "slideScale": 0.5333333333333333,
+  },
+  "slide 4-up": {
+    "cellHpx": 347.5,
+    "cellWpx": 512,
+    "cols": 2,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 2,
+    "slideNativeHpx": 600,
+    "slideScale": 0.5333333333333333,
+  },
+  "slide 6-up": {
+    "cellHpx": 347.5,
+    "cellWpx": 333.6666666666667,
+    "cols": 3,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "nup",
+    "notesTopPx": 0,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 2,
+    "slideNativeHpx": 600,
+    "slideScale": 0.3475694444444445,
+  },
+  "slide notes": {
+    "cellHpx": 465,
+    "cellWpx": 1047,
+    "cols": 1,
+    "gapPx": 23,
+    "marginPx": 38,
+    "mode": "notes",
+    "notesTopPx": 526,
+    "pageHmm": 210,
+    "pageHpx": 794,
+    "pageWmm": 297,
+    "pageWpx": 1123,
+    "rows": 1,
+    "slideNativeHpx": 600,
+    "slideScale": 0.775,
+  },
+}
+`;
