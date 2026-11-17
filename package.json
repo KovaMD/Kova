@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "bump-version": "node scripts/bump-version.mjs",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.1",
@@ -60,6 +61,7 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^6.0.2",
+    "@vitest/coverage-v8": "^4.1.12",
     "eslint": "^10.15.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.14.0",
