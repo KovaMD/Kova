@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { parseDocument, computeNextStep, slideStartLines } from '../parser/markdownToSlides';
+import type { SlideElement } from '../types';
+
+type TableElement = Extract<SlideElement, { type: 'table' }>;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1288,7 +1291,7 @@ describe('sheet tables', () => {
       '| ESC            |          35 |\n' +
       '| !Total         | =sum(price) |\n'
     ));
-    const table = slides[0].elements.find((e) => e.type === 'table') as any;
+    const table = slides[0].elements.find((e) => e.type === 'table') as TableElement;
     expect(table.rows[3][1]).toBe('95');            // not 65 — the row is not a footer
     expect(table.rows[1][0]).toBe('!brand widget'); // the escape does not survive into the cell
   });
@@ -1303,7 +1306,7 @@ describe('sheet tables', () => {
       '| ESC   |   2 |  8.00 | =qty * unit |\n' +
       '| !**Total** |  |    | =sum(total) * (1 + vat) |\n'
     ));
-    const table = slides[0].elements.find((e) => e.type === 'table') as any;
+    const table = slides[0].elements.find((e) => e.type === 'table') as TableElement;
     expect(table.rows[0][3]).toBe('25');
     expect(table.rows[1][3]).toBe('16');
     // 41 * 1.255 is 51.454999… as a double, but render() rounds away the float
@@ -1320,7 +1323,7 @@ describe('sheet tables', () => {
       '|--:|--:|--:|------:|\n' +
       '| 2 | 3 | 4 | =a*b*c |\n'
     ));
-    const table = slides[0].elements.find((e) => e.type === 'table') as any;
+    const table = slides[0].elements.find((e) => e.type === 'table') as TableElement;
     expect(table.rows[0][3]).toBe('24');
   });
 
@@ -1330,7 +1333,7 @@ describe('sheet tables', () => {
       '|----------|-------------|\n' +
       '| formula? | =qty * unit |\n'
     ));
-    const table = slides[0].elements.find((e) => e.type === 'table') as any;
+    const table = slides[0].elements.find((e) => e.type === 'table') as TableElement;
     expect(table.rows[0][1]).toBe('=qty * unit');
   });
 
@@ -1342,20 +1345,20 @@ describe('sheet tables', () => {
       '|----:|------:|-------------:|\n' +
       '|   2 | 12.50 | =qty * untis |\n'
     ));
-    const table = slides[0].elements.find((e) => e.type === 'table') as any;
+    const table = slides[0].elements.find((e) => e.type === 'table') as TableElement;
     expect(slides[0].title).toBe('Title');
     expect(table.rows[0][2]).toContain('#ERR');
   });
 
   it('errors when !sheet is not followed by a table', () => {
     const { slides } = parseDocument(doc('!sheet t\n\njust a paragraph\n'));
-    const html = slides[0].elements.map((e: any) => e.html ?? '').join(' ');
+    const html = slides[0].elements.map((e) => ('html' in e ? e.html : undefined) ?? '').join(' ');
     expect(html).toContain('#ERR');
   });
 
   it('errors when a !sheet is the last block on the slide', () => {
     const { slides } = parseDocument(doc('# t\n\n!sheet\n'));
-    const html = slides[0].elements.map((e: any) => e.html ?? '').join(' ');
+    const html = slides[0].elements.map((e) => ('html' in e ? e.html : undefined) ?? '').join(' ');
     expect(html).toContain('#ERR');
   });
 
@@ -1386,7 +1389,7 @@ describe('sheet tables', () => {
       '|-----|-----|-----|\n' +
       `| ${payload} | =val + 1 | =concat("${payload}") |\n`
     ));
-    const table = slides[0].elements.find((e) => e.type === 'table') as any;
+    const table = slides[0].elements.find((e) => e.type === 'table') as TableElement;
     expect(table.rows[0][1]).toContain('#ERR');
     expect(table.rows[0][1]).toContain('&lt;img');
     expect(table.rows[0][1]).not.toContain('<img');
@@ -1396,25 +1399,25 @@ describe('sheet tables', () => {
 
   it('errors on a reserved directive', () => {
     const { slides } = parseDocument(doc('!code python\n'));
-    const html = slides[0].elements.map((e: any) => e.html ?? '').join(' ');
+    const html = slides[0].elements.map((e) => ('html' in e ? e.html : undefined) ?? '').join(' ');
     expect(html).toContain('reserved');
   });
 
   it('does not render the !let line', () => {
     const { slides } = parseDocument(doc('!let vat = 0.255\n\ntext\n'));
-    const texts = slides[0].elements.map((e: any) => e.text ?? '');
+    const texts = slides[0].elements.map((e) => ('text' in e ? e.text : undefined) ?? '');
     expect(texts.join(' ')).not.toContain('!let');
   });
 
   it('re-renders a later slide when a constant on an earlier slide changes', () => {
     const body = (vat: string) =>
       `!let vat = ${vat}\n\n---\n\n!sheet t\n| net | gross |\n|----:|------:|\n| 100 | =net * (1 + vat) |\n`;
-    const first = parseDocument(doc(body('0.10'))).slides[1].elements.find((e) => e.type === 'table') as any;
+    const first = parseDocument(doc(body('0.10'))).slides[1].elements.find((e) => e.type === 'table') as TableElement;
     // 100 * 1.1 is 110.00000000000001 as a double, but render() rounds away the
     // float artifact so this still renders as the bare integer 110.
     expect(first.rows[0][1]).toBe('110');
     // same slide 2 text, different constant — the cache must not serve the stale slide
-    const second = parseDocument(doc(body('0.20'))).slides[1].elements.find((e) => e.type === 'table') as any;
+    const second = parseDocument(doc(body('0.20'))).slides[1].elements.find((e) => e.type === 'table') as TableElement;
     expect(second.rows[0][1]).toBe('120');
   });
 });
