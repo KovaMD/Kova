@@ -160,8 +160,7 @@ pub fn copy_file_with_assets(
     let safe_src  = file_io::safe_read_path(&src_path)?;
     let safe_dest = file_io::safe_write_path(&dest_path)?;
 
-    std::fs::write(&safe_dest, &content)
-        .map_err(|e| format!("Cannot write destination: {e}"))?;
+    file_io::write(&dest_path, &content)?;
 
     if asset_refs.is_empty() {
         return Ok(());
@@ -367,6 +366,32 @@ mod tests {
 
         assert!(result.is_ok(), "plain relative asset_ref should still work: {result:?}");
         assert_eq!(std::fs::read(dest_dir.join("assets/pic.png")).unwrap(), b"pngdata");
+        let _ = std::fs::remove_dir_all(&src_dir);
+        let _ = std::fs::remove_dir_all(&dest_dir);
+    }
+
+    #[test]
+    fn copy_file_with_assets_leaves_no_temp_file_behind() {
+        let (src_dir, dest_dir, src_md) = setup_copy_scenario("atomic");
+        let dest_md = dest_dir.join("copy.md");
+        std::fs::write(&dest_md, "old content").unwrap();
+
+        let result = copy_file_with_assets(
+            src_md.to_str().unwrap().to_string(),
+            "# new content".to_string(),
+            dest_md.to_str().unwrap().to_string(),
+            vec![],
+        );
+
+        assert!(result.is_ok(), "copy should succeed: {result:?}");
+        assert_eq!(std::fs::read_to_string(&dest_md).unwrap(), "# new content");
+        let leftovers: Vec<_> = std::fs::read_dir(&dest_dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.ends_with(".kova-tmp"))
+            .collect();
+        assert!(leftovers.is_empty(), "temp files left behind: {leftovers:?}");
         let _ = std::fs::remove_dir_all(&src_dir);
         let _ = std::fs::remove_dir_all(&dest_dir);
     }
