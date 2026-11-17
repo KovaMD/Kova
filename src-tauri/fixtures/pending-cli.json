@@ -1,0 +1,119 @@
+{
+  "check_only_path_theme": {
+    "check": false,
+    "check_only": "/decks/talk.md",
+    "export": null,
+    "import": null,
+    "present": null,
+    "theme": {
+      "path": "/themes/custom.yaml",
+      "type": "path"
+    }
+  },
+  "empty": {
+    "check": false,
+    "check_only": null,
+    "export": null,
+    "import": null,
+    "present": null,
+    "theme": null
+  },
+  "export_html": {
+    "check": false,
+    "check_only": null,
+    "export": {
+      "format": "html",
+      "input": "/in/deck.md",
+      "notes": false,
+      "output": "/out/deck.html",
+      "paper": null,
+      "per_page": null
+    },
+    "import": null,
+    "present": null,
+    "theme": null
+  },
+  "export_pdf_handout": {
+    "check": true,
+    "check_only": null,
+    "export": {
+      "format": "pdf",
+      "input": "/in/deck.md",
+      "notes": true,
+      "output": "/out/deck.pdf",
+      "paper": "a4",
+      "per_page": 4
+    },
+    "import": null,
+    "present": null,
+    "theme": null
+  },
+  "export_pptx": {
+    "check": false,
+    "check_only": null,
+    "export": {
+      "format": "pptx",
+      "input": "/in/deck.md",
+      "notes": false,
+      "output": "/out/deck.pptx",
+      "paper": null,
+      "per_page": null
+    },
+    "import": null,
+    "present": null,
+    "theme": {
+      "name": "light",
+      "type": "named"
+    }
+  },
+  "import_marp": {
+    "check": false,
+    "check_only": null,
+    "export": null,
+    "import": {
+      "force": false,
+      "format": "marp",
+      "input": "/in/deck.md",
+      "output": "/out/deck.md"
+    },
+    "present": null,
+    "theme": null
+  },
+  "import_pptx_forced": {
+    "check": true,
+    "check_only": null,
+    "export": null,
+    "import": {
+      "force": true,
+      "format": "pptx",
+      "input": "/in/deck.pptx",
+      "output": "/out/deck.md"
+    },
+    "present": null,
+    "theme": null
+  },
+  "import_url": {
+    "check": false,
+    "check_only": null,
+    "export": null,
+    "import": {
+      "force": false,
+      "format": "url",
+      "input": "https://example.com/deck",
+      "output": "/out/deck.md"
+    },
+    "present": null,
+    "theme": null
+  },
+  "present_named_theme_checked": {
+    "check": true,
+    "check_only": null,
+    "export": null,
+    "import": null,
+    "present": "/decks/talk.md",
+    "theme": {
+      "name": "midnight",
+      "type": "named"
+    }
+  }
+}

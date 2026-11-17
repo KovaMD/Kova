@@ -1194,3 +1194,227 @@ mod tests {
         assert_eq!(parse(&["--check", "--version"]), CliArgs::Version);
     }
 }
+
+/// Contract test between this file and `src/types/cli.ts`.
+///
+/// Serialises a set of sample `PendingCli` values (every variant and every
+/// optional field, both set and unset) and compares the JSON against the
+/// checked-in fixture `src-tauri/fixtures/pending-cli.json` (inside
+/// src-tauri so the Nix build, which only sees src-tauri, can read it). The TS test
+/// `src/__tests__/cliContract.test.ts` checks the same fixture against the TS
+/// types, so changing a field on one side without the other fails a test.
+///
+/// After an intentional change, regenerate the fixture with:
+///     UPDATE_FIXTURES=1 cargo test pending_cli_matches_fixture
+/// then update `src/types/cli.ts` to match and run `npm test`.
+#[cfg(test)]
+mod contract_tests {
+    use super::*;
+    use serde_json::{Map, Value};
+
+    const FIXTURE: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/fixtures/pending-cli.json"
+    );
+
+    // Full struct literals (no `..Default::default()`) on purpose: adding a
+    // field to a struct stops this compiling until the samples cover it.
+    fn samples() -> Vec<(&'static str, PendingCli)> {
+        vec![
+            (
+                "empty",
+                PendingCli {
+                    present: None,
+                    theme: None,
+                    check: false,
+                    check_only: None,
+                    import: None,
+                    export: None,
+                },
+            ),
+            (
+                "present_named_theme_checked",
+                PendingCli {
+                    present: Some("/decks/talk.md".into()),
+                    theme: Some(ThemeArg::Named { name: "midnight".into() }),
+                    check: true,
+                    check_only: None,
+                    import: None,
+                    export: None,
+                },
+            ),
+            (
+                "check_only_path_theme",
+                PendingCli {
+                    present: None,
+                    theme: Some(ThemeArg::Path { path: "/themes/custom.yaml".into() }),
+                    check: false,
+                    check_only: Some("/decks/talk.md".into()),
+                    import: None,
+                    export: None,
+                },
+            ),
+            (
+                "import_marp",
+                PendingCli {
+                    present: None,
+                    theme: None,
+                    check: false,
+                    check_only: None,
+                    import: Some(PendingImport {
+                        format: ImportFormat::Marp,
+                        input: "/in/deck.md".into(),
+                        output: "/out/deck.md".into(),
+                        force: false,
+                    }),
+                    export: None,
+                },
+            ),
+            (
+                "import_pptx_forced",
+                PendingCli {
+                    present: None,
+                    theme: None,
+                    check: true,
+                    check_only: None,
+                    import: Some(PendingImport {
+                        format: ImportFormat::Pptx,
+                        input: "/in/deck.pptx".into(),
+                        output: "/out/deck.md".into(),
+                        force: true,
+                    }),
+                    export: None,
+                },
+            ),
+            (
+                "import_url",
+                PendingCli {
+                    present: None,
+                    theme: None,
+                    check: false,
+                    check_only: None,
+                    import: Some(PendingImport {
+                        format: ImportFormat::Url,
+                        input: "https://example.com/deck".into(),
+                        output: "/out/deck.md".into(),
+                        force: false,
+                    }),
+                    export: None,
+                },
+            ),
+            (
+                "export_pptx",
+                PendingCli {
+                    present: None,
+                    theme: Some(ThemeArg::Named { name: "light".into() }),
+                    check: false,
+                    check_only: None,
+                    import: None,
+                    export: Some(PendingExport {
+                        format: ExportFormat::Pptx,
+                        input: "/in/deck.md".into(),
+                        output: "/out/deck.pptx".into(),
+                        notes: false,
+                        per_page: None,
+                        paper: None,
+                    }),
+                },
+            ),
+            (
+                "export_pdf_handout",
+                PendingCli {
+                    present: None,
+                    theme: None,
+                    check: true,
+                    check_only: None,
+                    import: None,
+                    export: Some(PendingExport {
+                        format: ExportFormat::Pdf,
+                        input: "/in/deck.md".into(),
+                        output: "/out/deck.pdf".into(),
+                        notes: true,
+                        per_page: Some(4),
+                        paper: Some("a4".into()),
+                    }),
+                },
+            ),
+            (
+                "export_html",
+                PendingCli {
+                    present: None,
+                    theme: None,
+                    check: false,
+                    check_only: None,
+                    import: None,
+                    export: Some(PendingExport {
+                        format: ExportFormat::Html,
+                        input: "/in/deck.md".into(),
+                        output: "/out/deck.html".into(),
+                        notes: false,
+                        per_page: None,
+                        paper: None,
+                    }),
+                },
+            ),
+        ]
+    }
+
+    /// Fails to compile when an enum gains a variant, and fails at runtime
+    /// when the samples stop using one, so new variants reach the fixture.
+    #[test]
+    fn samples_cover_every_variant() {
+        let mut theme = [false; 2];
+        let mut import = [false; 3];
+        let mut export = [false; 3];
+        for (_, cli) in samples() {
+            match cli.theme {
+                Some(ThemeArg::Named { .. }) => theme[0] = true,
+                Some(ThemeArg::Path { .. }) => theme[1] = true,
+                None => {}
+            }
+            if let Some(i) = cli.import {
+                match i.format {
+                    ImportFormat::Marp => import[0] = true,
+                    ImportFormat::Pptx => import[1] = true,
+                    ImportFormat::Url => import[2] = true,
+                }
+            }
+            if let Some(e) = cli.export {
+                match e.format {
+                    ExportFormat::Pptx => export[0] = true,
+                    ExportFormat::Pdf => export[1] = true,
+                    ExportFormat::Html => export[2] = true,
+                }
+            }
+        }
+        assert!(theme.iter().all(|&b| b), "a ThemeArg variant has no sample");
+        assert!(import.iter().all(|&b| b), "an ImportFormat variant has no sample");
+        assert!(export.iter().all(|&b| b), "an ExportFormat variant has no sample");
+    }
+
+    #[test]
+    fn pending_cli_matches_fixture() {
+        let mut map = Map::new();
+        for (name, cli) in samples() {
+            map.insert(name.to_string(), serde_json::to_value(cli).unwrap());
+        }
+        let actual = Value::Object(map);
+
+        if std::env::var("UPDATE_FIXTURES").as_deref() == Ok("1") {
+            let text = serde_json::to_string_pretty(&actual).unwrap() + "\n";
+            std::fs::write(FIXTURE, text).expect("write fixture");
+            return;
+        }
+
+        let text = std::fs::read_to_string(FIXTURE).expect(
+            "missing fixture; run `UPDATE_FIXTURES=1 cargo test pending_cli_matches_fixture`",
+        );
+        let expected: Value = serde_json::from_str(&text).expect("fixture is not valid JSON");
+        assert_eq!(
+            actual, expected,
+            "PendingCli JSON no longer matches src/__tests__/fixtures/pending-cli.json. \
+             If the change is intentional, rerun with UPDATE_FIXTURES=1 and update \
+             src/types/cli.ts to match."
+        );
+    }
+}
