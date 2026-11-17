@@ -1,0 +1,289 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildInteractiveDocument golden structure (P0-06) > falls back to the default background with no slide frame > bare body outline 1`] = `
+"<body>
+  <div.kova-deck id="kova-deck" role="application" aria-label="Presentation">
+    <div.kova-deck-slide.is-active aria-hidden="false" data-index="0">
+      <div.kova-deck-frame>
+        <div.kova-deck-scale>
+          <div.slide-wrap style="print-color-adjust: exact !important;">
+            <p style="print-color-adjust: exact !important;">
+              "Bare"
+  <div.kova-chrome aria-live="polite">
+    <span id="kova-counter">
+      "1 / 1"
+    "·"
+    <kbd>
+      "←"
+    "/"
+    <kbd>
+      "→"
+    <kbd>
+      "Space"
+    "·"
+    <kbd>
+      "F"
+    "fullscreen"
+  <script> (3433 chars)"
+`;
+
+exports[`buildInteractiveDocument golden structure (P0-06) > matches the golden chrome CSS (16:9) > css 1`] = `
+"
+@font-face { font-family: "Kova Icons"; }
+.slide-frame { color: rgb(34, 34, 34); }
+.sl-step-item--pending { opacity: 0; }
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  background: #102030 !important;
+}
+.kova-deck {
+  position: fixed !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #102030 !important;
+  cursor: default;
+}
+.kova-deck-slide {
+  display: none !important;
+}
+.kova-deck-slide.is-active {
+  display: block !important;
+}
+.kova-deck-frame {
+  width: 960px !important;
+  height: 540px !important;
+  overflow: hidden !important;
+  position: relative !important;
+  transform-origin: center center !important;
+}
+.kova-deck-scale {
+  width: 960px !important;
+  height: 540px !important;
+}
+.kova-chrome {
+  position: fixed !important;
+  right: 16px !important;
+  bottom: 12px !important;
+  z-index: 10 !important;
+  color: #fff !important;
+  font: 13px/1.2 -apple-system, system-ui, sans-serif !important;
+  opacity: 0.75 !important;
+  pointer-events: none !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  user-select: none !important;
+}
+.kova-chrome kbd {
+  font: inherit !important;
+  opacity: 0.85 !important;
+}
+@media print {
+  html, body {
+    overflow: visible !important;
+    height: auto !important;
+    background: #fff !important;
+  }
+  .kova-chrome { display: none !important; }
+  .kova-deck {
+    position: static !important;
+    display: block !important;
+    background: #fff !important;
+  }
+  .kova-deck-slide {
+    display: block !important;
+    break-after: page;
+    page-break-after: always;
+    margin: 0 auto !important;
+  }
+  .kova-deck-slide:last-child {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  .kova-deck-frame {
+    transform: none !important;
+  }
+}
+"
+`;
+
+exports[`buildInteractiveDocument golden structure (P0-06) > matches the golden document structure (16:9) > body outline 1`] = `
+"<body>
+  <div.kova-deck id="kova-deck" role="application" aria-label="Presentation">
+    <div.kova-deck-slide.is-active aria-hidden="false" data-index="0">
+      <div.kova-deck-frame>
+        <div.kova-deck-scale>
+          <div.slide-wrap style="print-color-adjust: exact !important;">
+            <div.slide-frame style="--sl-bg: #102030; print-color-adjust: exact !important;">
+              <h1.sl-title style="print-color-adjust: exact !important;">
+                "Golden deck"
+              <img.sl-image src="data:image/png;base64,<sha256:0448a1dfd0 len:40>" style="print-color-adjust: exact !important;">
+              <img.sl-image src="data:image/png;base64,<sha256:30854d4eee len:48>" style="print-color-adjust: exact !important;">
+    <div.kova-deck-slide aria-hidden="true" data-index="1">
+      <div.kova-deck-frame>
+        <div.kova-deck-scale>
+          <div.slide-wrap style="print-color-adjust: exact !important;">
+            <div.slide-frame style="print-color-adjust: exact !important;">
+              <ul.sl-list style="print-color-adjust: exact !important;">
+                <li data-step="1" style="print-color-adjust: exact !important;">
+                  "First"
+                <li data-step="3" style="print-color-adjust: exact !important;">
+                  "Second"
+              <div.sl-video style="print-color-adjust: exact !important;">
+                <video.sl-video__player src="data:video/mp4;base64,<sha256:86ba8346ca len:40>" controls="" preload="metadata" playsinline="" style="print-color-adjust: exact !important;">
+    <div.kova-deck-slide aria-hidden="true" data-index="2">
+      <div.kova-deck-frame>
+        <div.kova-deck-scale>
+          <div.slide-wrap style="print-color-adjust: exact !important;">
+            <div.slide-frame style="print-color-adjust: exact !important;">
+              <div.sl-mermaid data-mermaid-src="graph TD; A-->B" style="print-color-adjust: exact !important;">
+                <svg preserveAspectRatio="xMidYMid meet" viewBox="0 0 200 100" width="100%" height="100%">
+                  <g>
+                    <text>
+                      "A"
+  <div.kova-chrome aria-live="polite">
+    <span id="kova-counter">
+      "1 / 3"
+    "·"
+    <kbd>
+      "←"
+    "/"
+    <kbd>
+      "→"
+    <kbd>
+      "Space"
+    "·"
+    <kbd>
+      "F"
+    "fullscreen"
+  <script> (3442 chars)"
+`;
+
+exports[`buildInteractiveDocument golden structure (P0-06) > matches the golden document structure (16:9) > head 1`] = `
+[
+  "<meta charset="utf-8">",
+  "<meta name="viewport" content="width=device-width, initial-scale=1">",
+  "<meta name="generator" content="Kova">",
+  "<title>Presentation</title>",
+]
+`;
+
+exports[`buildInteractiveDocument golden structure (P0-06) > matches the golden navigation script (16:9) > script 1`] = `
+"
+(function () {
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.kova-deck-slide'));
+  var frame = document.querySelector('.kova-deck-frame');
+  var counter = document.getElementById('kova-counter');
+  var deck = document.getElementById('kova-deck');
+  var slideW = 960;
+  var slideH = 540;
+  var slideSteps = [[],[1,3],[]];
+  var i = 0;
+  var step = 0;
+  function fit() {
+    if (!frame) return;
+    var pad = 24;
+    var sx = (window.innerWidth - pad) / slideW;
+    var sy = (window.innerHeight - pad) / slideH;
+    var s = Math.max(0.05, Math.min(sx, sy));
+    var frames = document.querySelectorAll('.kova-deck-frame');
+    for (var f = 0; f < frames.length; f++) {
+      frames[f].style.transform = 'scale(' + s + ')';
+    }
+  }
+  // Mirrors usePresentationNav's step-before-slide logic exactly. Slide HTML
+  // is always cloned fully revealed (see slideSteps' doc comment above) — this
+  // just toggles the same sl-step-item--pending class the live app uses,
+  // driven by each element's own data-step attribute.
+  function applyStep() {
+    var values = slideSteps[i] || [];
+    var threshold = step > 0 ? values[step - 1] : -Infinity;
+    var current = slides[i];
+    if (!current) return;
+    var stepped = current.querySelectorAll('[data-step]');
+    for (var k = 0; k < stepped.length; k++) {
+      var v = Number(stepped[k].getAttribute('data-step'));
+      stepped[k].classList.toggle('sl-step-item--pending', v > threshold);
+    }
+  }
+  function show(n, s) {
+    if (!slides.length) return;
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    step = s || 0;
+    for (var j = 0; j < slides.length; j++) {
+      var on = j === i;
+      slides[j].classList.toggle('is-active', on);
+      slides[j].setAttribute('aria-hidden', on ? 'false' : 'true');
+    }
+    if (counter) counter.textContent = (i + 1) + ' / ' + slides.length;
+    applyStep();
+  }
+  function next() {
+    var count = (slideSteps[i] || []).length;
+    if (step < count) { step++; applyStep(); return; }
+    show(i + 1, 0);
+  }
+  function prev() {
+    if (step > 0) { step--; applyStep(); return; }
+    show(i - 1, (slideSteps[i - 1] || []).length);
+  }
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+      e.preventDefault(); next();
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp' || e.key === 'Backspace') {
+      e.preventDefault(); prev();
+    } else if (e.key === 'Home') {
+      e.preventDefault(); show(0, 0);
+    } else if (e.key === 'End') {
+      e.preventDefault(); show(slides.length - 1, 0);
+    } else if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      if (!document.fullscreenElement) {
+        (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen || function () {}).call(document.documentElement);
+      } else {
+        (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
+      }
+    }
+  });
+  if (deck) {
+    deck.addEventListener('click', function (e) {
+      if (e.target.closest('a, button, video, audio, input, textarea, select, label')) return;
+      if (e.clientX >= window.innerWidth / 2) next();
+      else prev();
+    });
+  }
+  window.addEventListener('resize', fit);
+  fit();
+  show(0);
+})();
+"
+`;
+
+exports[`buildInteractiveDocument golden structure (P0-06) > requests exactly the expected asset reads over IPC > ipc calls 1`] = `
+[
+  [
+    "fetch_url_b64",
+    {
+      "url": "https://example.com/remote.png",
+    },
+  ],
+  [
+    "read_file_b64",
+    {
+      "path": "/home/user/deck/clip.mp4",
+    },
+  ],
+  [
+    "read_file_b64",
+    {
+      "path": "/home/user/deck/pic.png",
+    },
+  ],
+]
+`;
