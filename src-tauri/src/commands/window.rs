@@ -25,8 +25,8 @@ pub async fn setup_audience_window(
     app: AppHandle,
     x: f64,
     y: f64,
-    _physical_x: f64,
-    _physical_y: f64,
+    physical_x: f64,
+    physical_y: f64,
 ) -> Result<(), String> {
     // Wait for the audience window to appear in the manager, up to 5 s.
     // This replaces a single fixed sleep: on fast machines we proceed sooner;
@@ -50,7 +50,7 @@ pub async fn setup_audience_window(
     #[cfg(target_os = "linux")]
     {
         #[cfg(debug_assertions)]
-        eprintln!("[kova] setup_audience_window: logical x={x:.0} y={y:.0}  physical x={_physical_x:.0} y={_physical_y:.0}");
+        eprintln!("[kova] setup_audience_window: logical x={x:.0} y={y:.0}  physical x={physical_x:.0} y={physical_y:.0}");
         let app2 = app.clone();
         app.run_on_main_thread(move || {
             use gtk::prelude::GtkWindowExt;
@@ -113,7 +113,7 @@ pub async fn setup_audience_window(
                 &[(x as i32 + 1, y as i32 + 1)]
             } else {
                 &[
-                    (_physical_x as i32 + 1, _physical_y as i32 + 1),
+                    (physical_x as i32 + 1, physical_y as i32 + 1),
                     (x as i32 + 1, y as i32 + 1),
                 ]
             };
@@ -166,6 +166,8 @@ pub async fn setup_audience_window(
     #[cfg(not(target_os = "linux"))]
     {
         // macOS / Windows: move to the external monitor, pause, then go fullscreen.
+        // The physical coordinates are only needed by the Linux/X11 path above.
+        let _ = (physical_x, physical_y);
         if let Some(win) = app.get_webview_window("audience") {
             win.set_position(tauri::LogicalPosition::<f64>::new(x, y))
                 .map_err(|e: tauri::Error| e.to_string())?;
