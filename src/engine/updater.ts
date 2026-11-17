@@ -1,5 +1,5 @@
 import { check } from '@tauri-apps/plugin-updater';
-import { invoke } from '@tauri-apps/api/core';
+import * as ipc from '../platform/ipc';
 
 // ── Dev stub ──────────────────────────────────────────────────────────────────
 // Simulates a found update with a fake download to exercise all UI states.
@@ -57,10 +57,10 @@ export async function fetchUpdate(): Promise<AvailableUpdate | null> {
 }
 
 export async function canSelfUpdate(): Promise<boolean> {
-  return invoke<boolean>('can_self_update');
+  return ipc.canSelfUpdate();
 }
 
 export async function restartApp(): Promise<void> {
-  return invoke('restart_app');
+  return ipc.restartApp();
 }
 

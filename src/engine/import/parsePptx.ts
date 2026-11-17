@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { invoke } from '@tauri-apps/api/core';
+import { readFileB64, writeAssetBytes } from '../../platform/ipc';
 
 // ── OOXML namespace URIs ──────────────────────────────────────────────────────
 
@@ -420,7 +420,7 @@ async function extractSlideBlocks(
       const imgBase64 = uint8ArrayToBase64(imgBytes);
       const suggestedName = `pptx_slide${slideIndex + 1}_img${imgCounter}.${ext}`;
       try {
-        savedName = await invoke<string>('write_asset_bytes', {
+        savedName = await writeAssetBytes({
           data: imgBase64,
           filename: suggestedName,
           destDir,
@@ -492,7 +492,7 @@ export async function parsePptx(filePath: string, destDir: string): Promise<Pptx
   const warnings: string[] = [];
 
   // 1. Read binary via Rust, decode to Uint8Array
-  const b64: string = await invoke('read_file_b64', { path: filePath });
+  const b64: string = await readFileB64(filePath);
   const bytes = base64ToUint8Array(b64);
 
   // 2. Open as ZIP

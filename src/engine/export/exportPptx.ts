@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { invoke } from '@tauri-apps/api/core';
+import { fetchUrlB64, readFileB64 } from '../../platform/ipc';
 import { mermaidSvgCache } from './mermaidSvgCache';
 import { svgToPngDataUrl } from './svgToPng';
 import { queuedMermaidRender } from './mermaidRenderQueue';
@@ -155,7 +155,7 @@ async function assetUrlToDataUrl(src: string): Promise<string> {
     if (src.startsWith('asset://')) {
       const path = decodeURIComponent(src.replace(/^asset:\/\/[^/]*/, ''));
       const ext  = path.split('.').pop()?.toLowerCase() ?? 'png';
-      const b64  = await invoke<string>('read_file_b64', { path });
+      const b64  = await readFileB64(path);
       return `data:${imageMime(ext)};base64,${b64}`;
     }
     const res = await fetch(src);
@@ -189,7 +189,7 @@ function getImageAspectRatio(src: string): Promise<number | null> {
 // pres.write() always receives data: URLs and never needs to make network calls.
 async function fetchUrlToDataUrl(url: string): Promise<string> {
   try {
-    const [b64, mime] = await invoke<[string, string]>('fetch_url_b64', { url });
+    const [b64, mime] = await fetchUrlB64(url);
     return `data:${mime};base64,${b64}`;
   } catch {
     return url;
@@ -208,7 +208,7 @@ async function videoUrlToDataUrl(src: string): Promise<string> {
     if (src.startsWith('data:')) return src;
     if (src.startsWith('asset://')) {
       const path = decodeURIComponent(src.replace(/^asset:\/\/[^/]*/, ''));
-      const b64 = await invoke<string>('read_file_b64', { path });
+      const b64 = await readFileB64(path);
       return `data:${videoMime(path)};base64,${b64}`;
     }
     if (src.startsWith('http://') || src.startsWith('https://')) {
