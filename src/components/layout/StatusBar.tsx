@@ -1,5 +1,6 @@
 import { APP_VERSION } from '../../version';
 import { useT } from '../../i18n';
+import { nextAspectRatio } from '../../engine/types';
 
 const WPM = 110;
 
@@ -22,10 +23,7 @@ interface Props {
 export function StatusBar({ currentSlide, totalSlides, layoutName, layoutOverridden, wordCount, isDirty, filePath, externalImageCount, aspectRatioLabel, onAspectRatioCycle, availableUpdate, onVersionClick, locale }: Props) {
   const t = useT();
   const minutes = Math.ceil(wordCount / WPM);
-  // Mirrors handleAspectRatioCycle's cycle order in App.tsx (4:3 -> 16:10 ->
-  // 16:9 -> 4:3); anything else (including a custom aspect_ratio set directly
-  // in frontmatter) goes to 4:3 next, same as there.
-  const nextAr = aspectRatioLabel === '4:3' ? '16:10' : aspectRatioLabel === '16:10' ? '16:9' : '4:3';
+  const nextAr = nextAspectRatio(aspectRatioLabel);
   const formattedWordCount = wordCount.toLocaleString(locale === 'auto' ? undefined : locale);
 
   return (

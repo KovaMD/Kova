@@ -90,6 +90,15 @@ export function parseAspectRatio(ar?: string): AspectRatio {
   return { w: 16, h: 9 };
 }
 
+/** The aspect ratio the status-bar toggle moves to next: 16:9 -> 4:3 ->
+ *  16:10 -> 16:9. Anything else (absent, or a custom value set directly in
+ *  frontmatter) goes to 4:3, matching parseAspectRatio's 16:9 fallback. */
+export function nextAspectRatio(current?: string): '4:3' | '16:10' | '16:9' {
+  if (current === '4:3')   return '16:10';
+  if (current === '16:10') return '16:9';
+  return '4:3';
+}
+
 export interface ThemeOverrides {
   colors?: Record<string, string>;
   fonts?: Record<string, string>;
