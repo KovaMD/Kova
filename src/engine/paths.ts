@@ -41,6 +41,24 @@ export function dirname<F>(p: string, ...ifNone: [] | [F]): string | F {
   return ifNone.length ? ifNone[0] : '';
 }
 
+/**
+ * The separator a path is written with: `\\` if it contains any backslash,
+ * otherwise `/`.
+ */
+export function pathSeparator(p: string): '\\' | '/' {
+  return p.includes('\\') ? '\\' : '/';
+}
+
+/**
+ * Everything before the last occurrence of `sep` only (the other separator is
+ * treated as an ordinary character); '' when `sep` does not occur. Pair it
+ * with `pathSeparator` where a path is rebuilt with its own separator.
+ */
+export function dirnameOn(p: string, sep: string): string {
+  const i = p.lastIndexOf(sep);
+  return i >= 0 ? p.slice(0, i) : '';
+}
+
 /** Basename with its last extension removed (`a.tar.gz` gives `a.tar`). */
 export function stem(p: string): string {
   return basename(p).replace(/\.[^.]+$/, '');
@@ -58,7 +76,7 @@ export function isLocalRelative(ref: string): boolean {
 // segments. The Tauri asset protocol needs a normalized filesystem path, not a
 // literal `/dir/../img/x.png`, or the image fails to load.
 export function normalizePath(docDir: string, rel: string): string {
-  const sep = docDir.includes('\\') ? '\\' : '/';
+  const sep = pathSeparator(docDir);
   const out: string[] = [];
   for (const s of `${docDir}${sep}${rel}`.split(/[/\\]+/)) {
     if (s === '' || s === '.') continue;

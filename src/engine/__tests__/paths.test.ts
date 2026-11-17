@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { basename, dirname, stem, isLocalRelative, segments, toForwardSlashes } from '../paths';
+import { basename, dirname, dirnameOn, pathSeparator, stem, isLocalRelative, segments, toForwardSlashes } from '../paths';
 
 // [input, basename, dirname, stem]
 const TABLE: Array<[string, string, string, string]> = [
@@ -52,6 +52,22 @@ describe('segments / toForwardSlashes', () => {
   });
   it('replaces every backslash', () => {
     expect(toForwardSlashes('\\\\srv\\share\\a/b')).toBe('//srv/share/a/b');
+  });
+});
+
+describe('pathSeparator / dirnameOn', () => {
+  it.each<[string, '\\' | '/', string]>([
+    ['/docs/talk.md', '/', '/docs'],
+    ['C:\\Users\\me\\talk.md', '\\', 'C:\\Users\\me'],
+    ['\\\\server\\share\\deck.md', '\\', '\\\\server\\share'],
+    // Mixed: any backslash wins, and only backslashes split.
+    ['C:\\Users/me/talk.md', '\\', 'C:'],
+    ['/home/me\\odd.md', '\\', '/home/me'],
+    ['talk.md', '/', ''],
+    ['/docs/talks/', '/', '/docs/talks'],
+  ])('%j', (p, sep, dir) => {
+    expect(pathSeparator(p)).toBe(sep);
+    expect(dirnameOn(p, pathSeparator(p))).toBe(dir);
   });
 });
 
@@ -128,6 +144,13 @@ describe('call-site characterisation', () => {
   it('mediaSnippet label equals stem', () => {
     for (const p of inputs) {
       expect(stem(p)).toBe(p.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') ?? 'media');
+    }
+  });
+
+  it('App single-separator dir (external image count, rename)', () => {
+    for (const p of inputs) {
+      const sep = p.includes('\\') ? '\\' : '/';
+      expect(dirnameOn(p, pathSeparator(p))).toBe(p.substring(0, p.lastIndexOf(sep)));
     }
   });
 
