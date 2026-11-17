@@ -9,7 +9,7 @@ const root = fileURLToPath(new URL('.', import.meta.url)).replace(/\\/g, '/');
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
     globals: true,
     // Node 25+ ships its own global localStorage, which without
     // --localstorage-file is undefined and shadows jsdom's, so jsdom tests
@@ -38,10 +38,10 @@ export default defineConfig({
       // coverage was introduced (rounded down to absorb noise). Raise these
       // by hand as coverage improves; never lower them. No autoUpdate.
       thresholds: {
-        statements: 47.5,
-        branches: 43.5,
-        functions: 35.4,
-        lines: 48.8,
+        statements: 56.0,
+        branches: 52.3,
+        functions: 48.0,
+        lines: 57.5,
       },
     },
   },
