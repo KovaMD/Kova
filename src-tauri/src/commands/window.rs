@@ -1,4 +1,3 @@
-use crate::file_io;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
@@ -113,60 +112,6 @@ pub fn set_wake_lock(active: bool) {
             guard.take(); // drop sender → thread's recv returns Disconnected → exits
         }
     }
-}
-
-/// Opens a path in the native file manager (Finder / Nautilus / Explorer).
-/// Uses platform process commands directly rather than tauri-plugin-opener,
-/// which requires path scopes to be configured before it works on macOS.
-#[tauri::command]
-pub fn show_in_file_manager(path: String) -> Result<(), String> {
-    // Canonicalize (resolves symlinks/traversal) and enforce home boundary.
-    let canonical = std::fs::canonicalize(&path)
-        .map_err(|e| format!("Invalid path: {e}"))?;
-    file_io::check_in_home(&canonical)?;
-
-    let is_file = canonical.is_file();
-
-    #[cfg(target_os = "macos")]
-    {
-        let mut cmd = std::process::Command::new("open");
-        if is_file {
-            cmd.arg("-R"); // reveal file in Finder rather than opening it
-        }
-        cmd.arg(&canonical).spawn().map_err(|e| e.to_string())?;
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        // xdg-open handles both files (opens parent dir) and directories
-        let target = if is_file {
-            canonical.parent()
-                .map(|p| p.to_string_lossy().into_owned())
-                .unwrap_or_else(|| canonical.to_string_lossy().into_owned())
-        } else {
-            canonical.to_string_lossy().into_owned()
-        };
-        std::process::Command::new("xdg-open")
-            .arg(&target)
-            .spawn()
-            .map_err(|e| e.to_string())?;
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        let mut cmd = std::process::Command::new("explorer");
-        if is_file {
-            // Strip the \\?\ extended-length prefix that canonicalize adds on Windows
-            // — Explorer /select does not recognise UNC-prefixed paths.
-            let clean = file_io::strip_verbatim_prefix(canonical.to_string_lossy().into_owned());
-            cmd.arg(format!("/select,\"{}\"", clean));
-        } else {
-            cmd.arg(&canonical);
-        }
-        cmd.spawn().map_err(|e| e.to_string())?;
-    }
-
-    Ok(())
 }
 
 /// Move the audience window to the correct external monitor then fullscreen it.
@@ -350,63 +295,4 @@ pub async fn setup_audience_window(
         }
         Ok(())
     }
-}
-
-/// Returns a formatted string describing monitor layout from both Tauri's and
-/// GDK's perspective. Call from the browser devtools console:
-///   await window.__TAURI__.core.invoke('debug_monitors')
-#[tauri::command]
-#[cfg_attr(not(debug_assertions), allow(unreachable_code, unused_variables))]
-pub fn debug_monitors(app: AppHandle) -> String {
-    #[cfg(not(debug_assertions))]
-    return String::new();
-
-    let mut out = String::new();
-
-    match app.primary_monitor() {
-        Ok(Some(pm)) => out.push_str(&format!("Tauri primary: {:?}\n", pm.name())),
-        Ok(None)     => out.push_str("Tauri primary: (none)\n"),
-        Err(e)       => out.push_str(&format!("Tauri primary error: {e}\n")),
-    }
-    match app.available_monitors() {
-        Ok(monitors) => {
-            for (i, m) in monitors.iter().enumerate() {
-                out.push_str(&format!(
-                    "Tauri[{i}]: {:?}  pos=({},{})  {}×{}  scale={:.1}\n",
-                    m.name(),
-                    m.position().x, m.position().y,
-                    m.size().width, m.size().height,
-                    m.scale_factor(),
-                ));
-            }
-        }
-        Err(e) => out.push_str(&format!("Tauri monitors error: {e}\n")),
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        use gdk::prelude::MonitorExt;
-        out.push('\n');
-        if let Some(display) = gdk::Display::default() {
-            let n       = display.n_monitors();
-            let primary = display.primary_monitor();
-            out.push_str(&format!("GDK: {n} monitor(s)\n"));
-            for i in 0..n {
-                if let Some(m) = display.monitor(i) {
-                    let g = m.geometry();
-                    let is_primary = primary.as_ref()
-                        .map(|p| p.geometry() == g)
-                        .unwrap_or(false);
-                    out.push_str(&format!(
-                        "GDK[{i}]: pos=({},{})  {}×{}  primary={is_primary}\n",
-                        g.x(), g.y(), g.width(), g.height()
-                    ));
-                }
-            }
-        } else {
-            out.push_str("GDK: no default display\n");
-        }
-    }
-
-    out
 }
