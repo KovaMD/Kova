@@ -17,8 +17,8 @@ import hljs from 'highlight.js';
 import type { Slide, SlideElement, Frontmatter } from '../types';
 import { parseAspectRatio } from '../types';
 import type { Theme } from '../theme';
-import { resolveTemplate } from '../theme';
-import { formatFallbackDate } from '../../i18n';
+import { resolveDeckMeta, resolveSlideFrame } from '../render/slideModel';
+import type { DeckMeta, FooterFrame, SlideFrame } from '../render/slideModel';
 
 mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'antiscript' });
 
@@ -141,7 +141,6 @@ const M = 0.5;     // standard margin
 const HEAD_H = 0.4;
 const FOOT_H = 0.35;
 
-interface Meta { docTitle: string; docAuthor: string; docDate: string; slideNum: number; totalSlides: number }
 interface Area { x: number; y: number; w: number; h: number }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -331,12 +330,7 @@ export async function exportToPptx(
     pres.layout = 'LAYOUT_16x9';
   }
 
-  // Falls back to the deck's cover slide (first H1) when frontmatter has no
-  // explicit `title:` — mirrors the same fallback used for the live preview
-  // (see docTitle in App.tsx), so exported footers/headers match what's shown.
-  const docTitle = frontmatter.title ?? slides.find((s) => s.titleLevel === 1)?.title ?? '';
-  const docAuthor = frontmatter.author ?? '';
-  const docDate  = frontmatter.date != null ? String(frontmatter.date) : formatFallbackDate(locale);
+  const deckMeta = resolveDeckMeta(frontmatter, slides, locale);
   const warnings: string[] = [];
 
   // Pre-resolve theme logo once (fetch → data URL, measure AR) so it can be
@@ -358,9 +352,9 @@ export async function exportToPptx(
 
   for (let i = 0; i < resolvedSlides.length; i++) {
     const pSlide = pres.addSlide();
-    const meta: Meta = { docTitle, docAuthor, docDate, slideNum: i + 1, totalSlides: slides.length };
     const stepTargets: StepTarget[] = [];
-    addSlide(pSlide as PS, resolvedSlides[i], theme, meta, H, warnings, logoDataUrl, logoAr, stepTargets);
+    const position = { slideNumber: i + 1, totalSlides: slides.length };
+    addSlide(pSlide as PS, resolvedSlides[i], theme, deckMeta, position, H, warnings, logoDataUrl, logoAr, stepTargets);
     perSlideStepTargets.push(stepTargets);
   }
 
@@ -616,14 +610,13 @@ async function applyPptxPostProcessing(base64: string, perSlideTargets: StepTarg
 type PS = any;
 
 function addSlide(
-  s: PS, slide: Slide, t: Theme, meta: Meta, H: number, warnings: string[],
+  s: PS, slide: Slide, t: Theme, deckMeta: DeckMeta,
+  position: { slideNumber: number; totalSlides: number }, H: number, warnings: string[],
   logoDataUrl: string | null, logoAr: number | null, stepTargets: StepTarget[] = [],
 ) {
-  // Mirrors SlideRenderer's headerVisible/footerVisible: a header/footer
-  // enabled in the theme can still be suppressed on just the title slide.
-  const isTitleSlide = slide.layout === 'title';
-  const hasHead = t.header.show && !(t.header.hide_on_title && isTitleSlide);
-  const hasFoot = t.footer.show && !(t.footer.hide_on_title && isTitleSlide);
+  const frame: SlideFrame = resolveSlideFrame(slide, t, deckMeta, position);
+  const hasHead = frame.header.visible;
+  const hasFoot = frame.footer.visible;
   const cy = M + (hasHead ? HEAD_H : 0);
   const ch = H - M - cy - (hasFoot ? FOOT_H : 0);
 
@@ -640,23 +633,15 @@ function addSlide(
   // or a functional notation (`rgb(...)`). PptxGenJS only accepts 6-digit hex,
   // so convert any CSS colour to hex before it reaches the layout renderers —
   // otherwise pptxgenjs silently falls back to black (DEF_FONT_COLOR).
-  const slideTextColor = cssColorToHex(
-    slide.textColor
-      ?? (slide.invert ? t.colors.title_text : t.colors.text),
-  );
-  const slideCodeBg = slide.invert && !slide.textColor ? '#0D1117' : undefined;
-
-  // A per-slide override (explicit colour or invert) wins for heading/bold
-  // too, mirroring the live preview's `themeToVars` precedence; otherwise
-  // each falls back to its own theme colour, then the deck's text colour.
-  const slideHeadingColor = cssColorToHex(
-    slide.textColor
-      ?? (slide.invert ? t.colors.title_text : (t.colors.heading ?? t.colors.text)),
-  );
-  const slideBoldColor = cssColorToHex(
-    slide.textColor
-      ?? (slide.invert ? t.colors.title_text : (t.colors.bold ?? t.colors.text)),
-  );
+  const { colours } = frame;
+  const slideTextColor = cssColorToHex(colours.text);
+  const slideHeadingColor = cssColorToHex(colours.heading);
+  const slideBoldColor = cssColorToHex(colours.bold);
+  // Known difference from the preview: the invert code background is only
+  // passed on title-content, code and math (and the default) layouts. Split,
+  // two-/three-column, bsp and grid keep the theme code_bg, so those layout
+  // calls below deliberately don't receive slideCodeBg.
+  const slideCodeBg = colours.codeBgOverride;
 
   if (slide.backgroundImage) {
     const ar = slide.backgroundImage.size === 'contain' ? slide.backgroundImage.aspectRatio : undefined;
@@ -682,16 +667,11 @@ function addSlide(
     default:              addTitleContentSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, slideBoldColor, stepTargets);
   }
 
-  if (hasHead) addHeaderBar(s, t, meta);
-  if (hasFoot) addFooterBar(s, t, meta, H);
-  // Mirrors SlideRenderer: only suppress the logo when it belongs to a bar
-  // that's specifically hidden on this slide (hide_on_title) — otherwise it
-  // keeps showing at its corner even without a matching bar, same as before.
-  const logoBelongsInHeader = ['top-left', 'top-right'].includes(t.logo_position);
-  const logoBelongsInFooter = ['bottom-left', 'bottom-right'].includes(t.logo_position);
-  const suppressLogo = (t.header.show && logoBelongsInHeader && !hasHead)
-    || (t.footer.show && logoBelongsInFooter && !hasFoot);
-  if (logoDataUrl && !suppressLogo) addLogo(s, logoDataUrl, logoAr, t.logo_position, t.logo_opacity, H);
+  if (hasHead) addHeaderBar(s, t, frame.header.segments);
+  if (hasFoot) addFooterBar(s, t, frame.footer, H);
+  if (logoDataUrl && frame.logo.placement !== 'hidden') {
+    addLogo(s, logoDataUrl, logoAr, frame.logo.position, frame.logo.opacity, H);
+  }
   if (slide.references.length > 0) addReferences(s, slide.references, t, H, hasFoot, slideTextColor);
   if (slide.speakerNotes) s.addNotes(slide.speakerNotes);
 }
@@ -1203,20 +1183,18 @@ function addBarText(
   if (right)  s.addText(right,  { x: x + colW * 2, y, w: colW, h, fontSize, color, fontFace, align: 'right',  valign: 'middle', objectName });
 }
 
-function addHeaderBar(s: PS, t: Theme, meta: Meta) {
+function addHeaderBar(s: PS, t: Theme, segs: string[]) {
   s.addShape('rect', {
     x: 0, y: 0, w: W, h: HEAD_H,
     fill: { color: hex(t.colors.primary) },
     line: { type: 'none' },
   });
-  const vars = { title: meta.docTitle, author: meta.docAuthor, date: meta.docDate, slideNumber: meta.slideNum, totalSlides: meta.totalSlides };
-  const segs = t.header.text.split('|').map((p) => resolveTemplate(p.trim(), vars));
   if (segs.some(Boolean)) {
     addBarText(s, segs, M, 0, W - M * 2, HEAD_H, 10, hex(t.colors.title_text), firstFont(t.fonts.body), 'kova:header-text');
   }
 }
 
-function addFooterBar(s: PS, t: Theme, meta: Meta, H: number) {
+function addFooterBar(s: PS, t: Theme, footer: FooterFrame, H: number) {
   // The CSS footer renders as a thin border-top line, not a filled bar —
   // use a thin accent-coloured rectangle to match the live preview.
   const footY = H - FOOT_H;
@@ -1225,15 +1203,16 @@ function addFooterBar(s: PS, t: Theme, meta: Meta, H: number) {
     fill: { color: hex(t.colors.accent) },
     line: { type: 'none' },
   });
-  const showNum = t.footer.show_slide_number;
-  const vars = { title: meta.docTitle, author: meta.docAuthor, date: meta.docDate, slideNumber: meta.slideNum, totalSlides: meta.totalSlides };
-  const segs = t.footer.text.split('|').map((p) => resolveTemplate(p.trim(), vars));
+  const showNum = footer.showSlideNumber;
+  const segs = footer.segments;
   const textW = W - M * 2 - (showNum ? 1.1 : 0);
-  if (segs.some(Boolean)) {
+  if (footer.hasText) {
     addBarText(s, segs, M, footY + 0.02, textW, FOOT_H - 0.02, 9, hex(t.colors.text), firstFont(t.fonts.body), 'kova:footer-text');
   }
   if (showNum) {
-    s.addText(`${meta.slideNum} / ${meta.totalSlides}`, {
+    // PPTX keeps its "n / total" label; the preview shows only "n" (known
+    // difference, the model exposes just the numbers).
+    s.addText(`${footer.slideNumber} / ${footer.totalSlides}`, {
       x: W - M - 1.1, y: footY + 0.02, w: 1.1, h: FOOT_H - 0.02,
       fontSize: 9, color: hex(t.colors.text),
       fontFace: firstFont(t.fonts.body),
