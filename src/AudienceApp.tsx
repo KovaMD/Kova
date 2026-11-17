@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { downloadAndCacheFont } from './platform/ipc';
 import { emit, emitTo, listen } from '@tauri-apps/api/event';
 import { bestEffort } from './platform/bestEffort';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -100,7 +101,7 @@ function AudienceAppInner({ showProgressBar }: { showProgressBar: boolean }) {
     const fonts = initData?.theme.remoteFonts;
     if (!fonts?.length) return;
     for (const font of fonts) {
-      invoke<string>('download_and_cache_font', { url: font.url, sha256: font.sha256 })
+      downloadAndCacheFont(font.url, font.sha256)
         .then((cachedPath) => {
           registerCachedFont(font.family, cachedPath, font.weight, font.style, font.sha256, convertFileSrc);
         })

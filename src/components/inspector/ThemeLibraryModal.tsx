@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { deleteTheme, saveTheme } from '../../platform/ipc';
 import { useT } from '../../i18n';
 import { ModalShell, ModalCloseButton } from '../ModalShell';
 
@@ -72,7 +72,7 @@ export function ThemeLibraryModal({ installedIds, onThemesChanged, onClose }: Pr
       const digest = await crypto.subtle.digest('SHA-256', buffer);
       const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
       if (hex !== theme.sha256) throw new Error('Integrity check failed — file may have been tampered with');
-      await invoke('save_theme', { id, yaml: new TextDecoder().decode(buffer) });
+      await saveTheme(id, new TextDecoder().decode(buffer));
       onThemesChanged();
     } catch (err) {
       setErrors((p) => ({ ...p, [id]: err instanceof Error ? err.message : 'Install failed' }));
@@ -84,7 +84,7 @@ export function ThemeLibraryModal({ installedIds, onThemesChanged, onClose }: Pr
   async function remove(id: string) {
     setBusy((p) => ({ ...p, [id]: true }));
     try {
-      await invoke('delete_theme', { id });
+      await deleteTheme(id);
       onThemesChanged();
     } finally {
       setBusy((p) => ({ ...p, [id]: false }));

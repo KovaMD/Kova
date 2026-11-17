@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { fetchUrlText } from '../platform/ipc';
 import { useT } from '../i18n';
 import { ModalShell } from './ModalShell';
 import { toRawUrl } from '../engine/import/toRawUrl';
@@ -25,7 +25,7 @@ export function ImportUrlModal({ onImported, onClose }: ImportUrlModalProps) {
     setError('');
     try {
       const rawUrl = toRawUrl(trimmed);
-      const text: string = await invoke('fetch_url_text', { url: rawUrl });
+      const text: string = await fetchUrlText(rawUrl);
       onImported(text);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

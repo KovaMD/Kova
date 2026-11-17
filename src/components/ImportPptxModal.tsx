@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { open, save } from '@tauri-apps/plugin-dialog';
-import { invoke } from '@tauri-apps/api/core';
+import { writeFile } from '../platform/ipc';
 import { parsePptx } from '../engine/import/parsePptx';
 import { pptxToMarkdown } from '../engine/import/pptxToMarkdown';
 import { basename } from '../engine/paths';
@@ -90,7 +90,7 @@ export function ImportPptxModal({ onImported, onClose }: ImportPptxModalProps) {
       const markdown = pptxToMarkdown(parseResult);
 
       setProgress(t('modals.importPptxSavingFile'));
-      await invoke('write_file', { path: savePath, content: markdown });
+      await writeFile(savePath, markdown);
 
       setDoneState({
         slideCount: parseResult.slides.length,

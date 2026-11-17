@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { listSystemFonts } from '../../platform/ipc';
 import { bestEffort } from '../../platform/bestEffort';
 import type { ThemeFonts } from '../../engine/theme';
 import { isFontStackSatisfied, parseFontStack } from '../../engine/fontDetect';
@@ -173,7 +173,7 @@ export function FontControls({ fonts, overriddenKeys, onChange }: Props) {
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
 
   useEffect(() => {
-    bestEffort(invoke<string[]>('list_system_fonts')
+    bestEffort(listSystemFonts()
       .then(setSystemFonts), 'list_system_fonts');
   }, []);
 

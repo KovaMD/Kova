@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { copyImageToAssets } from '../../platform/ipc';
 import { MEDIA_EXTENSIONS, VIDEO_EXTENSIONS, extensionRegex } from '../../engine/mediaTypes';
 import { dirname, segments, stem, toForwardSlashes } from '../../engine/paths';
 
@@ -35,7 +35,7 @@ export async function resolveImagePathForMarkdown(
     rel = makeRelativePath(docPath, abs);
   } else {
     try {
-      rel = `assets/${await invoke<string>('copy_image_to_assets', { src: abs, destDir: docDir })}`;
+      rel = `assets/${await copyImageToAssets(abs, docDir)}`;
     } catch (e) {
       console.error('[Kova] copy media to assets failed:', e);
       warn('Could not copy media — on macOS, grant Kova access under System Settings → Privacy & Security → Files and Folders.');
