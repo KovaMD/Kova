@@ -36,11 +36,7 @@ pub async fn setup_audience_window(
             if app.get_webview_window("audience").is_some() {
                 break 'wait true;
             }
-            tauri::async_runtime::spawn_blocking(|| {
-                std::thread::sleep(std::time::Duration::from_millis(100));
-            })
-            .await
-            .ok();
+            crate::util::sleep_ms(100).await;
         }
         false
     };
@@ -49,11 +45,7 @@ pub async fn setup_audience_window(
     }
     // Brief extra pause to allow the native GTK/NS/HWND handle to be realized
     // after the window first appears in the manager.
-    tauri::async_runtime::spawn_blocking(|| {
-        std::thread::sleep(std::time::Duration::from_millis(150));
-    })
-    .await
-    .ok();
+    crate::util::sleep_ms(150).await;
 
     #[cfg(target_os = "linux")]
     {
@@ -178,11 +170,7 @@ pub async fn setup_audience_window(
             win.set_position(tauri::LogicalPosition::<f64>::new(x, y))
                 .map_err(|e: tauri::Error| e.to_string())?;
         }
-        tauri::async_runtime::spawn_blocking(|| {
-            std::thread::sleep(std::time::Duration::from_millis(250));
-        })
-        .await
-        .ok();
+        crate::util::sleep_ms(250).await;
         if let Some(win) = app.get_webview_window("audience") {
             win.set_fullscreen(true).map_err(|e: tauri::Error| e.to_string())?;
         }

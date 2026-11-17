@@ -40,11 +40,7 @@ pub fn create(
                     // Ignore events that arrive within the suppression window set by
                     // write_file — these are caused by Kova's own atomic rename and
                     // should not be surfaced to the frontend as external changes.
-                    let now = SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_millis() as u64;
-                    if now < suppress_until.load(Ordering::Relaxed) {
+                    if crate::util::now_millis() <suppress_until.load(Ordering::Relaxed) {
                         return;
                     }
 

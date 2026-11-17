@@ -44,10 +44,7 @@ pub async fn export_pdf_native(
         .path()
         .app_cache_dir()
         .map_err(|e| format!("app cache dir: {e}"))?;
-    let ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis();
+    let ts = crate::util::now_millis();
     let html_path = cache_dir.join(format!("kova-print-{ts}.html"));
 
     {
@@ -122,11 +119,7 @@ pub async fn export_pdf_native(
         .ok();
 
         // Give fonts and lazy-rendered content a moment to settle.
-        tauri::async_runtime::spawn_blocking(|| {
-            std::thread::sleep(std::time::Duration::from_millis(500));
-        })
-        .await
-        .ok();
+        crate::util::sleep_ms(500).await;
 
         #[cfg(target_os = "macos")]
         let result = platform_macos::generate_pdf(
