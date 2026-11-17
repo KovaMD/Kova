@@ -27,6 +27,7 @@ import { parsePptx } from './engine/import/parsePptx';
 import { pptxToMarkdown } from './engine/import/pptxToMarkdown';
 import { toRawUrl } from './engine/import/toRawUrl';
 import { IMAGE_DIALOG_FILTER } from './engine/mediaTypes';
+import { basename, dirname, dirnameOn, isLocalRelative, pathSeparator, toForwardSlashes } from './engine/paths';
 import { MissingThemeBanner } from './components/MissingThemeBanner';
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
 import { setDiagramRenderer } from './engine/export/diagramRenderer';
@@ -62,12 +63,6 @@ import { useResolvedSlides } from './hooks/useResolvedSlides';
 import type { PendingCli, CliThemeArg, PendingImport, PendingExport } from './types/cli';
 
 import './styles/global.css';
-
-// Parent folder of a path (handles both separators); '' if it has none.
-function dirOf(p: string): string {
-  const i = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
-  return i >= 0 ? p.slice(0, i) : '';
-}
 
 function makeStarter() {
   return `---
@@ -121,10 +116,9 @@ async function resolveCliTheme(arg: CliThemeArg): Promise<Theme | null> {
     } catch {
       return fail(`cannot read theme '${arg.path}'`);
     }
-    const normalisedPath = arg.path.replace(/\\/g, '/');
-    const lastSlash = normalisedPath.lastIndexOf('/');
-    const base = lastSlash === -1 ? normalisedPath : normalisedPath.slice(lastSlash + 1);
-    const dir = lastSlash === -1 ? undefined : normalisedPath.slice(0, lastSlash);
+    const normalisedPath = toForwardSlashes(arg.path);
+    const base = basename(normalisedPath);
+    const dir = dirname(normalisedPath, undefined);
     // Load the installed library too so this file's own `extends:` can name
     // an installed custom theme, not just a built-in (issue #249) — matching
     // the `arg.type === 'name'` path below.
@@ -209,7 +203,7 @@ async function runCliImport(imp: PendingImport, check: boolean): Promise<void> {
     if (imp.format === 'marp') {
       const text: string = await invoke('read_file', { path: imp.input });
       // Check the import input before converting / writing (issue #178).
-      if (!(await gate(text, imp.input, dirOf(imp.input)))) return;
+      if (!(await gate(text, imp.input, dirname(imp.input)))) return;
       const { markdown, dropped } = importMarp(text);
       await invoke('write_file', { path: imp.output, content: markdown });
       const suffix = dropped.length > 0 ? ` (simplified: ${dropped.join(', ')})` : '';
@@ -220,9 +214,9 @@ async function runCliImport(imp: PendingImport, check: boolean): Promise<void> {
       // Media referenced by the deck is extracted alongside the output file,
       // same as the in-app import modal. PPTX itself isn't Markdown — check
       // the converted deck before writing so --check still gates the output.
-      const parsed = await parsePptx(imp.input, dirOf(imp.output));
+      const parsed = await parsePptx(imp.input, dirname(imp.output));
       const markdown = pptxToMarkdown(parsed);
-      if (!(await gate(markdown, imp.output, dirOf(imp.output)))) return;
+      if (!(await gate(markdown, imp.output, dirname(imp.output)))) return;
       await invoke('write_file', { path: imp.output, content: markdown });
       const lines = [`wrote '${imp.output}' (${parsed.slides.length} slides)`];
       for (const w of parsed.warnings) lines.push(`warning: ${w}`);
@@ -232,7 +226,7 @@ async function runCliImport(imp: PendingImport, check: boolean): Promise<void> {
     // url — rewrite GitHub/GitLab/Bitbucket blob URLs to raw (same as ImportUrlModal).
     // Marp detection still happens on open, not on fetch.
     const text: string = await invoke('fetch_url_text', { url: toRawUrl(imp.input) });
-    if (!(await gate(text, imp.output, dirOf(imp.output)))) return;
+    if (!(await gate(text, imp.output, dirname(imp.output)))) return;
     await invoke('write_file', { path: imp.output, content: text });
     await finish(`wrote '${imp.output}'`);
   } catch (err) {
@@ -565,12 +559,10 @@ export default function App() {
   const externalChangePathRef = useRef<string | null>(null);
   const editorContent = settings.showFrontmatter ? content : editorBody;
 
-  const docDir = useMemo(() => {
-    const lastSlash = filePath
-      ? Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
-      : -1;
-    return lastSlash >= 0 ? filePath!.substring(0, lastSlash) : importDir;
-  }, [filePath, importDir]);
+  const docDir = useMemo(
+    () => (filePath ? dirname(filePath, importDir) : importDir),
+    [filePath, importDir],
+  );
 
   const slides = useResolvedSlides(rawSlides, docDir);
 
@@ -657,8 +649,7 @@ export default function App() {
   useEffect(() => {
     if (!filePath) { setExternalImageCount(0); return; }
     const id = setTimeout(() => {
-      const sep = filePath.includes('\\') ? '\\' : '/';
-      const docDir = filePath.substring(0, filePath.lastIndexOf(sep));
+      const docDir = dirnameOn(filePath, pathSeparator(filePath));
       const IMG_RE = /!\[[^\]]*\]\(([^\s)]+)/g;
       let count = 0;
       let m: RegExpExecArray | null;
@@ -770,7 +761,7 @@ export default function App() {
   // title text is hidden at the NSWindow level (see lib.rs setup) so it doesn't
   // duplicate the in-app centered doctitle next to the traffic lights.
   useEffect(() => {
-    const name = frontmatter.title ?? filePath?.split(/[\\/]/).pop() ?? 'Kova';
+    const name = frontmatter.title ?? (filePath != null ? basename(filePath) : undefined) ?? 'Kova';
     getCurrentWindow().setTitle(isDirty ? `${name} • — Kova` : `${name} — Kova`).catch(() => {});
   }, [filePath, frontmatter.title, isDirty]);
 
@@ -1342,7 +1333,7 @@ export default function App() {
     diskContentRef.current = text;
     setCurrentSlideIndex(0);
     if (path) await invoke('start_watching', { path }).catch(console.error);
-    setMarpPrompt(isMarp(text) ? { text, dir: dirOf(path) } : null);
+    setMarpPrompt(isMarp(text) ? { text, dir: dirname(path) } : null);
     setImportDir('');
     setMarpLoss(null);
   }, [syncThemeFromContent]);
@@ -1393,7 +1384,7 @@ export default function App() {
         // the presentation.
         if (cli.check || cli.check_only) {
           const diags = await collectDiagnostics(text, {
-            docDir: dirOf(target),
+            docDir: dirname(target),
             themeIds: await knownThemeIds(),
             fileExists: (p) =>
               invoke<boolean>('path_exists', { path: p }).then(Boolean).catch(() => false),
@@ -1590,7 +1581,7 @@ export default function App() {
       const text: string = await invoke('read_file', { path: selected });
       const { markdown, dropped } = importMarp(text);
       await applyFileContent(markdown, '');
-      setImportDir(dirOf(selected));
+      setImportDir(dirname(selected));
       setMarpPrompt(null);
       setMarpLoss(dropped.length);
     } catch (err) { console.error('Marp import failed:', err); } });
@@ -1614,8 +1605,8 @@ export default function App() {
     if (!filePath) return;
     const trimmed = renameValue.trim();
     if (!trimmed) return;
-    const sep = filePath.includes('\\') ? '\\' : '/';
-    const dir = filePath.substring(0, filePath.lastIndexOf(sep));
+    const sep = pathSeparator(filePath);
+    const dir = dirnameOn(filePath, sep);
     const ext = filePath.match(/\.(md|markdown)$/i)?.[0] ?? '.md';
     const newPath = `${dir}${sep}${trimmed}${ext}`;
     if (newPath === filePath) return;
@@ -1983,14 +1974,13 @@ export default function App() {
     // Rust re-validates and is the real security boundary (asset refs must
     // resolve to a plain relative path under src/dest dir) — this just avoids
     // surfacing a Rust-side error for the common case of a malformed doc.
-    const isLocalRelativeRef = (ref: string) => !ref.startsWith('/') && !ref.split(/[/\\]/).includes('..');
     for (const m of src.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)) {
       const ref = decodeURIComponent(m[1]);
-      if (!WEB_URL.test(ref) && isLocalRelativeRef(ref)) seen.add(ref);
+      if (!WEB_URL.test(ref) && isLocalRelative(ref)) seen.add(ref);
     }
     for (const m of src.matchAll(/<img[^>]+src=["']([^"']+)["']/g)) {
       const ref = decodeURIComponent(m[1]);
-      if (!WEB_URL.test(ref) && isLocalRelativeRef(ref)) seen.add(ref);
+      if (!WEB_URL.test(ref) && isLocalRelative(ref)) seen.add(ref);
     }
     try {
       await invoke('copy_file_with_assets', {
@@ -2702,12 +2692,12 @@ export default function App() {
             className="toolbar-doctitle"
             onDoubleClick={() => {
               if (!filePath) return;
-              const base = filePath.split(/[/\\]/).pop() ?? '';
+              const base = basename(filePath);
               setRenameValue(base.replace(/\.(md|markdown)$/i, ''));
               setIsRenaming(true);
             }}
           >
-            {filePath ? filePath.split(/[\\/]/).pop() : t('app.untitledFilename')}{isDirty ? ' *' : ''}
+            {filePath ? basename(filePath) : t('app.untitledFilename')}{isDirty ? ' *' : ''}
           </div>
         )}
         <button

@@ -1,10 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
 import { MEDIA_EXTENSIONS, VIDEO_EXTENSIONS, extensionRegex } from '../../engine/mediaTypes';
+import { dirname, segments, stem, toForwardSlashes } from '../../engine/paths';
 
 // Returns a path to `target` relative to the directory of `docPath`.
 function makeRelativePath(docPath: string, target: string): string {
-  const docParts = docPath.split(/[/\\]/).slice(0, -1);
-  const tgtParts = target.split(/[/\\]/);
+  const docParts = segments(docPath).slice(0, -1);
+  const tgtParts = segments(target);
   let common = 0;
   while (common < docParts.length && common < tgtParts.length && docParts[common] === tgtParts[common]) common++;
   const up = docParts.length - common;
@@ -25,9 +26,9 @@ export async function resolveImagePathForMarkdown(
   docPath: string,
   warn: (m: string) => void,
 ): Promise<string | null> {
-  const docDir = docPath.substring(0, Math.max(docPath.lastIndexOf('/'), docPath.lastIndexOf('\\')));
-  const normAbs = abs.replace(/\\/g, '/');
-  const normDir = docDir.replace(/\\/g, '/');
+  const docDir = dirname(docPath);
+  const normAbs = toForwardSlashes(abs);
+  const normDir = toForwardSlashes(docDir);
 
   let rel: string;
   if (normAbs.startsWith(normDir + '/')) {
@@ -47,6 +48,6 @@ export async function resolveImagePathForMarkdown(
 export async function buildMediaSnippet(abs: string, docPath: string, warn: (m: string) => void): Promise<string | null> {
   const enc = await resolveImagePathForMarkdown(abs, docPath, warn);
   if (!enc) return null;
-  const label = abs.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') ?? 'media';
+  const label = stem(abs);
   return VIDEO_EXT.test(abs) ? `!video[${label}](${enc})` : `![${label}](${enc})`;
 }
