@@ -1,4 +1,5 @@
 import { detectOsLanguage } from '../engine/spellcheck/spellChecker';
+import { readJson } from './storage';
 
 export type PresentationMode  = 'auto' | 'single' | 'dual' | 'mirror';
 export type NotesFontSize     = 'sm' | 'md' | 'lg';
@@ -125,14 +126,12 @@ function buildDefaults(): AppSettings {
 
 export function loadSettings(): AppSettings {
   const defaults = buildDefaults();
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return defaults;
-    // Saved settings with no version predate versioning; treat them as v1.
-    return migrate({ ...defaults, settingsVersion: 1, ...JSON.parse(raw) });
-  } catch {
-    return defaults;
-  }
+  // JSON never parses to undefined, so it marks a missing, corrupt or
+  // unreadable entry.
+  const saved = readJson<unknown>(KEY, undefined);
+  if (saved === undefined) return defaults;
+  // Saved settings with no version predate versioning; treat them as v1.
+  return migrate({ ...defaults, settingsVersion: 1, ...(saved as Partial<AppSettings>) });
 }
 
 export function saveSettings(s: AppSettings): void {
