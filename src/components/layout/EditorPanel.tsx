@@ -32,6 +32,7 @@ import { useMediaPaste } from '../editor/useMediaPaste';
 import { ModalShell } from '../ModalShell';
 import { isMac } from '../../engine/keybindings';
 import { slideStartLines } from '../../engine/parser/markdownToSlides';
+import { MEDIA_DIALOG_FILTER } from '../../engine/mediaTypes';
 import { spellCheckExtension } from '../../engine/spellcheck/spellCheckExtension';
 import { initSpellChecker } from '../../engine/spellcheck/spellChecker';
 import type { SpellCheckLanguage } from '../../engine/spellcheck/spellChecker';
@@ -521,7 +522,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
 
     const selected = await openFileDialog({
       multiple: false,
-      filters: [{ name: 'Media', extensions: ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'avif', 'tiff', 'mp4', 'webm', 'ogv', 'mov', 'm4v', 'mkv'] }],
+      filters: [MEDIA_DIALOG_FILTER],
     });
     if (!selected) return;
 

@@ -26,6 +26,7 @@ import { isMarp, importMarp } from './engine/import/marp';
 import { parsePptx } from './engine/import/parsePptx';
 import { pptxToMarkdown } from './engine/import/pptxToMarkdown';
 import { toRawUrl } from './engine/import/toRawUrl';
+import { IMAGE_DIALOG_FILTER } from './engine/mediaTypes';
 import { MissingThemeBanner } from './components/MissingThemeBanner';
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
 import { setDiagramRenderer } from './engine/export/diagramRenderer';
@@ -2174,7 +2175,7 @@ export default function App() {
       return;
     }
     const selected = await open({
-      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'] }],
+      filters: [IMAGE_DIALOG_FILTER],
       multiple: false,
     });
     if (!selected || Array.isArray(selected)) return;
