@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+<p:cSld name="Slide 2">
+<p:bg>
+<p:bgPr>
+<a:solidFill>
+<a:srgbClr val="FFFFFF"/>
+</a:solidFill>
+</p:bgPr>
+</p:bg>
+<p:spTree>
+<p:nvGrpSpPr>
+<p:cNvPr id="1" name=""/>
+<p:cNvGrpSpPr/>
+<p:nvPr/>
+</p:nvGrpSpPr>
+<p:grpSpPr>
+<a:xfrm>
+<a:off x="0" y="0"/>
+<a:ext cx="0" cy="0"/>
+<a:chOff x="0" y="0"/>
+<a:chExt cx="0" cy="0"/>
+</a:xfrm>
+</p:grpSpPr>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="2" name="Text 0">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="457200" y="457200"/>
+<a:ext cx="8229600" cy="594360"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="square" rtlCol="0" anchor="ctr">
+<a:normAutofit/>
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr algn="l" indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="2400" b="1" dirty="0">
+<a:solidFill>
+<a:srgbClr val="1A1A1A"/>
+</a:solidFill>
+<a:latin typeface="Inter" pitchFamily="34" charset="0"/>
+<a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>Split Layout</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="2400" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+<p:sp>
+<p:nvSpPr>
+<p:cNvPr id="3" name="Text 1">
+</p:cNvPr>
+<p:cNvSpPr/>
+<p:nvPr>
+</p:nvPr>
+</p:nvSpPr>
+<p:spPr>
+<a:xfrm>
+<a:off x="457200" y="1143000"/>
+<a:ext cx="3977640" cy="3543300"/>
+</a:xfrm>
+<a:prstGeom prst="rect">
+<a:avLst>
+</a:avLst>
+</a:prstGeom>
+<a:noFill/>
+<a:ln>
+</a:ln>
+</p:spPr>
+<p:txBody>
+<a:bodyPr wrap="square" rtlCol="0" anchor="t">
+<a:normAutofit/>
+</a:bodyPr>
+<a:lstStyle/>
+<a:p>
+<a:pPr indent="0" marL="0">
+<a:buNone/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1800" dirty="0">
+<a:solidFill>
+<a:srgbClr val="1A1A1A"/>
+</a:solidFill>
+<a:latin typeface="Inter" pitchFamily="34" charset="0"/>
+<a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>Some text that sits beside the picture.</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="1800" dirty="0"/>
+</a:p>
+<a:p>
+<a:pPr marL="342900" indent="-342900">
+<a:spcAft>
+<a:spcPts val="400"/>
+</a:spcAft>
+<a:buSzPct val="100000"/>
+<a:buChar char="&#x2022;"/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1800" dirty="0">
+<a:solidFill>
+<a:srgbClr val="1A1A1A"/>
+</a:solidFill>
+<a:latin typeface="Inter" pitchFamily="34" charset="0"/>
+<a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>Point one</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="1800" dirty="0"/>
+</a:p>
+<a:p>
+<a:pPr marL="342900" indent="-342900">
+<a:spcAft>
+<a:spcPts val="400"/>
+</a:spcAft>
+<a:buSzPct val="100000"/>
+<a:buChar char="&#x2022;"/>
+</a:pPr>
+<a:r>
+<a:rPr lang="en-US" sz="1800" dirty="0">
+<a:solidFill>
+<a:srgbClr val="1A1A1A"/>
+</a:solidFill>
+<a:latin typeface="Inter" pitchFamily="34" charset="0"/>
+<a:ea typeface="Inter" pitchFamily="34" charset="-122"/>
+<a:cs typeface="Inter" pitchFamily="34" charset="-120"/>
+</a:rPr>
+<a:t>Point two</a:t>
+</a:r>
+<a:endParaRPr lang="en-US" sz="1800" dirty="0"/>
+</a:p>
+</p:txBody>
+</p:sp>
+<p:pic>  <p:nvPicPr>
+<p:cNvPr id="4" name="Image 0" descr="preencoded.png">    </p:cNvPr>    <p:cNvPicPr>
+<a:picLocks noChangeAspect="1"/>
+</p:cNvPicPr>    <p:nvPr>
+</p:nvPr>  </p:nvPicPr>
+<p:blipFill>
+<a:blip r:embed="rId1">
+</a:blip>  <a:stretch>
+<a:fillRect/>
+</a:stretch>
+</p:blipFill>
+<p:spPr> <a:xfrm>  <a:off x="4709160" y="1795939"/>  <a:ext cx="3977640" cy="2237423"/> </a:xfrm> <a:prstGeom prst="rect">
+<a:avLst/>
+</a:prstGeom>
+</p:spPr>
+</p:pic>
+</p:spTree>
+</p:cSld>
+<p:clrMapOvr>
+<a:masterClrMapping/>
+</p:clrMapOvr>
+<p:transition spd="fast" p14:dur="300" xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main">
+<p:fade thruBlk="1"/>
+</p:transition>
+</p:sld>
