@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "bump-version": "node scripts/bump-version.mjs",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
