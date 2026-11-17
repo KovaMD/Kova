@@ -3,7 +3,9 @@ name: Frontend Tests
 # Runs ESLint and the Vitest suite (engine parser, sheet, layout, PPTX/PDF/HTML export,
 # ...). nix-build only compiles the frontend (tsc + vite build), so without
 # this a test-only regression can sit on main unnoticed. Rust tests run inside
-# nix-build; this covers the TypeScript side.
+# nix-build; this covers the TypeScript side. Tests run with coverage, and the
+# thresholds in vitest.config.ts act as a ratchet: the job fails if coverage
+# drops below the recorded baseline.
 on:
   push:
     branches: [main]
@@ -31,5 +33,5 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Run tests
-        run: npm test
+      - name: Run tests with coverage
+        run: npm run test:coverage

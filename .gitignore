@@ -41,3 +41,6 @@ docs/plans/
 # AUR .SRCINFO is generated at publish time and lives in the AUR git repo,
 # not here
 packaging/arch/kova-bin/.SRCINFO
+
+# Test coverage reports (npm run test:coverage)
+coverage/
