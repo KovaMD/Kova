@@ -1,12 +1,13 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { normalizePath } from './resolvePath';
+import { MEDIA_EXTENSIONS, VIDEO_EXTENSIONS, extensionRegex } from './mediaTypes';
 
 function decodePathComponent(src: string): string {
   try { return decodeURIComponent(src); } catch { return src; }
 }
 
-export const MEDIA_EXT_RE = /\.(avif|bmp|gif|ico|jpe?g|png|svg|tiff?|webp|mp4|webm|ogv|mov|m4v|mkv)(?:[?#].*)?$/i;
-export const VIDEO_EXT_RE = /\.(mp4|webm|ogv|mov|m4v|mkv)(?:[?#].*)?$/i;
+export const MEDIA_EXT_RE = extensionRegex(MEDIA_EXTENSIONS, true);
+export const VIDEO_EXT_RE = extensionRegex(VIDEO_EXTENSIONS, true);
 
 // Returns the resolved absolute local path for a src that points to a local
 // image or video file, or null if the src is a web URL, data URL, or unsupported type.
