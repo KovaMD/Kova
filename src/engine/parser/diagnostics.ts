@@ -164,7 +164,7 @@ export async function collectDiagnostics(content: string, ctx: CheckContext): Pr
 
   // Parse the document. The parser is lenient by design; an outright throw is
   // itself a diagnostic rather than a crash of the check.
-  let slides: Slide[] = [];
+  let slides: Slide[];
   try {
     slides = parseDocument(content).slides;
   } catch (e) {

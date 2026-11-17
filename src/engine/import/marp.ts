@@ -48,7 +48,7 @@ export function importMarp(src: string): MarpImportResult {
     // Parse with the real YAML loader, not a line regex — Marp frontmatter can
     // carry block scalars (`style: |` with embedded CSS), nested maps, etc., and
     // a naive line-by-line parse would spray that CSS back out as bogus keys.
-    let obj: Record<string, unknown> = {};
+    let obj: Record<string, unknown>;
     try { obj = (yaml.load(fm[1], { schema: yaml.CORE_SCHEMA }) as Record<string, unknown>) ?? {}; }
     catch { obj = {}; }
     for (const [key, rawVal] of Object.entries(obj)) {

@@ -4,7 +4,7 @@ import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { formatTime, formatTimerDisplay, usePresentationNav, NotesText, splitNotesLinks, type UsePresentationNavOpts } from '../presentationShared';
 
-const openUrlMock = vi.fn((_url: string) => Promise.resolve());
+const openUrlMock = vi.fn<(url: string) => Promise<void>>(() => Promise.resolve());
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: (url: string) => openUrlMock(url) }));
 
 // No @testing-library/react in this project, which normally sets this flag —
