@@ -5,6 +5,7 @@ import { EditorSelection } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import type { Translator } from '../../i18n';
 import { isMac } from '../../engine/keybindings';
+import { dirname } from '../../engine/paths';
 import { encodeMarkdownPath } from './mediaSnippet';
 import { trimTrailingPunctuation } from './urlLinkDecoration';
 
@@ -87,10 +88,7 @@ export function useMediaPaste({ containerRef, viewRef, filePathRef, onWarnRef, t
             onWarnRef.current?.(t('editor.saveFirstPasteMedia'));
             return;
           }
-          const docDir = docPath.substring(
-            0,
-            Math.max(docPath.lastIndexOf('/'), docPath.lastIndexOf('\\'))
-          );
+          const docDir = dirname(docPath);
           const arrayBuffer = await blob.arrayBuffer();
           const pasteExt = blob.type.split('/')[1]?.replace('jpeg', 'jpg').replace('quicktime', 'mov') ?? (isVideo ? 'mp4' : 'png');
           const mediaBase64 = btoa(
@@ -180,10 +178,7 @@ export function useMediaPaste({ containerRef, viewRef, filePathRef, onWarnRef, t
             onWarnRef.current?.(t('editor.saveFirstPasteMedia'));
             return;
           }
-          const docDir = docPath.substring(
-            0,
-            Math.max(docPath.lastIndexOf('/'), docPath.lastIndexOf('\\'))
-          );
+          const docDir = dirname(docPath);
           try {
             const savedFilename = await invoke<string>('write_asset_bytes', {
               data: mediaBase64,

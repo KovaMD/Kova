@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import type { Theme, ThemeOverridePatch, ThemeOverrides } from '../../engine/theme';
 import { defaultChartPalette } from '../../engine/theme';
 import type { Frontmatter } from '../../engine/types';
+import { segments } from '../../engine/paths';
 import { ThemePicker } from '../inspector/ThemePicker';
 import { ColorControls } from '../inspector/ColorControls';
 import { FontControls } from '../inspector/FontControls';
@@ -292,6 +293,6 @@ function Divider() {
 }
 
 function shortPath(p: string): string {
-  const parts = p.replace(/\\/g, '/').split('/');
+  const parts = segments(p);
   return parts.length > 2 ? `…/${parts.slice(-2).join('/')}` : p;
 }

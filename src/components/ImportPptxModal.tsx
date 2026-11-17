@@ -3,6 +3,7 @@ import { open, save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { parsePptx } from '../engine/import/parsePptx';
 import { pptxToMarkdown } from '../engine/import/pptxToMarkdown';
+import { basename } from '../engine/paths';
 import { useT } from '../i18n';
 import { ModalShell } from './ModalShell';
 
@@ -68,7 +69,7 @@ export function ImportPptxModal({ onImported, onClose }: ImportPptxModalProps) {
     if (!pptxPath) return;
 
     // Ask for save destination first
-    const defaultName = pptxPath.split(/[\\/]/).pop()?.replace(/\.pptx$/i, '.md') ?? 'imported.md';
+    const defaultName = basename(pptxPath).replace(/\.pptx$/i, '.md');
     const destPath = await save({
       filters: [{ name: 'Markdown', extensions: ['md'] }],
       defaultPath: defaultName,
@@ -149,7 +150,7 @@ export function ImportPptxModal({ onImported, onClose }: ImportPptxModalProps) {
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   cursor: 'pointer',
                 }} onClick={handleBrowse} title={pptxPath || undefined}>
-                  {pptxPath ? pptxPath.split(/[\\/]/).pop() : t('modals.importPptxNoFileSelected')}
+                  {pptxPath ? basename(pptxPath) : t('modals.importPptxNoFileSelected')}
                 </div>
                 <button className="btn" onClick={handleBrowse} style={{ flexShrink: 0 }}>
                   {t('modals.importPptxBrowse')}

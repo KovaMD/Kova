@@ -3,6 +3,7 @@
 // state, not a user preference.
 
 import { readJson, writeJson } from './storage';
+import { basename, segments } from '../engine/paths';
 
 const KEY = 'kova:recentFiles';
 const MAX = 10;
@@ -52,14 +53,14 @@ export function clearRecentFiles(): void {
 }
 
 export function recentFileBasename(path: string): string {
-  return path.split(/[\\/]/).pop() || path;
+  return basename(path) || path;
 }
 
 /** Menu label; parent folder suffix when basename collisions exist in the list. */
 export function recentFileMenuLabel(path: string, recents: string[]): string {
   const base = recentFileBasename(path);
   if (recents.filter((p) => recentFileBasename(p) === base).length <= 1) return base;
-  const parts = path.replace(/\\/g, '/').split('/');
+  const parts = segments(path);
   const parent = parts.length >= 2 ? parts[parts.length - 2] : '';
   return parent ? `${base} (${parent})` : base;
 }
