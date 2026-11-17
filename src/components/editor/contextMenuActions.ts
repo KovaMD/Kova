@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { readClipboardText } from '../../platform/ipc';
 import { EditorSelection } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { STEP_MARKER_PATTERN } from '../../engine/parser/stepMarkers';
@@ -44,7 +44,7 @@ export async function doPaste(view: EditorView): Promise<void> {
   // user-gesture context, so a script-triggered paste needs to bypass the
   // webview's clipboard APIs entirely.
   try {
-    const text = await invoke<string>('read_clipboard_text');
+    const text = await readClipboardText();
     const { from, to } = view.state.selection.main;
     view.dispatch({
       changes: { from, to, insert: text },

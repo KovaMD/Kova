@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type { RefObject } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { readClipboardImage, writeAssetBytes } from '../../platform/ipc';
 import { EditorSelection } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import type { Translator } from '../../i18n';
@@ -95,7 +95,7 @@ export function useMediaPaste({ containerRef, viewRef, filePathRef, onWarnRef, t
             Array.from(new Uint8Array(arrayBuffer)).map((b) => String.fromCharCode(b)).join('')
           );
           try {
-            const savedFilename = await invoke<string>('write_asset_bytes', {
+            const savedFilename = await writeAssetBytes({
               data: mediaBase64,
               filename: `paste-${Date.now()}.${pasteExt}`,
               destDir: docDir,
@@ -144,7 +144,7 @@ export function useMediaPaste({ containerRef, viewRef, filePathRef, onWarnRef, t
         // GTK native clipboard (Linux — WebKitGTK doesn't expose binary
         // image data through e.clipboardData, so we read it natively).
         try {
-          mediaBase64 = await invoke<string>('read_clipboard_image');
+          mediaBase64 = await readClipboardImage();
           // The Rust command always encodes as PNG.
         } catch {
           // Not Linux, or clipboard has no image.
@@ -180,7 +180,7 @@ export function useMediaPaste({ containerRef, viewRef, filePathRef, onWarnRef, t
           }
           const docDir = dirname(docPath);
           try {
-            const savedFilename = await invoke<string>('write_asset_bytes', {
+            const savedFilename = await writeAssetBytes({
               data: mediaBase64,
               filename: `paste-${Date.now()}.${pasteExt}`,
               destDir: docDir,

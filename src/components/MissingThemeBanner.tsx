@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { saveTheme } from '../platform/ipc';
 import { useT } from '../i18n';
 
 // Fetch the registry from GitHub, not the CDN, so the SHA-256 hashes come from
@@ -51,7 +51,7 @@ export function MissingThemeBanner({ themeId, onInstalled, onDismiss }: Props) {
       const digest = await crypto.subtle.digest('SHA-256', buffer);
       const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
       if (hex !== theme.sha256) throw new Error(t('modals.missingThemeIntegrityFailed'));
-      await invoke('save_theme', { id: themeId, yaml: new TextDecoder().decode(buffer) });
+      await saveTheme(themeId, new TextDecoder().decode(buffer));
       onInstalled(themeId);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('modals.missingThemeInstallFailed'));

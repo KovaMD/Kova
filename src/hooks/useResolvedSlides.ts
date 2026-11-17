@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { readFileB64 } from '../platform/ipc';
 import { detectLayout } from '../engine/layout/autoLayout';
 import { buildTocEntries } from '../engine/toc';
 import { imageMime } from '../engine/export/imageMime';
@@ -100,7 +100,7 @@ export function useResolvedSlides(rawSlides: Slide[], docDir: string): Slide[] {
     let cancelled = false;
     Promise.all(toFetch.map(async (path) => {
       try {
-        const b64 = await invoke<string>('read_file_b64', { path });
+        const b64 = await readFileB64(path);
         const mime = VIDEO_EXT_RE.test(path) ? videoMime(path) : imageMime(path);
         return [path, `data:${mime};base64,${b64}`] as [string, string];
       } catch (e) { console.error('[Kova] read_file_b64 failed for', path, e); return null; }
