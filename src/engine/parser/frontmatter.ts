@@ -2,8 +2,19 @@ import yaml from 'js-yaml';
 import type { Frontmatter } from '../types';
 
 // Anchored to the start of the document; the closing fence is the first `---`
-// on its own line. Kept in sync with diagnostics.ts's FRONTMATTER_RE.
+// on its own line.
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
+
+/**
+ * Finds the leading `---`…`---` fence, if any, without judging its contents.
+ * `yaml` is the raw text between the fences; `length` is the character length
+ * of the whole block including both fences. Shared with diagnostics.ts so both
+ * agree on where frontmatter starts and ends.
+ */
+export function matchFrontmatterBlock(content: string): { yaml: string; length: number } | null {
+  const match = FRONTMATTER_RE.exec(content);
+  return match ? { yaml: match[1], length: match[0].length } : null;
+}
 
 /**
  * A leading `---`…`---` block only counts as frontmatter when its YAML body
@@ -25,20 +36,20 @@ type BlockResult =
   | { kind: 'invalid'; reason: 'parse-error' | 'not-a-mapping'; length: number };
 
 function parseBlock(content: string): BlockResult {
-  const match = FRONTMATTER_RE.exec(content);
+  const match = matchFrontmatterBlock(content);
   if (!match) return { kind: 'none' };
 
   let parsed: unknown;
   try {
-    parsed = yaml.load(match[1], { schema: yaml.CORE_SCHEMA, json: true });
+    parsed = yaml.load(match.yaml, { schema: yaml.CORE_SCHEMA, json: true });
   } catch {
-    return { kind: 'invalid', reason: 'parse-error', length: match[0].length };
+    return { kind: 'invalid', reason: 'parse-error', length: match.length };
   }
 
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { kind: 'invalid', reason: 'not-a-mapping', length: match[0].length };
+    return { kind: 'invalid', reason: 'not-a-mapping', length: match.length };
   }
-  return { kind: 'mapping', data: parsed as Record<string, unknown>, length: match[0].length };
+  return { kind: 'mapping', data: parsed as Record<string, unknown>, length: match.length };
 }
 
 export function extractFrontmatter(content: string): { frontmatter: Frontmatter; body: string } {

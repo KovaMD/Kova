@@ -1,5 +1,6 @@
 import yaml from 'js-yaml';
 import { parseDocument } from './markdownToSlides';
+import { matchFrontmatterBlock } from './frontmatter';
 import { COLOR_COMMENT_RE, parseColorValue } from './colorValue';
 import { localPathFromMediaSrc } from '../resolveMediaPath';
 import type { LayoutType, ListItem, Slide } from '../types';
@@ -50,9 +51,6 @@ const KNOWN_DIRECTIVES = new Set([
   'include', 'fmt', 'code',
 ]);
 
-// Must match extractFrontmatter's block detection (frontmatter.ts).
-const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
-
 const LAYOUT_COMMENT_RE = /<!--\s*layout:\s*(\S+)\s*-->/;
 // A bang-directive word; deliberately does not match image syntax `![alt](…)`.
 const DIRECTIVE_RE = /^!([a-zA-Z][a-zA-Z0-9]*)/;
@@ -95,11 +93,11 @@ export async function collectDiagnostics(content: string, ctx: CheckContext): Pr
 
   // Frontmatter YAML errors — extractFrontmatter swallows these (parse failure
   // falls back to an empty frontmatter), so re-parse here to surface them.
-  const fmMatch = content.match(FRONTMATTER_RE);
+  const fmMatch = matchFrontmatterBlock(content);
   let fm: Record<string, unknown> = {};
   if (fmMatch) {
     try {
-      const parsed = yaml.load(fmMatch[1], { schema: yaml.CORE_SCHEMA });
+      const parsed = yaml.load(fmMatch.yaml, { schema: yaml.CORE_SCHEMA });
       // Must match frontmatter.ts's parseBlock: a YAML array parses fine but
       // isn't a mapping, so it isn't frontmatter either — without this check
       // a fenced array is treated as frontmatter here while the renderer
@@ -114,7 +112,7 @@ export async function collectDiagnostics(content: string, ctx: CheckContext): Pr
       diags.push({ line, severity: 'error', message: `frontmatter YAML: ${firstLine}` });
     }
 
-    const fmLines = fmMatch[1].split(/\r?\n/);
+    const fmLines = fmMatch.yaml.split(/\r?\n/);
     for (const key of Object.keys(fm)) {
       if (KNOWN_FRONTMATTER_KEYS.has(key)) continue;
       const i = fmLines.findIndex((l) => l.startsWith(`${key}:`));
