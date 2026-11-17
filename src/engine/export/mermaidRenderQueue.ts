@@ -2,6 +2,7 @@ import mermaid from 'mermaid';
 import { mermaidRenderedSvgCache } from './mermaidSvgCache';
 import { getDiagramRenderer } from './diagramRenderer';
 import { renderWithPele, PeleUnsupportedError } from './peleRender';
+import { SLIDE_W, SLIDE_H_16_9 } from '../constants';
 
 /**
  * Mermaid keeps internal global state and cannot handle concurrent render()
@@ -33,11 +34,11 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 // deterministic everywhere the app renders Mermaid diagrams (preview,
 // thumbnails, presenter/audience windows, PDF/PPTX export). The width
 // matches the virtual slide canvas used elsewhere (SLIDE_W in
-// presentationShared.tsx / ThumbnailPanel.tsx) so diagrams size themselves
+// engine/constants.ts) so diagrams size themselves
 // the same way they're actually displayed.
 const RENDER_HOST_ID = 'mermaid-render-host';
-const RENDER_HOST_WIDTH = 960;
-const RENDER_HOST_HEIGHT = 540;
+const RENDER_HOST_WIDTH = SLIDE_W;
+const RENDER_HOST_HEIGHT = SLIDE_H_16_9;
 
 function getRenderHost(): HTMLDivElement {
   let host = document.getElementById(RENDER_HOST_ID) as HTMLDivElement | null;

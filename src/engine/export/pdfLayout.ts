@@ -1,7 +1,8 @@
-// Layout math for PDF export. Slides render at 960px wide off-screen; here we
+// Layout math for PDF export. Slides render at SLIDE_W px wide off-screen; here we
 // scale/centre them onto a standard paper page (A4/Letter, landscape). Pure (no
 // DOM) so it's unit-tested.
 import type { AspectRatio } from '../types';
+import { SLIDE_W } from '../constants';
 
 export type PaperSize = 'a4' | 'letter' | 'slide';
 
@@ -12,7 +13,7 @@ export interface PdfExportOpts {
   fullBleed?: boolean;              // page = slide size, no margins (HTML export)
 }
 
-export const SLIDE_PX_W = 960;
+export const SLIDE_PX_W = SLIDE_W;
 const PX_PER_MM  = 96 / 25.4;       // 96 CSS DPI
 const MARGIN_MM  = 10;
 const GAP_MM     = 6;               // gap between N-up cells / slide↔notes
@@ -48,7 +49,7 @@ export interface PagePlan {
   cols: number; rows: number;
   cellWpx: number; cellHpx: number;   // area a slide is scaled into
   slideNativeHpx: number;
-  slideScale: number;                 // scale to fit 960×slideH into a cell
+  slideScale: number;                 // scale to fit SLIDE_W×slideH into a cell
   notesTopPx: number;                 // notes mode: y of the divider; else 0
 }
 

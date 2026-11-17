@@ -2,8 +2,9 @@ import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } fr
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { bestEffort } from '../../platform/bestEffort';
 
-// Virtual slide width every overlay scales from (matches ThumbnailPanel).
-export const SLIDE_W = 960;
+// Virtual slide width every overlay scales from; defined in engine/constants.
+import { SLIDE_W } from '../../engine/constants';
+export { SLIDE_W };
 
 // Elapsed time as mm:ss, or h:mm:ss once past an hour.
 export function formatTime(seconds: number): string {
@@ -29,7 +30,7 @@ export function formatTimerDisplay(elapsedSeconds: number, countdownMinutes: num
     : { text: `-${formatTime(-remaining)}`, isOverrun: true };
 }
 
-// The 960px virtual slide scaled to fill its measured frame.
+// The SLIDE_W virtual slide scaled to fill its measured frame.
 export function ScaledSlideBox({ scale, slideH, children }: { scale: number; slideH: number; children: ReactNode }) {
   return (
     <div style={{ width: SLIDE_W, height: slideH, transform: `scale(${scale})`, transformOrigin: 'top left' }}>

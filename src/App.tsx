@@ -27,6 +27,7 @@ import { parsePptx } from './engine/import/parsePptx';
 import { pptxToMarkdown } from './engine/import/pptxToMarkdown';
 import { toRawUrl } from './engine/import/toRawUrl';
 import { IMAGE_DIALOG_FILTER } from './engine/mediaTypes';
+import { SLIDE_W } from './engine/constants';
 import { basename, dirname, dirnameOn, isLocalRelative, pathSeparator, toForwardSlashes } from './engine/paths';
 import { MissingThemeBanner } from './components/MissingThemeBanner';
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
@@ -3309,7 +3310,6 @@ export default function App() {
 
       {/* Off-screen slide rendering for Print */}
       {printContext && (() => {
-        const SLIDE_W = 960;
         const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
         return (
           <div
@@ -3352,7 +3352,6 @@ export default function App() {
 
       {/* Off-screen slide rendering for PDF export */}
       {pdfExportContext && (() => {
-        const SLIDE_W = 960;
         const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
         return (
           <div
