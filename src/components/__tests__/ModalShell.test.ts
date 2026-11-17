@@ -1,101 +1,66 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createElement, act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { describe, it, expect, vi } from 'vitest';
+import { createElement } from 'react';
+import { fireEvent } from '@testing-library/react';
+import { renderWithProviders } from '../../test/renderWithProviders';
 import { ModalShell } from '../ModalShell';
 
-// No @testing-library/react in this project, which normally sets this flag —
-// silences "not configured to support act()" noise from the manual harness below.
-(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-
-let container: HTMLDivElement;
-let root: Root;
-
-beforeEach(() => {
-  container = document.createElement('div');
-  document.body.appendChild(container);
-  act(() => { root = createRoot(container); });
-});
-
-afterEach(() => {
-  act(() => { root.unmount(); });
-  container.remove();
-});
+// Testing Library's automatic cleanup (enabled by `globals: true`) unmounts
+// every rendered tree and removes its container after each test.
 
 function pressEscape() {
-  act(() => {
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
-  });
+  fireEvent.keyDown(window, { key: 'Escape', bubbles: true, cancelable: true });
+}
+
+// Each call gets its own container and React root, mirroring two real
+// ModalShell instances mounted by different parts of the app (e.g. PDF export
+// options, then an unsaved-changes confirm dialog).
+function renderInOwnRoot(ui: Parameters<typeof renderWithProviders>[0]) {
+  const container = document.body.appendChild(document.createElement('div'));
+  return renderWithProviders(ui, { container });
 }
 
 describe('ModalShell Escape handling', () => {
   it('closes a single mounted modal on Escape (no regression for the common case)', () => {
     const onClose = vi.fn();
-    act(() => {
-      root.render(createElement(ModalShell, { onClose }, 'content'));
-    });
+    renderWithProviders(createElement(ModalShell, { onClose }, 'content'));
     pressEscape();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('only the topmost of two stacked modals closes on a single Escape press', () => {
-    // Two independent containers, each with its own React root — mirrors
-    // two real ModalShell instances mounted by different parts of the app
-    // (e.g. PDF export options, then an unsaved-changes confirm dialog).
-    const container2 = document.createElement('div');
-    document.body.appendChild(container2);
-    let root2!: Root;
-    act(() => { root2 = createRoot(container2); });
-
     const onCloseFirst = vi.fn();
     const onCloseSecond = vi.fn();
-    act(() => { root.render(createElement(ModalShell, { onClose: onCloseFirst }, 'first')); });
-    act(() => { root2.render(createElement(ModalShell, { onClose: onCloseSecond }, 'second')); });
+    renderInOwnRoot(createElement(ModalShell, { onClose: onCloseFirst }, 'first'));
+    renderInOwnRoot(createElement(ModalShell, { onClose: onCloseSecond }, 'second'));
 
     pressEscape();
     expect(onCloseSecond).toHaveBeenCalledTimes(1);
     expect(onCloseFirst).not.toHaveBeenCalled();
-
-    act(() => { root2.unmount(); });
-    container2.remove();
   });
 
   it('falls through to the next modal down once the topmost unmounts', () => {
-    const container2 = document.createElement('div');
-    document.body.appendChild(container2);
-    let root2!: Root;
-    act(() => { root2 = createRoot(container2); });
-
     const onCloseFirst = vi.fn();
     const onCloseSecond = vi.fn();
-    act(() => { root.render(createElement(ModalShell, { onClose: onCloseFirst }, 'first')); });
-    act(() => { root2.render(createElement(ModalShell, { onClose: onCloseSecond }, 'second')); });
+    renderInOwnRoot(createElement(ModalShell, { onClose: onCloseFirst }, 'first'));
+    const second = renderInOwnRoot(createElement(ModalShell, { onClose: onCloseSecond }, 'second'));
 
-    act(() => { root2.unmount(); }); // topmost closes/unmounts
-    container2.remove();
+    second.unmount(); // topmost closes/unmounts
 
     pressEscape();
     expect(onCloseFirst).toHaveBeenCalledTimes(1);
   });
 
   it('a dismissOnEscape={false} instance never responds and never blocks the real topmost one', () => {
-    const container2 = document.createElement('div');
-    document.body.appendChild(container2);
-    let root2!: Root;
-    act(() => { root2 = createRoot(container2); });
-
     const onCloseReal = vi.fn();
     const onCloseNonDismissable = vi.fn();
-    act(() => { root.render(createElement(ModalShell, { onClose: onCloseReal }, 'real')); });
-    act(() => {
-      root2.render(createElement(ModalShell, { onClose: onCloseNonDismissable, dismissOnEscape: false }, 'non-dismissable'));
-    });
+    renderInOwnRoot(createElement(ModalShell, { onClose: onCloseReal }, 'real'));
+    renderInOwnRoot(
+      createElement(ModalShell, { onClose: onCloseNonDismissable, dismissOnEscape: false }, 'non-dismissable'),
+    );
 
     pressEscape();
     expect(onCloseNonDismissable).not.toHaveBeenCalled();
     expect(onCloseReal).toHaveBeenCalledTimes(1);
-
-    act(() => { root2.unmount(); });
-    container2.remove();
   });
 });
