@@ -27,6 +27,8 @@ export default defineConfig({
         '**/*.snap',
         '**/fixtures/**',
         '**/__fixtures__/**',
+        // Test-support helpers, not app code.
+        `${root}src/test/**`,
         `${root}src-tauri/**`,
         `${root}dist/**`,
         `${root}.claude/**`,
