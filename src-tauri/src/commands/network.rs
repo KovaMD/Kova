@@ -1,33 +1,24 @@
+use crate::net_guard::{fetch_capped, FetchKind, FetchOpts, TEXT_CONTENT_TYPES};
+
+/// 20 MB body cap shared by the image and text fetches.
+const MAX_FETCH_BYTES: u64 = 20 * 1024 * 1024;
+
 /// Fetches a remote URL and returns (base64_data, mime_type).
 /// Used by PDF/PPTX export to download remote images natively, bypassing the
 /// webview CSP connect-src restrictions that block fetch() to arbitrary URLs.
 #[tauri::command]
 pub async fn fetch_url_b64(url: String) -> Result<(String, String), String> {
     use base64::Engine;
-    if !url.starts_with("https://") && !url.starts_with("http://") {
-        return Err("URL must use HTTP or HTTPS".into());
-    }
-    // The redirect policy in build_ssrf_safe_client only ever sees hop 2
-    // onward — the initial request URL needs its own check against an
-    // IP-literal host (127.0.0.1, 169.254.169.254, ...), which never reaches
-    // the DNS-resolver-based guard at all.
-    let parsed = reqwest::Url::parse(&url).map_err(|e| format!("invalid URL: {e}"))?;
-    if crate::net_guard::url_host_is_blocked(&parsed) {
-        return Err("refusing to connect to a non-public address".into());
-    }
-    let client = crate::net_guard::build_ssrf_safe_client()?;
-    let resp = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("fetch failed: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("fetch failed: HTTP {}", resp.status()));
-    }
-    let raw_mime = resp
-        .headers()
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
+    let opts = FetchOpts {
+        https_only: false,
+        max_bytes: MAX_FETCH_BYTES,
+        accept: None,
+        kind: FetchKind::Get,
+    };
+    let fetched = fetch_capped(&url, &opts).await?;
+    let raw_mime = fetched
+        .content_type
+        .as_deref()
         .unwrap_or("image/png")
         .split(';')
         .next()
@@ -39,60 +30,26 @@ pub async fn fetch_url_b64(url: String) -> Result<(String, String), String> {
         "image/jpg" | "image/pjpeg" | "image/x-jpeg" => "image/jpeg".to_string(),
         other => other.to_string(),
     };
-    const MAX_IMAGE_BYTES: u64 = 20 * 1024 * 1024; // 20 MB, matches fetch_url_text's cap
-    if resp.content_length().unwrap_or(0) > MAX_IMAGE_BYTES {
-        return Err("response too large (max 20 MB)".into());
-    }
-    let bytes = resp.bytes().await.map_err(|e| format!("read failed: {e}"))?;
-    if bytes.len() as u64 > MAX_IMAGE_BYTES {
-        return Err("response too large (max 20 MB)".into());
-    }
-    Ok((base64::engine::general_purpose::STANDARD.encode(&bytes), mime))
+    Ok((base64::engine::general_purpose::STANDARD.encode(&fetched.bytes), mime))
 }
 
 /// Fetch a URL and return its body as UTF-8 text. Used for "Import from URL"
 /// to bypass webview CSP connect-src restrictions.
 #[tauri::command]
 pub async fn fetch_url_text(url: String) -> Result<String, String> {
-    if !url.starts_with("https://") && !url.starts_with("http://") {
-        return Err("URL must use HTTP or HTTPS".into());
-    }
-    // See the matching comment in fetch_url_b64 above.
-    let parsed = reqwest::Url::parse(&url).map_err(|e| format!("invalid URL: {e}"))?;
-    if crate::net_guard::url_host_is_blocked(&parsed) {
-        return Err("refusing to connect to a non-public address".into());
-    }
-    let client = crate::net_guard::build_ssrf_safe_client()?;
-    let resp = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("fetch failed: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("fetch failed: HTTP {}", resp.status()));
-    }
-
-    let ct = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-    let ct_ok = ct.is_empty()
-        || ct.starts_with("text/")
-        || ct.starts_with("application/json")
-        || ct.starts_with("application/xml")
-        || ct.starts_with("application/xhtml");
-    if !ct_ok {
-        return Err(format!("unexpected Content-Type: {ct}"));
-    }
-
-    const MAX_TEXT_BYTES: u64 = 20 * 1024 * 1024; // 20 MB
-    if resp.content_length().unwrap_or(0) > MAX_TEXT_BYTES {
-        return Err("response too large (max 20 MB)".into());
-    }
-
-    let text = resp.text().await.map_err(|e| format!("read failed: {e}"))?;
-    if text.len() as u64 > MAX_TEXT_BYTES {
+    let opts = FetchOpts {
+        https_only: false,
+        max_bytes: MAX_FETCH_BYTES,
+        accept: Some(TEXT_CONTENT_TYPES),
+        kind: FetchKind::Get,
+    };
+    let fetched = fetch_capped(&url, &opts).await?;
+    // Lossy UTF-8, exactly what reqwest's Response::text() does without its
+    // `charset` feature (which this crate does not enable).
+    let text = String::from_utf8_lossy(&fetched.bytes).into_owned();
+    // Replacement characters can make the decoded text longer than the raw
+    // bytes, so the cap is checked again on the text, as before.
+    if text.len() as u64 > MAX_FETCH_BYTES {
         return Err("response too large (max 20 MB)".into());
     }
     Ok(text)
@@ -102,33 +59,13 @@ pub async fn fetch_url_text(url: String) -> Result<String, String> {
 /// remote media URLs that cannot be fetched at all (invalid host, 404, etc.).
 #[tauri::command]
 pub async fn probe_url(url: String) -> Result<(), String> {
-    if !url.starts_with("https://") && !url.starts_with("http://") {
-        return Err("URL must use HTTP or HTTPS".into());
-    }
-    let parsed = reqwest::Url::parse(&url).map_err(|e| format!("invalid URL: {e}"))?;
-    if crate::net_guard::url_host_is_blocked(&parsed) {
-        return Err("refusing to connect to a non-public address".into());
-    }
-
-    async fn get_probe(client: &reqwest::Client, url: &str) -> Result<(), String> {
-        let resp = client
-            .get(url)
-            .header(reqwest::header::RANGE, "bytes=0-0")
-            .send()
-            .await
-            .map_err(|e| format!("fetch failed: {e}"))?;
-        if resp.status().is_success() {
-            Ok(())
-        } else {
-            Err(format!("fetch failed: HTTP {}", resp.status()))
-        }
-    }
-
-    let client = crate::net_guard::build_ssrf_safe_client()?;
-    match client.head(&url).send().await {
-        Ok(resp) if resp.status().is_success() => Ok(()),
-        Ok(resp) if matches!(resp.status().as_u16(), 405 | 501) => get_probe(&client, &url).await,
-        Ok(resp) => Err(format!("fetch failed: HTTP {}", resp.status())),
-        Err(_) => get_probe(&client, &url).await,
-    }
+    let opts = FetchOpts {
+        https_only: false,
+        // A probe never reads the body, so no cap or content-type filter.
+        max_bytes: 0,
+        accept: None,
+        kind: FetchKind::Probe,
+    };
+    fetch_capped(&url, &opts).await?;
+    Ok(())
 }
