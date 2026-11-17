@@ -4,6 +4,7 @@ import type { Theme } from '../../engine/theme';
 import { useT } from '../../i18n';
 import type { MessageKey } from '../../i18n';
 import { OverrideDot } from './OverrideDot';
+import { IMAGE_DIALOG_FILTER } from '../../engine/mediaTypes';
 
 interface Props {
   logo: string | undefined;
@@ -40,7 +41,7 @@ export function LogoControls({
   const overriddenHint = t('inspector.overriddenHint');
   const pickLogo = useCallback(async () => {
     const selected = await open({
-      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'svg', 'gif'] }],
+      filters: [IMAGE_DIALOG_FILTER],
       multiple: false,
     });
     if (selected && typeof selected === 'string') {

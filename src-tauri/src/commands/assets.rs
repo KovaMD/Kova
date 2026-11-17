@@ -235,6 +235,10 @@ pub fn read_file_b64(path: String) -> Result<String, String> {
     let ext = safe.extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_ascii_lowercase());
+    // The image and video extensions here must stay the same as
+    // IMAGE_EXTENSIONS and VIDEO_EXTENSIONS in src/engine/mediaTypes.ts (plus
+    // "pptx" for import). src/engine/__tests__/mediaTypes.test.ts reads this
+    // list and fails if they drift apart.
     let allowed = matches!(
         ext.as_deref(),
         Some("png" | "jpg" | "jpeg" | "gif" | "svg" | "webp" | "bmp" | "avif" | "tif" | "tiff" | "ico"

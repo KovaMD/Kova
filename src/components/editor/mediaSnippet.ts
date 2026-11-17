@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { MEDIA_EXTENSIONS, VIDEO_EXTENSIONS, extensionRegex } from '../../engine/mediaTypes';
 
 // Returns a path to `target` relative to the directory of `docPath`.
 function makeRelativePath(docPath: string, target: string): string {
@@ -16,9 +17,8 @@ export function encodeMarkdownPath(p: string): string {
   return p.replace(/ /g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29');
 }
 
-const IMAGE_EXT = /\.(png|jpe?g|gif|svg|webp|bmp|ico|avif|tiff?)$/i;
-const VIDEO_EXT = /\.(mp4|webm|ogv|mov|m4v|mkv)$/i;
-export const MEDIA_EXT = new RegExp(`${IMAGE_EXT.source}|${VIDEO_EXT.source}`, 'i');
+const VIDEO_EXT = extensionRegex(VIDEO_EXTENSIONS);
+export const MEDIA_EXT = extensionRegex(MEDIA_EXTENSIONS);
 
 export async function resolveImagePathForMarkdown(
   abs: string,
