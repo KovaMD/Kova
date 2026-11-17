@@ -379,7 +379,7 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
       view.destroy();
       viewRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the CodeMirror view is created once on mount; later prop changes reach it through refs and compartments, and re-running would destroy and rebuild the editor (losing undo history and selection)
   }, []);
 
   const dragActive = useMediaDragAndDrop({ containerRef, viewRef, filePathRef, onWarnRef, t });

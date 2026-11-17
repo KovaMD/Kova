@@ -217,7 +217,7 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
     if (!availableFonts.some(f => f.value === settings.editorFont)) {
       onChange({ ...settings, editorFont: 'ibm-plex-mono' });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- one-off check on open: depending on settings/onChange would re-run on every settings edit
   }, []);
 
   function handleRemoveCustomWord(word: string) {
