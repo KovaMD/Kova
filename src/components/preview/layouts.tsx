@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Slide, SlideElement } from '../../engine/types';
+import { Fragment, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
+import type { LayoutType, Slide, SlideElement } from '../../engine/types';
 import { autoSplitElements, explodeListItems, groupProgressRuns, splitByColumnBreaks } from '../../engine/layout/elementGrouping';
 import { useT } from '../../i18n';
 import { SlideCtx } from './slideContext';
@@ -171,26 +171,36 @@ export function OverflowPane({ className, elements, children, minScale, onNatura
 
 // ── Layout dispatcher ─────────────────────────────────────────────────────────
 
+/** Builds the element tree for one slide's layout. A plain function returning
+ *  an element (not a wrapper component), so the rendered tree is exactly the
+ *  layout component itself and React reconciles it as before. */
+export type PreviewLayoutRenderer = (slide: Slide) => ReactElement;
+
+/** One renderer per LayoutType. `satisfies Record<LayoutType, ...>` makes a
+ *  layout added to LayoutType without a preview renderer a compile error. */
+export const previewLayouts = {
+  'title':         (slide) => <TitleLayout slide={slide} />,
+  'section':       (slide) => <SectionLayout slide={slide} />,
+  'title-content': (slide) => <TitleContentLayout slide={slide} />,
+  'title-image':   (slide) => <TitleImageLayout slide={slide} />,
+  'split':         (slide) => <SplitLayout slide={slide} />,
+  'full-bleed':    (slide) => <FullBleedLayout slide={slide} />,
+  'quote':         (slide) => <QuoteLayout slide={slide} />,
+  'two-column':    (slide) => <MultiColumnLayout slide={slide} columns={2} />,
+  'three-column':  (slide) => <MultiColumnLayout slide={slide} columns={3} />,
+  'bsp':           (slide) => <BspLayout slide={slide} />,
+  'grid':          (slide) => <GridLayout slide={slide} />,
+  'media':         (slide) => <MediaLayout slide={slide} />,
+  'code':          (slide) => <CodeLayout slide={slide} />,
+  'math':          (slide) => <MathLayout slide={slide} />,
+  'blank':         () => <BlankLayout />,
+} satisfies Record<LayoutType, PreviewLayoutRenderer>;
+
 // Each layout must fill its parent (.sl-content-area) which is a flex child
 export function SlideLayout({ slide }: { slide: Slide }) {
-  switch (slide.layout) {
-    case 'title':         return <TitleLayout slide={slide} />;
-    case 'section':       return <SectionLayout slide={slide} />;
-    case 'title-content': return <TitleContentLayout slide={slide} />;
-    case 'title-image':   return <TitleImageLayout slide={slide} />;
-    case 'split':         return <SplitLayout slide={slide} />;
-    case 'full-bleed':    return <FullBleedLayout slide={slide} />;
-    case 'quote':         return <QuoteLayout slide={slide} />;
-    case 'two-column':    return <MultiColumnLayout slide={slide} columns={2} />;
-    case 'three-column':  return <MultiColumnLayout slide={slide} columns={3} />;
-    case 'bsp':           return <BspLayout slide={slide} />;
-    case 'grid':          return <GridLayout slide={slide} />;
-    case 'media':         return <MediaLayout slide={slide} />;
-    case 'code':          return <CodeLayout slide={slide} />;
-    case 'math':          return <MathLayout slide={slide} />;
-    case 'blank':         return <BlankLayout />;
-    default:              return <TitleContentLayout slide={slide} />;
-  }
+  // Unknown layout names fall back to title-content, as the old switch did.
+  const render: PreviewLayoutRenderer = previewLayouts[slide.layout] ?? previewLayouts['title-content'];
+  return render(slide);
 }
 
 // ── Layout components ─────────────────────────────────────────────────────────
