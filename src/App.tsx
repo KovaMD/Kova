@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { open, save, message } from '@tauri-apps/plugin-dialog';
+import { message } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { emit, emitTo, listen } from '@tauri-apps/api/event';
 import { availableMonitors, currentMonitor, getCurrentWindow } from '@tauri-apps/api/window';
@@ -25,7 +25,7 @@ import { WindowControls } from './components/app/WindowControls';
 import { Toolbar } from './components/app/Toolbar';
 import { FindReplaceDialog } from './components/app/FindReplaceDialog';
 import { AppDialogs } from './components/app/AppDialogs';
-import { isMarp, importMarp } from './engine/import/marp';
+import { importMarp } from './engine/import/marp';
 import { parsePptx } from './engine/import/parsePptx';
 import { pptxToMarkdown } from './engine/import/pptxToMarkdown';
 import { toRawUrl } from './engine/import/toRawUrl';
@@ -33,9 +33,7 @@ import { basename, dirname, dirnameOn, pathSeparator, toForwardSlashes } from '.
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
 import { setDiagramRenderer } from './engine/export/diagramRenderer';
 import type { AppSettings } from './store/settings';
-import { loadLastSession, saveLastSession } from './store/lastSession';
 import { loadLastSeenVersion, saveLastSeenVersion } from './store/lastSeenVersion';
-import { loadRecentFiles, addRecentFile, removeRecentFile, clearRecentFiles } from './store/recentFiles';
 import { buildMacMenu, delegateMenuActions } from './macMenu';
 import type { MenuActions } from './macMenu';
 import { loadKeybindings, matchShortcut, getCombo, isMac } from './engine/keybindings';
@@ -60,28 +58,11 @@ import { useOffscreenCapture } from './hooks/useOffscreenCapture';
 import { useExports } from './hooks/useExports';
 import { useThemeState } from './hooks/useThemeState';
 import { useSlideEditing } from './hooks/useSlideEditing';
+import { useDocument, useLastSessionRecord, type DocumentThemePort } from './hooks/useDocument';
 import { OffscreenDeck } from './components/OffscreenDeck';
 import type { PendingCli, CliThemeArg, PendingImport, PendingExport } from './types/cli';
 
 import './styles/global.css';
-
-function makeStarter() {
-  return `---
-title: My Presentation
-date: ${new Date().getFullYear()}
----
-
-# My Presentation
-
----
-
-## First Slide
-
-- Point one
-- Point two
-- Point three
-`;
-}
 
 function countWords(text: string): number {
   return (text.match(/\b\w+\b/g) ?? []).length;
@@ -241,9 +222,6 @@ async function runCliImport(imp: PendingImport, check: boolean): Promise<void> {
 }
 
 export default function App() {
-  const [filePath, setFilePath]           = useState<string | null>(null);
-  const [content, setContent]             = useState('');
-  const [isDirty, setIsDirty]             = useState(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [focusMode, setFocusMode]         = useState(false);
   const [presentMode, setPresentMode]     = useState(false);
@@ -276,31 +254,15 @@ export default function App() {
   const [showThemeLibrary, setShowThemeLibrary] = useState(false);
   const [showImport, setShowImport]       = useState(false);
   const [showImportUrl, setShowImportUrl] = useState(false);
-  const [marpPrompt, setMarpPrompt] = useState<{ text: string; dir: string } | null>(null);
-  const [marpLoss, setMarpLoss]     = useState<number | null>(null);
-  // Source folder of an imported deck. The import lands in an untitled buffer
-  // (no filePath), but its relative image paths must still resolve against the
-  // original .md's location, so the doc-dir falls back to this when unsaved.
-  const [importDir, setImportDir]   = useState('');
   const [showInspector, setShowInspector] = useState(true);
-  const [recents, setRecents] = useState<string[]>(() => loadRecentFiles());
   const [presenterMode, setPresenterMode] = useState(false);
-  // Wrapped in `{ run }` rather than storing the bare function: a bare
-  // `useState<() => void>` makes `setConfirmCloseAction(action)` look correct
-  // while actually invoking React's functional-updater form instead of
-  // storing it. The wrapper removes that footgun entirely.
-  const [confirmCloseAction, setConfirmCloseAction] = useState<{ run: () => void } | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<string | null>(null);
   const [keybindings, setKeybindings]     = useState<Keybindings>({ path: '', combos: {} });
   const [warnMessage, setWarnMessage]     = useState<string | null>(null);
   const warnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showExternalChangeDialog, setShowExternalChangeDialog] = useState(false);
-  const [showExternalReloadBanner, setShowExternalReloadBanner] = useState(false);
   const [pdfOptionsOpen, setPdfOptionsOpen] = useState(false);
   const [pdfPerPage, setPdfPerPage]         = useState(1);
   const [pdfNotesOn, setPdfNotesOn]         = useState(false);
-  const [isRenaming, setIsRenaming]       = useState(false);
-  const [renameValue, setRenameValue]     = useState('');
   const [resolvedUiTheme, setResolvedUiTheme] = useState<'dark' | 'light'>('dark');
   const {
     context: offscreenContext,
@@ -309,9 +271,51 @@ export default function App() {
     onSlideReady: onOffscreenSlideReady,
     setSlideRef: setOffscreenSlideRef,
   } = useOffscreenCapture();
-  const [fileDragOver, setFileDragOver]       = useState(false);
-  const [dropConfirmPath, setDropConfirmPath] = useState<string | null>(null);
   const [showWhatsNew, setShowWhatsNew]       = useState(false);
+  const editorRef         = useRef<EditorHandle>(null);
+
+  // The document lifecycle drives theme state that is itself derived from the
+  // document (useThemeState below reads the content's frontmatter), so the
+  // theme operations reach useDocument through this stable port, which
+  // forwards to the latest useThemeState result. Only ever called from
+  // handlers and effects, by which time the ref is populated.
+  const themeApiRef = useRef<DocumentThemePort | null>(null);
+  const documentThemePort = useMemo<DocumentThemePort>(() => ({
+    syncThemeFromContent: (text) => themeApiRef.current?.syncThemeFromContent(text),
+    isCliThemeActive: () => themeApiRef.current?.isCliThemeActive() ?? false,
+    setActiveThemeId: (id) => themeApiRef.current?.setActiveThemeId(id),
+    setMissingThemeId: (id) => themeApiRef.current?.setMissingThemeId(id),
+  }), []);
+
+  const {
+    filePath,
+    content,
+    setContent,
+    contentRef,
+    isDirty,
+    setIsDirty,
+    importDir,
+    guardDirty,
+    applyFileContent,
+    handleContentChange,
+    handleNewFile,
+    handleOpenFile,
+    handleSave,
+    handleSaveAs,
+    handleMarkdownDrop,
+    openImported,
+    handleImportMarp,
+    recents,
+    ...doc
+  } = useDocument({
+    settings,
+    theme: documentThemePort,
+    setCurrentSlideIndex,
+    editorRef,
+    coldPresent,
+    getPendingCli,
+    setWarnMessage,
+  });
 
   // A single parse of the raw frontmatter block, shared below instead of
   // each derived value re-running extractFrontmatter's YAML parse on its own
@@ -337,6 +341,12 @@ export default function App() {
     rawThemeOverrides: parsedFrontmatter.frontmatter.theme_overrides,
     onWarn: setWarnMessage,
   });
+  themeApiRef.current = {
+    syncThemeFromContent,
+    isCliThemeActive: () => !!cliThemeRef.current,
+    setActiveThemeId,
+    setMissingThemeId,
+  };
 
   // Persist panel layout across sessions and inspector toggle/hide.
   // The guard blocks saves while focus mode is active: collapse() fires the
@@ -381,7 +391,6 @@ export default function App() {
   // Panel refs for Focus Mode collapse
   const thumbPanelRef     = usePanelRef();
   const inspectorPanelRef = usePanelRef();
-  const editorRef         = useRef<EditorHandle>(null);
 
   const handleFormat = useCallback((cmd: FormatCmd) => {
     editorRef.current?.runFormat(cmd);
@@ -401,28 +410,6 @@ export default function App() {
   // Body-only view for the editor — frontmatter is managed by the inspector.
   const editorBody = parsedFrontmatter.body;
 
-  // When showFrontmatter is on, the editor receives the full document.
-  // Ref is updated synchronously during render so handleContentChange (called
-  // synchronously from CodeMirror's dispatch inside the [content] effect) always
-  // sees the current value — a useEffect update would be too late.
-  const showFrontmatterRef = useRef(settings.showFrontmatter);
-  showFrontmatterRef.current = settings.showFrontmatter;
-  const contentRef = useRef(content);
-  contentRef.current = content;
-  // Last content known to be persisted on disk for the currently watched file.
-  // External-change events that do not alter this snapshot are ignored.
-  const diskContentRef = useRef(content);
-  // Monotonically increasing counter guarding handleMarkdownDrop's doOpen —
-  // see the comment at its call site.
-  const loadGenerationRef = useRef(0);
-  // Updated in render body (not useEffect) so the file-changed listener always
-  // sees the current dirty state when it fires synchronously after a watcher event.
-  const isDirtyRef = useRef(isDirty);
-  isDirtyRef.current = isDirty;
-  // Captures the file path at the moment the external-change dialog is opened,
-  // so the Reload button always reloads the file that triggered the alert even
-  // if the user somehow navigates to a different file before clicking.
-  const externalChangePathRef = useRef<string | null>(null);
   const editorContent = settings.showFrontmatter ? content : editorBody;
 
   const docDir = useMemo(
@@ -573,50 +560,6 @@ export default function App() {
     getCurrentWindow().setTitle(isDirty ? `${name} • — Kova` : `${name} — Kova`).catch(() => {});
   }, [filePath, frontmatter.title, isDirty]);
 
-  // File-changed event from Rust watcher.
-  // Kova's own atomic writes are suppressed on the Rust side (via the
-  // own_write_suppress_until timestamp in AppState), so every event that
-  // reaches here is a genuine external change and always requires acknowledgement.
-  useEffect(() => {
-    const unlisten = listen<void>('file-changed', async () => {
-      const path = filePathRef.current;
-      if (!path) return;
-      let newContent: string;
-      try {
-        newContent = await invoke('read_file', { path });
-      } catch (err) {
-        console.error('Failed to reload file:', err);
-        if (isDirtyRef.current) {
-          externalChangePathRef.current = path;
-          setShowExternalChangeDialog(true);
-        }
-        return;
-      }
-
-      // OneDrive and other sync clients can touch file metadata frequently
-      // without changing the markdown bytes. Ignore those watcher events.
-      if (newContent === diskContentRef.current) return;
-
-      if (isDirtyRef.current) {
-        // Unsaved edits — block with a modal; user must choose reload or save-as.
-        diskContentRef.current = newContent;
-        externalChangePathRef.current = path;
-        setShowExternalChangeDialog(true);
-      } else {
-        // No unsaved edits — reload silently then surface a dismissable banner.
-        // Skip the frontmatter theme re-sync when a CLI --theme override is
-        // active: it supersedes the deck's theme for the whole session.
-        if (!cliThemeRef.current) syncThemeFromContent(newContent);
-        setContent(newContent);
-        setIsDirty(false);
-        diskContentRef.current = newContent;
-        setShowExternalReloadBanner(true);
-      }
-    });
-    return () => { unlisten.then((fn) => fn()); };
-  // Both are stable (hook-owned ref and a [] useCallback): runs once.
-  }, [cliThemeRef, syncThemeFromContent]);
-
   // Clamp slide index
   useEffect(() => {
     if (slides.length > 0 && currentSlideIndex >= slides.length) {
@@ -638,26 +581,6 @@ export default function App() {
       return next;
     });
   }, [thumbPanelRef, inspectorPanelRef, showInspector]);
-
-  const guardDirty = useCallback((action: () => void) => {
-    if (isDirty && settings.confirmOnClose) {
-      setConfirmCloseAction({ run: action });
-    } else {
-      action();
-    }
-  }, [isDirty, settings.confirmOnClose]);
-
-  const handleNewFile = useCallback(() => {
-    guardDirty(async () => {
-      await invoke('stop_watching').catch(() => {});
-      setFilePath(null);
-      setContent(makeStarter());
-      setIsDirty(false);
-      setCurrentSlideIndex(0);
-      setActiveThemeId(settings.defaultThemeId);
-      setMissingThemeId(null);
-    });
-  }, [guardDirty, settings.defaultThemeId, setActiveThemeId, setMissingThemeId]);
 
   // Cold-start present guards: the load must run once (applyFileContent's
   // identity changes re-run the drain effect) and presentation must be
@@ -1051,7 +974,7 @@ export default function App() {
       if (patched !== prev) setIsDirty(true);
       return patched;
     });
-  }, [setActiveThemeId]);
+  }, [setActiveThemeId, setContent, setIsDirty]);
 
   // Apply one inspector edit to the document's `theme_overrides`. Colours and
   // fonts merge key-by-key (a single tweak never rewrites the whole palette);
@@ -1086,7 +1009,7 @@ export default function App() {
       if (patched !== prev) setIsDirty(true);
       return patched;
     });
-  }, []);
+  }, [setContent, setIsDirty]);
 
   const handleMetaChange = useCallback((field: 'title' | 'author' | 'date', value: string) => {
     setContent((prev) => {
@@ -1094,7 +1017,7 @@ export default function App() {
       if (patched !== prev) setIsDirty(true);
       return patched;
     });
-  }, []);
+  }, [setContent, setIsDirty]);
 
   const handleAspectRatioCycle = useCallback(() => {
     setContent((prev) => {
@@ -1107,22 +1030,7 @@ export default function App() {
       if (patched !== prev) setIsDirty(true);
       return patched;
     });
-  }, []);
-
-  // Shared post-load sequence: apply theme, content, and watcher for a file that
-  // has already been read (or generated) and saved to disk.
-  const applyFileContent = useCallback(async (text: string, path: string) => {
-    syncThemeFromContent(text);
-    setFilePath(path);
-    setContent(text);
-    setIsDirty(false);
-    diskContentRef.current = text;
-    setCurrentSlideIndex(0);
-    if (path) await invoke('start_watching', { path }).catch(console.error);
-    setMarpPrompt(isMarp(text) ? { text, dir: dirname(path) } : null);
-    setImportDir('');
-    setMarpLoss(null);
-  }, [syncThemeFromContent]);
+  }, [setContent, setIsDirty]);
 
   // Cold-start present (kova --present FILE): load the file through the same
   // post-read sequence as a normal open so docDir, theme sync, and the watcher
@@ -1206,280 +1114,19 @@ export default function App() {
     })();
   }, [applyFileContent, applyCliTheme]);
 
-  // Startup restore — only when the user has opted in via Settings. Best-effort:
-  // a deleted/moved/unreadable file just leaves the app at its normal blank
-  // startup state rather than surfacing an error for what is, after all, a
-  // convenience feature. Runs once on mount; settings.startupBehavior at the
-  // time of mount is what matters (changing the setting later only affects
-  // the *next* launch, not the current session).
-  useEffect(() => {
-    if (settings.startupBehavior !== 'reopenLast') return;
-    const session = loadLastSession();
-    if (!session) return;
-    (async () => {
-      // A cold-start present (kova --present) owns this session — restoring
-      // the last file would race the CLI file's load through applyFileContent
-      // and whichever resolves last would win, possibly presenting the wrong
-      // deck. The CLI drain is cached, so this await costs one IPC roundtrip.
-      // --import is headless and exits the process itself, but skip restoring
-      // here too rather than doing pointless work moments before it quits.
-      // --export needs this effect to stay out of the way entirely: it loads
-      // its own file into the same state this would race against.
-      const cli = await getPendingCli();
-      if (cli?.present || cli?.import || cli?.export) return;
-      try {
-        const text: string = await invoke('read_file', { path: session.path });
-        await applyFileContent(text, session.path);
-        // applyFileContent itself resets to slide 0 — apply the saved position
-        // after it resolves so this wins. Out-of-range values are corrected by
-        // the existing slide-index clamp effect once `slides` is recomputed.
-        setCurrentSlideIndex(session.slideIndex);
-        setTimeout(() => editorRef.current?.scrollToSlide(session.slideIndex), 50);
-      } catch (err) {
-        console.warn('[kova] could not restore last session:', err);
-      }
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // intentionally runs once on mount
-
   // Keep the last-session record current so it's accurate whenever the app
-  // actually quits. Mirrors the literal on-screen state: clears the record
-  // when there's no open file (e.g. after File > New) rather than leaving a
-  // stale pointer to whatever was open before.
-  const lastSessionMountedRef = useRef(false);
-  useEffect(() => {
-    // Skip the very first run: on mount, filePath/coldPresent are still
-    // their initial values (null/false) regardless of launch type, because
-    // the cold-start/restore effects above only update them after an await.
-    // Without this guard, that first pass unconditionally wrote
-    // saveLastSession(null) — deleting any existing session — before the
-    // restore effect or a CLI --present run had a chance to even read it.
-    // For a normal restore this self-corrected a moment later when the
-    // real filePath landed, but for --present it didn't: the restore effect
-    // bails early once cli.present is set, and coldPresent stays true for
-    // the rest of the process, so the deletion was never undone — running
-    // --present was silently erasing the "reopen last file" record on every
-    // launch (issue #185).
-    if (!lastSessionMountedRef.current) {
-      lastSessionMountedRef.current = true;
-      return;
-    }
-    // A presentation-only run (kova --present) must not clobber the editor's
-    // last-session record — the user never opened this file for editing.
-    if (coldPresent) return;
-    saveLastSession(filePath ? { path: filePath, slideIndex: safeSlideIndex } : null);
-  }, [filePath, safeSlideIndex, coldPresent]);
-
-  // Maintain the "Open Recent" list whenever a file becomes the open document.
-  useEffect(() => {
-    // --present is a one-shot, headless presentation run — it must operate
-    // independently of the desktop app's own state, same as it already skips
-    // the last-session record above (issue #185).
-    if (coldPresent) return;
-    if (filePath) setRecents(addRecentFile(filePath));
-  }, [filePath, coldPresent]);
-
-  const handleMarkdownDrop = useCallback((path: string) => {
-    const doOpen = async () => {
-      const myGeneration = ++loadGenerationRef.current;
-      try {
-        await invoke('stop_watching').catch(() => {});
-        const text: string = await invoke('read_file', { path });
-        // Two fast, overlapping triggers (drag-drop or Open Recent) would
-        // otherwise race independently through applyFileContent, and
-        // whichever IPC call happens to resolve last "wins" per state field —
-        // possibly mixing one file's content with another's path. Bail if a
-        // newer load has started since this one began.
-        if (loadGenerationRef.current !== myGeneration) return;
-        await applyFileContent(text, path);
-      } catch (err) {
-        console.error('Drop open failed:', err);
-        setRecents(removeRecentFile(path));
-      }
-    };
-
-    if (!filePath && !isDirty) {
-      void doOpen();
-    } else if (isDirty) {
-      guardDirty(() => void doOpen());
-    } else {
-      setDropConfirmPath(path);
-    }
-  }, [filePath, isDirty, guardDirty, applyFileContent]);
-
-  // Listen for markdown file drops on the window (image drops are handled in EditorPanel)
-  useEffect(() => {
-    const MD_EXT = /\.(md|markdown)$/i;
-    let dragHasMd = false;
-
-    const unlisten = getCurrentWindow().onDragDropEvent((evt) => {
-      const p = evt.payload;
-
-      if (p.type === 'enter') {
-        dragHasMd = p.paths.some((f) => MD_EXT.test(f));
-        return;
-      }
-      if (p.type === 'over') {
-        if (dragHasMd) setFileDragOver(true);
-        return;
-      }
-      if (p.type === 'leave') {
-        setFileDragOver(false);
-        dragHasMd = false;
-        return;
-      }
-      if (p.type === 'drop') {
-        setFileDragOver(false);
-        dragHasMd = false;
-        const mdPath = p.paths.find((f) => MD_EXT.test(f));
-        if (!mdPath) return;
-        handleMarkdownDrop(mdPath);
-      }
-    });
-
-    return () => { unlisten.then((fn) => fn()); };
-  }, [handleMarkdownDrop]);
+  // actually quits (see useLastSessionRecord).
+  useLastSessionRecord(filePath, safeSlideIndex, coldPresent);
 
   const handleImportComplete = useCallback(async (markdown: string, savedPath: string) => {
     setShowImport(false);
-    await invoke('stop_watching').catch(() => {});
-    await applyFileContent(markdown, savedPath);
-  }, [applyFileContent]);
+    await openImported(markdown, savedPath);
+  }, [openImported]);
 
   const handleImportFromUrl = useCallback(async (text: string) => {
     setShowImportUrl(false);
-    await invoke('stop_watching').catch(() => {});
-    await applyFileContent(text, '');
-  }, [applyFileContent]);
-
-  const handleImportMarp = useCallback(() => {
-    guardDirty(async () => { try {
-      const selected = await open({
-        filters: [{ name: 'Marp Markdown', extensions: ['md', 'markdown'] }],
-        multiple: false,
-      });
-      if (!selected || typeof selected !== 'string') return;
-      await invoke('stop_watching').catch(() => {});
-      const text: string = await invoke('read_file', { path: selected });
-      const { markdown, dropped } = importMarp(text);
-      await applyFileContent(markdown, '');
-      setImportDir(dirname(selected));
-      setMarpPrompt(null);
-      setMarpLoss(dropped.length);
-    } catch (err) { console.error('Marp import failed:', err); } });
-  }, [guardDirty, applyFileContent]);
-
-  const handleOpenFile = useCallback(() => {
-    guardDirty(async () => { try {
-      const selected = await open({
-        filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
-        multiple: false,
-      });
-      if (!selected || typeof selected !== 'string') return;
-      await invoke('stop_watching').catch(() => {});
-      const text: string = await invoke('read_file', { path: selected });
-      await applyFileContent(text, selected);
-    } catch (err) { console.error('Open failed:', err); setWarnMessage(`Could not open file: ${err}`); }});
-  }, [guardDirty, applyFileContent]);
-
-  const handleRenameCommit = useCallback(async () => {
-    setIsRenaming(false);
-    if (!filePath) return;
-    const trimmed = renameValue.trim();
-    if (!trimmed) return;
-    const sep = pathSeparator(filePath);
-    const dir = dirnameOn(filePath, sep);
-    const ext = filePath.match(/\.(md|markdown)$/i)?.[0] ?? '.md';
-    const newPath = `${dir}${sep}${trimmed}${ext}`;
-    if (newPath === filePath) return;
-    try {
-      await invoke('stop_watching').catch(() => {});
-      await invoke('rename_file', { oldPath: filePath, newPath });
-      setFilePath(newPath);
-      await invoke('start_watching', { path: newPath }).catch(console.error);
-    } catch (err) {
-      console.error('Rename failed:', err);
-      setWarnMessage(`Rename failed: ${err}`);
-    }
-  }, [filePath, renameValue]);
-
-  const handleSave = useCallback(async (): Promise<boolean> => {
-    if (!filePath) return false;
-    // Optimistic: mark clean before the write so that when the OS file-watcher
-    // fires (during the IPC round-trip) isDirtyRef.current is already false and
-    // the event is treated as a silent no-op reload rather than a warning.
-    // React renders this state change before Rust's disk I/O + IPC completes.
-    setIsDirty(false);
-    const savingPath = filePath;
-    const contentAtSave = content;
-    try {
-      // The document is the single source of truth — theme overrides and every
-      // frontmatter edit are already in `content`, so write it verbatim.
-      const toWrite = contentAtSave;
-      await invoke('write_file', { path: savingPath, content: toWrite });
-      // The user may have opened a different document while the write was in
-      // flight (isDirty was already cleared above, so guardDirty let them) —
-      // in that case this save's side effects belong to a document that's no
-      // longer open, so leave the now-active document's state alone.
-      if (filePathRef.current !== savingPath) return true;
-      diskContentRef.current = toWrite;
-      if (contentRef.current === contentAtSave) {
-        if (toWrite !== contentAtSave) setContent(toWrite);
-      } else {
-        // The user kept typing while the write was in flight — toWrite only
-        // reflects the pre-save snapshot, so adopting it here would discard
-        // those newer edits. Leave the live content as-is and stay dirty so
-        // a follow-up save picks them up.
-        setIsDirty(true);
-      }
-      // Re-register the watcher: atomic_write replaces the file's inode via
-      // rename, which causes inotify to drop the watch on the old inode.
-      // Explicitly re-watching after each save ensures external changes are
-      // detected regardless of how the OS / notify crate handles the rename.
-      await invoke('start_watching', { path: savingPath }).catch(console.error);
-      // Saving resolves any pending external-change conflict: the user's edits
-      // win. Dismiss the dialog so the confirmCloseAction "Save" path can
-      // proceed with the close, and so Ctrl+S while the dialog is open doesn't
-      // leave a stale conflict prompt on screen.
-      setShowExternalChangeDialog(false);
-      return true;
-    } catch (err) {
-      if (filePathRef.current === savingPath) setIsDirty(true);
-      console.error('Save failed:', err);
-      setWarnMessage(`Save failed: ${err}`);
-      return false;
-    }
-  }, [filePath, content]);
-
-  const handleSaveAs = useCallback(async (): Promise<string | null> => {
-    const startedFromPath = filePath;
-    try {
-      const target = await save({
-        filters: [{ name: 'Markdown', extensions: ['md'] }],
-        defaultPath: filePath ?? undefined,
-      });
-      if (!target) return null;
-      const contentAtSave = content;
-      const toWrite = contentAtSave;
-      await invoke('write_file', { path: target, content: toWrite });
-      // The user may have switched to a different document while the native
-      // save dialog was open or the write was in flight — don't adopt `target`
-      // as the active file out from under them in that case.
-      if (filePathRef.current !== startedFromPath) return target;
-      diskContentRef.current = toWrite;
-      setFilePath(target);
-      if (contentRef.current === contentAtSave) {
-        setIsDirty(false);
-        if (toWrite !== contentAtSave) setContent(toWrite);
-      } else {
-        // Content changed while the write was in flight — keep those edits
-        // and stay dirty rather than clobbering them with the pre-save snapshot.
-        setIsDirty(true);
-      }
-      await invoke('start_watching', { path: target }).catch(console.error);
-      return target;
-    } catch (err) { console.error('Save As failed:', err); setWarnMessage(`Save failed: ${err}`); return null; }
-  }, [filePath, content]);
+    await openImported(text, '');
+  }, [openImported]);
 
   const {
     exportPptx: handleExport,
@@ -1567,19 +1214,6 @@ export default function App() {
     })();
   }, [coldExport, filePath, visibleSlides, hasPendingLocalMedia, mediaWaitExpired, frontmatter, activeTheme, settings.locale, settings.pdfPageSize, runPdfExportCapture, runHtmlExportCapture]);
 
-  const handleContentChange = useCallback((newBody: string) => {
-    if (showFrontmatterRef.current) {
-      // Editor holds the full document — use it directly.
-      setContent(newBody);
-    } else {
-      setContent((prev) => {
-        const fm = prev.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
-        return (fm ? fm[0] : '') + newBody;
-      });
-    }
-    setIsDirty(true);
-  }, []);
-
   const {
     handleSlideReorder,
     handleDuplicateSlide,
@@ -1634,13 +1268,6 @@ export default function App() {
     document.documentElement.style.setProperty('--ui-scale', String(settings.uiScale));
   }, [settings.uiScale]);
 
-  // handleSave gets a new identity on every keystroke (it depends on `content`).
-  // A ref lets the autosave timer below call the latest save logic without
-  // including that ever-changing identity in its own dependency array — see the
-  // effect's comment for why that matters.
-  const handleSaveRef = useRef(handleSave);
-  handleSaveRef.current = handleSave;
-
   // Export menu items are enabled when there is something to export and no PDF
   // export is already running (Print additionally waits for a running print).
   const canExport = slides.length > 0 && capturing !== 'export';
@@ -1654,7 +1281,7 @@ export default function App() {
     newFile: handleNewFile,
     openFile: handleOpenFile,
     openRecent: handleMarkdownDrop,
-    clearRecent: () => { clearRecentFiles(); setRecents([]); },
+    clearRecent: doc.clearRecents,
     save: handleSave,
     saveAs: () => { void handleSaveAs(); },
     copyWithAssets: () => { void handleCopyWithAssets(); },
@@ -1712,39 +1339,6 @@ export default function App() {
       print: t('app.menuPrint'),
     });
   }, [recents, menuActions, t]);
-
-  // File association: open files delivered via double-click / "Open With".
-  // On macOS, paths arrive via RunEvent::Opened; on Linux/Windows, via CLI arg
-  // buffered in lib.rs setup. Drain on mount, then listen for live macOS opens.
-  // Opens the first path only — single-window editor, no tabs.
-  useEffect(() => {
-    invoke<string[]>('take_pending_open')
-      .then((paths) => { if (paths[0]) handleMarkdownDrop(paths[0]); })
-      .catch(() => {});
-    const un = listen<string[]>('open-file', (e) => {
-      const p = e.payload?.[0];
-      if (p) handleMarkdownDrop(p);
-    });
-    return () => { un.then((f) => f()); };
-  }, [handleMarkdownDrop]);
-
-  // Autosave — only when enabled, a file path exists, and there are unsaved changes.
-  // Deliberately excludes `handleSave` from the dependency array: if it were
-  // included, the timer would be torn down and restarted on every keystroke
-  // (handleSave's identity changes with `content`), so the countdown would
-  // perpetually reset to zero and autosave would never actually fire during
-  // continuous editing. isDirty's false→true transition is what starts the
-  // timer; it then runs uninterrupted every autosaveIntervalSeconds until the
-  // next save (isDirty back to false) regardless of further keystrokes.
-  useEffect(() => {
-    // Suppress autosave while the external-change dialog is open: the user must
-    // explicitly choose to reload or save-as, and silently writing would resolve
-    // the conflict without acknowledgement. The timer is killed when the dialog
-    // opens and restarted (fresh interval) once the user dismisses it.
-    if (!settings.autosave || !filePath || !isDirty || showExternalChangeDialog) return;
-    const id = setInterval(() => { handleSaveRef.current(); }, settings.autosaveIntervalSeconds * 1000);
-    return () => clearInterval(id);
-  }, [settings.autosave, settings.autosaveIntervalSeconds, filePath, isDirty, showExternalChangeDialog]);
 
   useEffect(() => {
     const sc = (id: string) => getCombo(keybindings.combos, id);
@@ -1841,7 +1435,7 @@ export default function App() {
   return (
     <I18nProvider locale={settings.locale}>
     <div className="app">
-      {fileDragOver && !presentMode && !presenterMode && (
+      {doc.fileDragOver && !presentMode && !presenterMode && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 5000, pointerEvents: 'none',
           border: '2px dashed #D94F00', borderRadius: 4,
@@ -1872,12 +1466,12 @@ export default function App() {
         windowControls={!isMac && <WindowControls onClose={menuActions.exit} />}
         filePath={filePath}
         isDirty={isDirty}
-        isRenaming={isRenaming}
-        renameValue={renameValue}
-        onRenameStart={(value) => { setRenameValue(value); setIsRenaming(true); }}
-        onRenameChange={setRenameValue}
-        onRenameCommit={handleRenameCommit}
-        onRenameCancel={() => setIsRenaming(false)}
+        isRenaming={doc.isRenaming}
+        renameValue={doc.renameValue}
+        onRenameStart={doc.startRename}
+        onRenameChange={doc.setRenameValue}
+        onRenameCommit={doc.handleRenameCommit}
+        onRenameCancel={doc.cancelRename}
         canPresent={slides.length > 0}
         onPresent={handlePresentEnter}
         focusMode={focusMode}
@@ -2018,20 +1612,11 @@ export default function App() {
       )}
 
       <AppDialogs
-        marpPromptOpen={marpPrompt !== null}
-        onMarpConvert={async () => {
-          if (!marpPrompt) return;
-          const { text, dir } = marpPrompt;
-          const { markdown, dropped } = importMarp(text);
-          setMarpPrompt(null);
-          await invoke('stop_watching').catch(() => {});
-          await applyFileContent(markdown, '');
-          setImportDir(dir);
-          setMarpLoss(dropped.length);
-        }}
-        onMarpDismiss={() => setMarpPrompt(null)}
-        marpLoss={marpLoss}
-        onMarpLossDismiss={() => setMarpLoss(null)}
+        marpPromptOpen={doc.marpPromptOpen}
+        onMarpConvert={doc.convertMarp}
+        onMarpDismiss={doc.dismissMarpPrompt}
+        marpLoss={doc.marpLoss}
+        onMarpLossDismiss={doc.dismissMarpLoss}
         missingThemeId={missingThemeId}
         onMissingThemeInstalled={handleMissingThemeInstalled}
         onMissingThemeDismiss={() => setMissingThemeId(null)}
@@ -2045,28 +1630,12 @@ export default function App() {
         }}
         onWhatsNewDismiss={() => setShowWhatsNew(false)}
         warnMessage={warnMessage}
-        externalChangeOpen={showExternalChangeDialog}
-        onExternalChangeClose={() => setShowExternalChangeDialog(false)}
-        onExternalChangeReload={async () => {
-          // Use the path captured when the dialog opened, not the
-          // current filePathRef — the user may have navigated away.
-          const path = externalChangePathRef.current;
-          setShowExternalChangeDialog(false);
-          if (!path) return;
-          try {
-            const newContent: string = await invoke('read_file', { path });
-            syncThemeFromContent(newContent);
-            setContent(newContent);
-            setIsDirty(false);
-            diskContentRef.current = newContent;
-          } catch (err) { console.error('Failed to reload file:', err); }
-        }}
-        onExternalChangeSaveAs={async () => {
-          setShowExternalChangeDialog(false);
-          await handleSaveAs();
-        }}
-        externalReloadBannerOpen={showExternalReloadBanner}
-        onExternalReloadBannerDismiss={() => setShowExternalReloadBanner(false)}
+        externalChangeOpen={doc.externalChangeOpen}
+        onExternalChangeClose={doc.closeExternalChange}
+        onExternalChangeReload={doc.reloadExternalChange}
+        onExternalChangeSaveAs={doc.saveAsExternalChange}
+        externalReloadBannerOpen={doc.externalReloadBannerOpen}
+        onExternalReloadBannerDismiss={doc.dismissExternalReloadBanner}
         pdfOptionsOpen={pdfOptionsOpen}
         pdfPerPage={pdfPerPage}
         pdfNotesOn={pdfNotesOn}
@@ -2079,36 +1648,13 @@ export default function App() {
           const notes = pdfPerPage === 1 && pdfNotesOn ? visibleSlides.map((s) => s.speakerNotes) : undefined;
           void handleExportPdf({ perPage: pdfPerPage, notes, paper: settings.pdfPageSize });
         }}
-        confirmCloseOpen={confirmCloseAction !== null}
-        onConfirmCloseCancel={() => setConfirmCloseAction(null)}
-        onConfirmCloseDiscard={() => { const a = confirmCloseAction; setConfirmCloseAction(null); a?.run(); }}
-        onConfirmCloseSave={async () => {
-          const action = confirmCloseAction;
-          setConfirmCloseAction(null);
-          if (filePath) {
-            const saved = await handleSave();
-            if (!saved) return;
-          } else {
-            const saved = await handleSaveAs();
-            if (!saved) return;
-          }
-          action?.run();
-        }}
-        dropConfirmPath={dropConfirmPath}
-        onDropConfirmCancel={() => setDropConfirmPath(null)}
-        onDropConfirmOpen={async () => {
-          const path = dropConfirmPath;
-          setDropConfirmPath(null);
-          if (!path) return;
-          try {
-            await invoke('stop_watching').catch(() => {});
-            const text: string = await invoke('read_file', { path });
-            await applyFileContent(text, path);
-          } catch (err) {
-            console.error('Drop open failed:', err);
-            setRecents(removeRecentFile(path));
-          }
-        }}
+        confirmCloseOpen={doc.confirmCloseOpen}
+        onConfirmCloseCancel={doc.cancelConfirmClose}
+        onConfirmCloseDiscard={doc.discardAndContinue}
+        onConfirmCloseSave={doc.saveAndContinue}
+        dropConfirmPath={doc.dropConfirmPath}
+        onDropConfirmCancel={doc.cancelDropConfirm}
+        onDropConfirmOpen={doc.confirmDropOpen}
       />
 
       {/* Off-screen slide rendering for PDF/HTML export and Print */}
