@@ -1,7 +1,7 @@
 import { useCallback, type RefObject } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
 import * as ipc from '../platform/ipc';
-import { exportToPptx } from '../engine/export/exportPptx';
+import { exportToPptx } from '../engine/export/pptx';
 import { exportToPdf, printPresentation } from '../engine/export/exportPdf';
 import { exportPdfNative, buildInteractiveDocument, type PdfExportOpts } from '../engine/export/exportPdfNative';
 import { isLocalRelative } from '../engine/paths';

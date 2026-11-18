@@ -25,7 +25,7 @@ const engine = vi.hoisted(() => ({
   exportPdfNative: vi.fn(),
   buildInteractiveDocument: vi.fn(),
 }));
-vi.mock('../../engine/export/exportPptx', () => ({ exportToPptx: engine.exportToPptx }));
+vi.mock('../../engine/export/pptx', () => ({ exportToPptx: engine.exportToPptx }));
 vi.mock('../../engine/export/exportPdf', () => ({
   exportToPdf: engine.exportToPdf,
   printPresentation: engine.printPresentation,

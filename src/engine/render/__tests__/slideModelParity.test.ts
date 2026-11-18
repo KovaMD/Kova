@@ -12,7 +12,7 @@ import JSZip from 'jszip';
 import { resolveSlideFrame, resolveDeckMeta, type DeckMeta, type SlideFrame } from '../slideModel';
 import { DEFAULT_THEME, type Theme } from '../../theme';
 import { parseDocument } from '../../parser/markdownToSlides';
-import { exportToPptx } from '../../export/exportPptx';
+import { exportToPptx } from '../../export/pptx';
 import { SlideRenderer } from '../../../components/preview/SlideRenderer';
 import type { Slide } from '../../types';
 

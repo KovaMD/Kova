@@ -8,7 +8,7 @@ import { SLIDE_W, SLIDE_H_16_9 } from '../constants';
  * Mermaid keeps internal global state and cannot handle concurrent render()
  * calls — calling it again while one is already in flight either hangs or
  * rejects (this is a known constraint; see the comments in SlideRenderer.tsx's
- * MermaidDiagram and exportPptx.ts's mermaidToDataUrl). Several places in the
+ * MermaidDiagram and pptx/assets.ts's mermaidToDataUrl). Several places in the
  * app mount many MermaidDiagram instances at once — the thumbnail panel on
  * file load, and the off-screen PDF/Print export trees that render the entire
  * deck simultaneously — which races exactly that constraint.

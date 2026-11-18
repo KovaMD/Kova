@@ -4,7 +4,7 @@ declare module 'html2canvas' {
     /** Deliberately not enabled by callers in this codebase — the SVG
      *  foreignObject + Image + canvas.drawImage technique it opts into is the
      *  exact WebKit-incompatible path html2canvas exists to avoid (see
-     *  mathToDataUrl in exportPptx.ts). */
+     *  mathToDataUrl in export/pptx/assets.ts). */
     foreignObjectRendering?: boolean;
     scale?: number;
     logging?: boolean;
