@@ -13,6 +13,7 @@ import {
   BUILT_IN_THEMES,
   type Theme,
 } from '../theme';
+import { resolveSlideColours } from '../render/slideModel';
 
 // ── themeToVars ───────────────────────────────────────────────────────────────
 
@@ -97,7 +98,7 @@ describe('themeToVars', () => {
 
   it('a per-slide textOverride wins over theme.colors.heading/bold', () => {
     const themed: Theme = { ...DEFAULT_THEME, colors: { ...DEFAULT_THEME.colors, heading: '#FF00FF', bold: '#00FFAA' } };
-    const overridden = themeToVars(themed, '#123456') as Record<string, string>;
+    const overridden = themeToVars(themed, resolveSlideColours({ layout: 'title-content', textColor: '#123456' }, themed)) as Record<string, string>;
     expect(overridden['--sl-text']).toBe('#123456');
     expect(overridden['--sl-heading-text']).toBe('#123456');
     expect(overridden['--sl-bold-text']).toBe('#123456');
