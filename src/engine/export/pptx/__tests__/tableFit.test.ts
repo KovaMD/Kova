@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import JSZip from 'jszip';
-import { exportToPptx } from '../exportPptx';
-import { DEFAULT_THEME } from '../../theme';
-import type { Slide, SlideElement } from '../../types';
+import { exportToPptx } from '../../exportPptx';
+import { fitTableToArea } from '../fit';
+import { DEFAULT_THEME } from '../../../theme';
+import type { Slide, SlideElement } from '../../../types';
 
 // The live preview scales an overflowing table down to fit (OverflowPane's
 // zoom-to-fit). PptxGenJS in autoPage:false mode does no such thing — it emits
@@ -55,6 +56,51 @@ const denseRows = (n: number): string[][] =>
     i % 2 ? 'In progress' : 'Done',
     `Person ${String.fromCharCode(65 + i)}`,
   ]);
+
+// The 16:9 title-content body area a table gets on its own.
+const BODY = { x: 0.5, y: 1, w: 9, h: 4 };
+const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+
+describe('fitTableToArea', () => {
+  it('keeps the 14pt base font and equal columns for a small table', () => {
+    const fit = fitTableToArea([['A', 'B'], ['1', '2'], ['3', '4']], BODY);
+    expect(fit.fontSize).toBe(14);
+    expect(fit.overflow).toBe(false);
+    expect(fit.colW).toHaveLength(2);
+    expect(fit.colW[0]).toBeCloseTo(fit.colW[1]);
+    expect(sum(fit.colW)).toBeCloseTo(BODY.w);
+    expect(fit.rowH).toHaveLength(3);
+    expect(fit.height).toBeCloseTo(sum(fit.rowH));
+    expect(fit.height).toBeLessThanOrEqual(BODY.h);
+  });
+
+  it('steps the font down until a dense table fits', () => {
+    const matrix = [['Feature', 'Description', 'Status', 'Owner'], ...denseRows(7)];
+    const area = { ...BODY, h: 2.5 };
+    const fit = fitTableToArea(matrix, area);
+    expect(fit.fontSize).toBeLessThan(14);
+    expect(fit.fontSize).toBeGreaterThanOrEqual(7);
+    expect(fit.overflow).toBe(false);
+    expect(fit.height).toBeLessThanOrEqual(area.h);
+  });
+
+  it('weights column widths by content length', () => {
+    const fit = fitTableToArea([
+      ['ID', 'Notes'],
+      ['1', 'A long free-text note that needs a lot more horizontal room than the id column beside it.'],
+    ], BODY);
+    expect(fit.colW[1]).toBeGreaterThan(fit.colW[0] * 2);
+  });
+
+  it('clamps at 7pt and squeezes rows into the area when it cannot fit', () => {
+    const matrix = [['Feature', 'Description', 'Status', 'Owner'], ...denseRows(40)];
+    const fit = fitTableToArea(matrix, BODY);
+    expect(fit.fontSize).toBe(7);
+    expect(fit.overflow).toBe(true);
+    expect(fit.height).toBe(BODY.h);
+    expect(sum(fit.rowH)).toBeCloseTo(BODY.h);
+  });
+});
 
 describe('exportPptx table auto-fit', () => {
   it('shrinks a dense 4x8 table so its rows fit within the slide', async () => {
