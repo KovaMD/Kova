@@ -20,13 +20,12 @@ import { SettingsModal } from './components/SettingsModal';
 import { ThemeLibraryModal } from './components/inspector/ThemeLibraryModal';
 import { ImportPptxModal } from './components/ImportPptxModal';
 import { ImportUrlModal } from './components/ImportUrlModal';
-import { ModalShell } from './components/ModalShell';
-import { InfoBanner } from './components/InfoBanner';
 import { FileMenu } from './components/app/FileMenu';
 import { EditMenu } from './components/app/EditMenu';
 import { WindowControls } from './components/app/WindowControls';
 import { Toolbar } from './components/app/Toolbar';
 import { FindReplaceDialog } from './components/app/FindReplaceDialog';
+import { AppDialogs } from './components/app/AppDialogs';
 import { isMarp, importMarp } from './engine/import/marp';
 import { parsePptx } from './engine/import/parsePptx';
 import { pptxToMarkdown } from './engine/import/pptxToMarkdown';
@@ -34,13 +33,12 @@ import { toRawUrl } from './engine/import/toRawUrl';
 import { IMAGE_DIALOG_FILTER } from './engine/mediaTypes';
 import { SLIDE_W } from './engine/constants';
 import { basename, dirname, dirnameOn, isLocalRelative, pathSeparator, toForwardSlashes } from './engine/paths';
-import { MissingThemeBanner } from './components/MissingThemeBanner';
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
 import { setDiagramRenderer } from './engine/export/diagramRenderer';
 import type { AppSettings } from './store/settings';
 import { loadLastSession, saveLastSession } from './store/lastSession';
 import { loadLastSeenVersion, saveLastSeenVersion } from './store/lastSeenVersion';
-import { loadRecentFiles, addRecentFile, removeRecentFile, clearRecentFiles, recentFileBasename } from './store/recentFiles';
+import { loadRecentFiles, addRecentFile, removeRecentFile, clearRecentFiles } from './store/recentFiles';
 import { buildMacMenu, delegateMenuActions } from './macMenu';
 import type { MenuActions } from './macMenu';
 import { loadKeybindings, matchShortcut, getCombo, isMac } from './engine/keybindings';
@@ -2606,245 +2604,99 @@ export default function App() {
         />
       )}
 
-      {marpPrompt && (
-        <InfoBanner
-          message={t('app.marpDetected')}
-          actions={[{
-            label: t('app.marpConvert'),
-            onClick: async () => {
-              const { text, dir } = marpPrompt;
-              const { markdown, dropped } = importMarp(text);
-              setMarpPrompt(null);
-              await invoke('stop_watching').catch(() => {});
-              await applyFileContent(markdown, '');
-              setImportDir(dir);
-              setMarpLoss(dropped.length);
-            },
-          }]}
-          onDismiss={() => setMarpPrompt(null)}
-        />
-      )}
-      {marpLoss != null && marpLoss > 0 && (
-        <InfoBanner
-          message={t('app.marpImported', { count: marpLoss })}
-          onDismiss={() => setMarpLoss(null)}
-        />
-      )}
-
-      {missingThemeId && (
-        <MissingThemeBanner
-          themeId={missingThemeId}
-          onInstalled={handleMissingThemeInstalled}
-          onDismiss={() => setMissingThemeId(null)}
-        />
-      )}
-
-      {showWhatsNew && (
-        <InfoBanner
-          message={t('app.whatsNewMessage', { version: APP_VERSION })}
-          actions={[{
-            label: t('app.whatsNewAction'),
-            onClick: () => {
-              // /releases/latest always redirects to the newest published release —
-              // more robust than building a /releases/tag/vX.Y.Z URL from APP_VERSION,
-              // which would 404 if the two ever drift (e.g. a local dev build).
-              openUrl('https://github.com/KovaMD/Kova/releases/latest').catch(() => {});
-              setShowWhatsNew(false);
-            },
-          }]}
-          onDismiss={() => setShowWhatsNew(false)}
-        />
-      )}
-
-      {warnMessage && (
-        <div style={{
-          position: 'fixed', bottom: 36, left: '50%', transform: 'translateX(-50%)',
-          background: 'var(--bg-elevated)', border: '1px solid var(--dirty-color)',
-          borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.4)', zIndex: 3000,
-          padding: '10px 16px', fontSize: 12, color: 'var(--dirty-color)',
-          maxWidth: 480, textAlign: 'center', pointerEvents: 'none', whiteSpace: 'pre-wrap',
-        }}>
-          {warnMessage}
-        </div>
-      )}
-
-      {showExternalChangeDialog && (
-        <ModalShell
-          onClose={() => setShowExternalChangeDialog(false)}
-          dismissOnBackdropClick={false}
-          dismissOnEscape={false}
-          width={340}
-          maxWidth="90vw"
-          ariaLabel={t('app.fileChangedExternally')}
-          cardStyle={{ padding: '24px 28px' }}
-        >
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
-              {t('app.fileChangedExternally')}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
-              {t('app.fileChangedExternallyDirty')}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button
-                className="btn btn-primary"
-                onClick={async () => {
-                  // Use the path captured when the dialog opened, not the
-                  // current filePathRef — the user may have navigated away.
-                  const path = externalChangePathRef.current;
-                  setShowExternalChangeDialog(false);
-                  if (!path) return;
-                  try {
-                    const newContent: string = await invoke('read_file', { path });
-                    syncThemeFromContent(newContent);
-                    setContent(newContent);
-                    setIsDirty(false);
-                    diskContentRef.current = newContent;
-                  } catch (err) { console.error('Failed to reload file:', err); }
-                }}
-              >{t('common.reload')}</button>
-              <button
-                className="btn"
-                onClick={async () => {
-                  setShowExternalChangeDialog(false);
-                  await handleSaveAs();
-                }}
-              >{t('common.saveAs')}</button>
-            </div>
-        </ModalShell>
-      )}
-
-      {showExternalReloadBanner && (
-        <InfoBanner
-          message={t('app.fileChangedExternallyClean')}
-          onDismiss={() => setShowExternalReloadBanner(false)}
-        />
-      )}
-
-      {pdfOptionsOpen && (
-        <ModalShell
-          onClose={() => setPdfOptionsOpen(false)}
-          width={360}
-          maxWidth="90vw"
-          ariaLabel={t('app.exportPdfTitle')}
-          cardStyle={{ padding: '24px 28px' }}
-        >
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>
-              {t('app.exportPdfTitle')}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-label)', marginBottom: 8 }}>{t('app.slidesPerPage')}</div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-              {[1, 2, 4, 6].map((n) => (
-                <button
-                  key={n}
-                  className={pdfPerPage === n ? 'btn btn-primary' : 'btn'}
-                  style={{ flex: 1 }}
-                  onClick={() => { setPdfPerPage(n); if (n !== 1) setPdfNotesOn(false); }}
-                >{n}</button>
-              ))}
-            </div>
-            {(() => {
-              const hasNotes = visibleSlides.some((s) => s.speakerNotes.trim());
-              const notesOk = pdfPerPage === 1 && hasNotes;
-              return (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: notesOk ? 'var(--text-primary)' : 'var(--text-secondary)', opacity: notesOk ? 1 : 0.5, marginBottom: 20 }}>
-                  <input
-                    type="checkbox"
-                    checked={notesOk && pdfNotesOn}
-                    disabled={!notesOk}
-                    onChange={(e) => setPdfNotesOn(e.target.checked)}
-                  />
-                  {t('app.includeSpeakerNotes', { noneNote: pdfPerPage === 1 && !hasNotes ? t('app.includeSpeakerNotesNone') : '' })}
-                </label>
-              );
-            })()}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button className="btn" onClick={() => setPdfOptionsOpen(false)}>{t('common.cancel')}</button>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setPdfOptionsOpen(false);
-                  const notes = pdfPerPage === 1 && pdfNotesOn ? visibleSlides.map((s) => s.speakerNotes) : undefined;
-                  void handleExportPdf({ perPage: pdfPerPage, notes, paper: settings.pdfPageSize });
-                }}
-              >{t('app.exportAction')}</button>
-            </div>
-        </ModalShell>
-      )}
-
-      {confirmCloseAction && (
-        <ModalShell
-          onClose={() => setConfirmCloseAction(null)}
-          width={320}
-          maxWidth="90vw"
-          ariaLabel={t('app.unsavedChangesTitle')}
-          cardStyle={{ padding: '24px 28px' }}
-        >
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
-              {t('app.unsavedChangesTitle')}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
-              {t('app.unsavedChangesMessage')}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button className="btn" onClick={() => setConfirmCloseAction(null)}>{t('common.cancel')}</button>
-              <button
-                className="btn"
-                style={{ background: '#c0392b', borderColor: '#c0392b', color: '#fff' }}
-                onClick={() => { const a = confirmCloseAction; setConfirmCloseAction(null); a.run(); }}
-              >{t('common.discard')}</button>
-              <button
-                className="btn btn-primary"
-                onClick={async () => {
-                  const action = confirmCloseAction;
-                  setConfirmCloseAction(null);
-                  if (filePath) {
-                    const saved = await handleSave();
-                    if (!saved) return;
-                  } else {
-                    const saved = await handleSaveAs();
-                    if (!saved) return;
-                  }
-                  action?.run();
-                }}
-              >{t('common.save')}</button>
-            </div>
-        </ModalShell>
-      )}
-
-      {dropConfirmPath && (
-        <ModalShell
-          onClose={() => setDropConfirmPath(null)}
-          width={340}
-          maxWidth="90vw"
-          ariaLabel={t('app.openFileTitle')}
-          cardStyle={{ padding: '24px 28px' }}
-        >
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
-              {t('app.openFileTitle')}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
-              {t('app.openFileReplaceWarningPrefix')} <strong>{recentFileBasename(dropConfirmPath)}</strong> {t('app.openFileReplaceWarningSuffix')}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button className="btn" onClick={() => setDropConfirmPath(null)}>{t('common.cancel')}</button>
-              <button
-                className="btn btn-primary"
-                onClick={async () => {
-                  const path = dropConfirmPath;
-                  setDropConfirmPath(null);
-                  try {
-                    await invoke('stop_watching').catch(() => {});
-                    const text: string = await invoke('read_file', { path });
-                    await applyFileContent(text, path);
-                  } catch (err) {
-                    console.error('Drop open failed:', err);
-                    setRecents(removeRecentFile(path));
-                  }
-                }}
-              >{t('common.open')}</button>
-            </div>
-        </ModalShell>
-      )}
+      <AppDialogs
+        marpPromptOpen={marpPrompt !== null}
+        onMarpConvert={async () => {
+          if (!marpPrompt) return;
+          const { text, dir } = marpPrompt;
+          const { markdown, dropped } = importMarp(text);
+          setMarpPrompt(null);
+          await invoke('stop_watching').catch(() => {});
+          await applyFileContent(markdown, '');
+          setImportDir(dir);
+          setMarpLoss(dropped.length);
+        }}
+        onMarpDismiss={() => setMarpPrompt(null)}
+        marpLoss={marpLoss}
+        onMarpLossDismiss={() => setMarpLoss(null)}
+        missingThemeId={missingThemeId}
+        onMissingThemeInstalled={handleMissingThemeInstalled}
+        onMissingThemeDismiss={() => setMissingThemeId(null)}
+        showWhatsNew={showWhatsNew}
+        onWhatsNewOpen={() => {
+          // /releases/latest always redirects to the newest published release —
+          // more robust than building a /releases/tag/vX.Y.Z URL from APP_VERSION,
+          // which would 404 if the two ever drift (e.g. a local dev build).
+          openUrl('https://github.com/KovaMD/Kova/releases/latest').catch(() => {});
+          setShowWhatsNew(false);
+        }}
+        onWhatsNewDismiss={() => setShowWhatsNew(false)}
+        warnMessage={warnMessage}
+        externalChangeOpen={showExternalChangeDialog}
+        onExternalChangeClose={() => setShowExternalChangeDialog(false)}
+        onExternalChangeReload={async () => {
+          // Use the path captured when the dialog opened, not the
+          // current filePathRef — the user may have navigated away.
+          const path = externalChangePathRef.current;
+          setShowExternalChangeDialog(false);
+          if (!path) return;
+          try {
+            const newContent: string = await invoke('read_file', { path });
+            syncThemeFromContent(newContent);
+            setContent(newContent);
+            setIsDirty(false);
+            diskContentRef.current = newContent;
+          } catch (err) { console.error('Failed to reload file:', err); }
+        }}
+        onExternalChangeSaveAs={async () => {
+          setShowExternalChangeDialog(false);
+          await handleSaveAs();
+        }}
+        externalReloadBannerOpen={showExternalReloadBanner}
+        onExternalReloadBannerDismiss={() => setShowExternalReloadBanner(false)}
+        pdfOptionsOpen={pdfOptionsOpen}
+        pdfPerPage={pdfPerPage}
+        pdfNotesOn={pdfNotesOn}
+        pdfHasNotes={pdfOptionsOpen && visibleSlides.some((s) => s.speakerNotes.trim())}
+        onPdfPerPageChange={(n) => { setPdfPerPage(n); if (n !== 1) setPdfNotesOn(false); }}
+        onPdfNotesChange={setPdfNotesOn}
+        onPdfOptionsClose={() => setPdfOptionsOpen(false)}
+        onPdfExport={() => {
+          setPdfOptionsOpen(false);
+          const notes = pdfPerPage === 1 && pdfNotesOn ? visibleSlides.map((s) => s.speakerNotes) : undefined;
+          void handleExportPdf({ perPage: pdfPerPage, notes, paper: settings.pdfPageSize });
+        }}
+        confirmCloseOpen={confirmCloseAction !== null}
+        onConfirmCloseCancel={() => setConfirmCloseAction(null)}
+        onConfirmCloseDiscard={() => { const a = confirmCloseAction; setConfirmCloseAction(null); a?.run(); }}
+        onConfirmCloseSave={async () => {
+          const action = confirmCloseAction;
+          setConfirmCloseAction(null);
+          if (filePath) {
+            const saved = await handleSave();
+            if (!saved) return;
+          } else {
+            const saved = await handleSaveAs();
+            if (!saved) return;
+          }
+          action?.run();
+        }}
+        dropConfirmPath={dropConfirmPath}
+        onDropConfirmCancel={() => setDropConfirmPath(null)}
+        onDropConfirmOpen={async () => {
+          const path = dropConfirmPath;
+          setDropConfirmPath(null);
+          if (!path) return;
+          try {
+            await invoke('stop_watching').catch(() => {});
+            const text: string = await invoke('read_file', { path });
+            await applyFileContent(text, path);
+          } catch (err) {
+            console.error('Drop open failed:', err);
+            setRecents(removeRecentFile(path));
+          }
+        }}
+      />
 
       {/* Off-screen slide rendering for Print */}
       {printContext && (() => {
