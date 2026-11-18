@@ -21,6 +21,40 @@ fn is_metadata_only(kind: &EventKind) -> bool {
     matches!(kind, EventKind::Modify(ModifyKind::Metadata(_)))
 }
 
+/// True for event kinds the document watcher treats as "the file may have new
+/// content". Checked after `is_metadata_only` has already been ruled out.
+fn is_content_event(kind: &EventKind) -> bool {
+    matches!(kind, EventKind::Modify(_) | EventKind::Create(_))
+}
+
+impl LastSeen {
+    /// Records the latest stat result and reports whether it differs from the
+    /// previous one. Returns false (and records nothing) when both mtime and
+    /// size are unchanged.
+    fn update(&mut self, mtime: Option<SystemTime>, size: Option<u64>) -> bool {
+        if self.mtime == mtime && self.size == size {
+            return false;
+        }
+        self.mtime = mtime;
+        self.size = size;
+        true
+    }
+}
+
+/// The theme-directory watcher's whole event filter: true when `event` should
+/// trigger a "theme-files-changed" reload.
+fn is_theme_file_event(event: &Event) -> bool {
+    if is_metadata_only(&event.kind) {
+        return false;
+    }
+    if !matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)) {
+        return false;
+    }
+    event.paths.iter().any(|p| {
+        matches!(p.extension().and_then(|e| e.to_str()), Some("yaml") | Some("yml"))
+    })
+}
+
 pub fn create(
     app: AppHandle,
     path: PathBuf,
@@ -36,7 +70,7 @@ pub fn create(
                     return;
                 }
 
-                if matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_)) {
+                if is_content_event(&event.kind) {
                     // Ignore events that arrive within the suppression window set by
                     // write_file — these are caused by Kova's own atomic rename and
                     // should not be surfaced to the frontend as external changes.
@@ -54,11 +88,9 @@ pub fn create(
                         let mtime = meta.modified().ok();
                         let size = Some(meta.len());
                         let mut ls = last_seen.lock().unwrap_or_else(|e| e.into_inner());
-                        if ls.mtime == mtime && ls.size == size {
+                        if !ls.update(mtime, size) {
                             return;
                         }
-                        ls.mtime = mtime;
-                        ls.size = size;
                     }
 
                     let _ = app.emit("file-changed", ());
@@ -84,19 +116,9 @@ pub fn create_theme_dir_watcher(app: AppHandle, dir: PathBuf) -> notify::Result<
     let mut watcher = RecommendedWatcher::new(
         move |res: notify::Result<Event>| {
             if let Ok(event) = res {
-                if is_metadata_only(&event.kind) {
-                    return;
+                if is_theme_file_event(&event) {
+                    let _ = app.emit("theme-files-changed", ());
                 }
-                if !matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)) {
-                    return;
-                }
-                let is_theme_file = event.paths.iter().any(|p| {
-                    matches!(p.extension().and_then(|e| e.to_str()), Some("yaml") | Some("yml"))
-                });
-                if !is_theme_file {
-                    return;
-                }
-                let _ = app.emit("theme-files-changed", ());
             }
         },
         Config::default(),
