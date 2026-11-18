@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import JSZip from 'jszip';
-import { exportToPptx } from '../exportPptx';
-import { DEFAULT_THEME } from '../../theme';
-import type { ListItem, Slide, SlideElement } from '../../types';
+import { exportToPptx } from '../../exportPptx';
+import { DEFAULT_THEME } from '../../../theme';
+import type { ListItem, Slide, SlideElement } from '../../../types';
 
 // Progressive-reveal (`<!-- step -->`, issue #92) native PPTX click-animations.
 // Mirrors exportPptxColor.test.ts's JSZip-unzip helper style.
