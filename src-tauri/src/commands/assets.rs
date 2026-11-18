@@ -270,6 +270,43 @@ mod tests {
         dir
     }
 
+    // sanitise_stem
+
+    #[test]
+    fn sanitise_stem_leaves_plain_names_alone() {
+        assert_eq!(sanitise_stem("screenshot-2026_11.final"), "screenshot-2026_11.final");
+        assert_eq!(sanitise_stem(""), "");
+    }
+
+    #[test]
+    fn sanitise_stem_replaces_each_whitespace_char() {
+        assert_eq!(sanitise_stem("my shot"), "my_shot");
+        // No collapsing: every whitespace char becomes its own underscore.
+        assert_eq!(sanitise_stem("a  b"), "a__b");
+        assert_eq!(sanitise_stem(" lead trail "), "_lead_trail_");
+        assert_eq!(sanitise_stem("tab\there\nnl\rcr"), "tab_here_nl_cr");
+        // Unicode whitespace counts too (no-break space, em space).
+        assert_eq!(sanitise_stem("a\u{a0}b\u{2003}c"), "a_b_c");
+    }
+
+    #[test]
+    fn sanitise_stem_replaces_markdown_link_breakers() {
+        assert_eq!(sanitise_stem("shot (1)"), "shot__1_");
+        assert_eq!(sanitise_stem("[draft]"), "_draft_");
+        assert_eq!(sanitise_stem("it's \"quoted\""), "it_s__quoted_");
+    }
+
+    #[test]
+    fn sanitise_stem_keeps_other_punctuation() {
+        // Characterisation: only whitespace and ( ) [ ] " ' are replaced.
+        assert_eq!(sanitise_stem("a#b%c<d>e`f{g}h\\i!j"), "a#b%c<d>e`f{g}h\\i!j");
+    }
+
+    #[test]
+    fn sanitise_stem_keeps_non_ascii_letters() {
+        assert_eq!(sanitise_stem("\u{e9}t\u{e9} photo \u{65e5}\u{672c}"), "\u{e9}t\u{e9}_photo_\u{65e5}\u{672c}");
+    }
+
     #[test]
     fn write_bytes_to_assets_reuses_name_for_identical_content() {
         let dir = temp_scratch_dir("dedup-same");
