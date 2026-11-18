@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import { open, save, message } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { emit, emitTo, listen } from '@tauri-apps/api/event';
@@ -52,17 +52,16 @@ import { parseBgLine, formatBgLine } from './engine/parser/bgImage';
 import { fetchUpdate } from './engine/updater';
 import { APP_VERSION } from './version';
 import { exportToPptx } from './engine/export/exportPptx';
-import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml, resolveCustomThemeLibrary, sanitiseThemeOverrides, type ThemeParseResult, type ThemeOverridePatch, type ThemeLibrary } from './engine/theme';
-import { registerBundledFonts, registerCachedFont } from './engine/bundledFonts';
+import { BUILT_IN_THEMES, parseThemeYaml, resolveCustomThemeLibrary, sanitiseThemeOverrides, type ThemeOverridePatch, type ThemeLibrary } from './engine/theme';
 import type { Slide, ListItem, Frontmatter } from './engine/types';
 import { parseAspectRatio, nextAspectRatio } from './engine/types';
 import { getSlideStepCount } from './engine/layout/steps';
-import { imageMime } from './engine/export/imageMime';
 import type { Theme } from './engine/theme';
 import { useResolvedSlides } from './hooks/useResolvedSlides';
 import { useFindReplace } from './hooks/useFindReplace';
 import { useOffscreenCapture } from './hooks/useOffscreenCapture';
 import { useExports } from './hooks/useExports';
+import { useThemeState } from './hooks/useThemeState';
 import { OffscreenDeck } from './components/OffscreenDeck';
 import type { PendingCli, CliThemeArg, PendingImport, PendingExport } from './types/cli';
 
@@ -351,18 +350,7 @@ export default function App() {
   } = useOffscreenCapture();
   const [fileDragOver, setFileDragOver]       = useState(false);
   const [dropConfirmPath, setDropConfirmPath] = useState<string | null>(null);
-
-  // Theme state: active theme id (base theme). The per-deck overrides on top of
-  // it are NOT state — they are derived from the document's own frontmatter
-  // (`theme_overrides:`) below, so the inspector and the editor's YAML can never
-  // drift apart.
-  const [allThemes, setAllThemes]         = useState<Theme[]>(BUILT_IN_THEMES);
-  const allThemesRef = useRef(BUILT_IN_THEMES as Theme[]);
-  useEffect(() => { allThemesRef.current = allThemes; }, [allThemes]);
-  const [activeThemeId, setActiveThemeId] = useState<string>(DEFAULT_THEME.id);
-  const [missingThemeId, setMissingThemeId]   = useState<string | null>(null);
   const [showWhatsNew, setShowWhatsNew]       = useState(false);
-  const [resolvedLogoUrl, setResolvedLogoUrl] = useState<string | undefined>(undefined);
 
   // A single parse of the raw frontmatter block, shared below instead of
   // each derived value re-running extractFrontmatter's YAML parse on its own
@@ -370,94 +358,24 @@ export default function App() {
   // `content`).
   const parsedFrontmatter = useMemo(() => extractFrontmatter(content), [content]);
 
-  // Overrides come straight from the frontmatter. Re-derive only when their
-  // serialised form actually changes, so `activeTheme` (and every slide
-  // thumbnail that depends on it) doesn't churn on unrelated keystrokes.
-  const themeOverridesJson = useMemo(
-    () => JSON.stringify(parsedFrontmatter.frontmatter.theme_overrides ?? null),
-    [parsedFrontmatter],
-  );
-  const themeOverrides = useMemo(() => {
-    const raw = parsedFrontmatter.frontmatter.theme_overrides;
-    return sanitiseThemeOverrides((raw as Record<string, unknown>) ?? {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeOverridesJson]);
-
-  const installedRemoteIds = useMemo(
-    () => new Set(allThemes.filter((t) => !BUILT_IN_THEMES.some((b) => b.id === t.id)).map((t) => t.id)),
-    [allThemes],
-  );
-
-  // The selected theme before this document's own theme_overrides are
-  // applied — InspectorPanel needs it to tell whether an override actually
-  // differs from the theme's default (e.g. a header field toggled back to
-  // its original value) rather than merely being present as a key, since
-  // onHeaderChange/onFooterChange/onTocChange always write a whole object.
-  const baseTheme = useMemo<Theme>(
-    () => allThemes.find((t) => t.id === activeThemeId) ?? DEFAULT_THEME,
-    [allThemes, activeThemeId],
-  );
-
-  // Resolved theme = base theme merged with overrides
-  const activeTheme = useMemo<Theme>(() => {
-    const base = baseTheme;
-    return { ...base, ...themeOverrides,
-      // Swap in the pre-resolved data URL for the logo (see the effect below):
-      // the asset protocol cannot reliably serve absolute Windows paths outside
-      // the home directory, so we read the file via IPC and embed it as base64.
-      logo: resolvedLogoUrl,
-      colors: { ...base.colors, ...(themeOverrides.colors ?? {}) },
-      fonts:  { ...base.fonts,  ...(themeOverrides.fonts  ?? {}) },
-      header: { ...base.header, ...(themeOverrides.header ?? {}) },
-      footer: { ...base.footer, ...(themeOverrides.footer ?? {}) },
-      toc: { ...base.toc, ...(themeOverrides.toc ?? {}) },
-    };
-  }, [baseTheme, themeOverrides, resolvedLogoUrl]);
-
-  // Effective raw logo: an explicit override (a path, or `null` to hide it)
-  // wins; otherwise fall back to the base theme's own logo.
-  const rawLogoSrc = useMemo(() => {
-    if ('logo' in themeOverrides) return themeOverrides.logo ?? undefined;
-    const base = allThemes.find((t) => t.id === activeThemeId) ?? DEFAULT_THEME;
-    return base.logo;
-  }, [themeOverrides, allThemes, activeThemeId]);
-
-  // Resolve the raw logo path to a data URL via IPC so the image works in both
-  // windows regardless of asset-protocol scope restrictions on Windows.
-  useEffect(() => {
-    let cancelled = false;
-    const raw = rawLogoSrc;
-    if (!raw) { setResolvedLogoUrl(undefined); return; }
-    if (/^(https?:|data:)/i.test(raw)) { setResolvedLogoUrl(raw); return; }
-    const mime = imageMime(raw);
-    invoke<string>('read_file_b64', { path: raw })
-      .then((b64) => { if (!cancelled) setResolvedLogoUrl(`data:${mime};base64,${b64}`); })
-      .catch(() => { if (!cancelled) setResolvedLogoUrl(undefined); });
-    return () => { cancelled = true; };
-  }, [rawLogoSrc]);
-
-  useEffect(() => {
-    if (activeTheme.bundledFonts?.length) {
-      registerBundledFonts(activeTheme.bundledFonts);
-    }
-  }, [activeTheme.bundledFonts]);
-
-  // Download-once, verify, and register any remote fonts declared by the active theme.
-  // Re-runs only on theme identity change since remoteFonts are theme-level, not overrides.
-  useEffect(() => {
-    const fonts = activeTheme.remoteFonts;
-    if (!fonts?.length) return;
-    for (const font of fonts) {
-      invoke<string>('download_and_cache_font', { url: font.url, sha256: font.sha256 })
-        .then((cachedPath) => {
-          registerCachedFont(font.family, cachedPath, font.weight, font.style, font.sha256, convertFileSrc);
-        })
-        .catch((err) => {
-          console.warn(`[kova] remote font "${font.family}" failed: ${err}`);
-        });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeThemeId]);
+  const {
+    allThemes,
+    setActiveThemeId,
+    missingThemeId,
+    setMissingThemeId,
+    installedRemoteIds,
+    themeOverrides,
+    baseTheme,
+    activeTheme,
+    reloadCustomThemes,
+    handleMissingThemeInstalled,
+    syncThemeFromContent,
+    cliThemeRef,
+    applyCliTheme,
+  } = useThemeState({
+    rawThemeOverrides: parsedFrontmatter.frontmatter.theme_overrides,
+    onWarn: setWarnMessage,
+  });
 
   // Persist panel layout across sessions and inspector toggle/hide.
   // The guard blocks saves while focus mode is active: collapse() fires the
@@ -656,64 +574,6 @@ export default function App() {
   const filePathRef = useRef(filePath);
   useEffect(() => { filePathRef.current = filePath; }, [filePath]);
 
-  const reloadCustomThemes = useCallback(() => {
-    invoke<[string, Array<[string, string]>]>('load_custom_themes')
-      .then(([dir, entries]) => {
-        // Resolved together (not entry-by-entry) so extends: can target
-        // another installed theme, not just a built-in (issue #249).
-        const { results, warnings } = resolveCustomThemeLibrary(entries, dir);
-        const custom = results.filter((r): r is Extract<ThemeParseResult, { ok: true }> => r.ok).map((r) => r.theme);
-        const errors = results.filter((r): r is Extract<ThemeParseResult, { ok: false }> => !r.ok).map((r) => r.error);
-        setAllThemes(() => {
-          const base = custom.length > 0 ? [...BUILT_IN_THEMES, ...custom] : BUILT_IN_THEMES;
-          // Keep a --theme=path/to.yaml theme alive: it lives outside the
-          // config dir, so rebuilding the list from disk would drop it.
-          const cliTheme = cliThemeRef.current;
-          return cliTheme && !base.some((t) => t.id === cliTheme.id) ? [...base, cliTheme] : base;
-        });
-        const messages = [...errors, ...warnings];
-        if (messages.length > 0) setWarnMessage(`Theme issue:\n${messages.join('\n')}`);
-      })
-      .catch(() => {});
-  }, []);
-
-  const handleMissingThemeInstalled = useCallback((themeId: string) => {
-    reloadCustomThemes();
-    setActiveThemeId(themeId);
-    setMissingThemeId(null);
-  }, [reloadCustomThemes]);
-
-  // Load custom themes from the platform config dir on startup
-  useEffect(() => { reloadCustomThemes(); }, [reloadCustomThemes]);
-
-  // Watch the themes directory for external changes (issue #252) — e.g. a
-  // theme .yaml edited in another app while Kova is open. Debounced since
-  // saving in some editors fires several filesystem events in quick
-  // succession; the watcher itself lives for the app's lifetime once started.
-  useEffect(() => {
-    invoke('start_watching_themes').catch(() => {});
-    let debounce: ReturnType<typeof setTimeout> | null = null;
-    const unlisten = listen<void>('theme-files-changed', () => {
-      if (debounce) clearTimeout(debounce);
-      debounce = setTimeout(reloadCustomThemes, 300);
-    });
-    return () => {
-      if (debounce) clearTimeout(debounce);
-      unlisten.then((fn) => fn());
-    };
-  }, [reloadCustomThemes]);
-
-  // Resolve a formerly-missing theme once custom themes finish loading.
-  // Fixes a startup race: if the session file loads before load_custom_themes
-  // returns, applyFileContent marks the theme missing even though it is installed.
-  useEffect(() => {
-    if (!missingThemeId) return;
-    const found = allThemes.find((t) => t.id === missingThemeId);
-    if (!found) return;
-    setActiveThemeId(found.id);
-    setMissingThemeId(null);
-  }, [allThemes, missingThemeId]);
-
   // Load keybindings from the platform config dir on startup
   useEffect(() => {
     loadKeybindings().then(setKeybindings).catch(() => {});
@@ -793,7 +653,8 @@ export default function App() {
       }
     });
     return () => { unlisten.then((fn) => fn()); };
-  }, []);
+  // Both are stable (hook-owned ref and a [] useCallback): runs once.
+  }, [cliThemeRef, syncThemeFromContent]);
 
   // Clamp slide index
   useEffect(() => {
@@ -835,7 +696,7 @@ export default function App() {
       setActiveThemeId(settings.defaultThemeId);
       setMissingThemeId(null);
     });
-  }, [guardDirty, settings.defaultThemeId]);
+  }, [guardDirty, settings.defaultThemeId, setActiveThemeId, setMissingThemeId]);
 
   // Cold-start present guards: the load must run once (applyFileContent's
   // identity changes re-run the drain effect) and presentation must be
@@ -843,11 +704,6 @@ export default function App() {
   // re-run the auto-enter effect).
   const coldLoadStartedRef = useRef(false);
   const coldEnterFiredRef = useRef(false);
-  // Theme resolved from --theme, if any. Consulted by reloadCustomThemes (so
-  // a later community-theme reload doesn't drop it from allThemes) and by the
-  // watcher's silent-reload path (an external file edit re-syncing the theme
-  // from frontmatter must not clobber the CLI override mid-presentation).
-  const cliThemeRef = useRef<Theme | null>(null);
   // Render-updated mirror of coldPresent for the audience window's
   // tauri://error and tauri://destroyed once-handlers, whose closures
   // outlive the render that registered them.
@@ -1234,7 +1090,7 @@ export default function App() {
       if (patched !== prev) setIsDirty(true);
       return patched;
     });
-  }, []);
+  }, [setActiveThemeId]);
 
   // Apply one inspector edit to the document's `theme_overrides`. Colours and
   // fonts merge key-by-key (a single tweak never rewrites the whole palette);
@@ -1290,26 +1146,6 @@ export default function App() {
       if (patched !== prev) setIsDirty(true);
       return patched;
     });
-  }, []);
-
-  // Pick the base theme named by a document's frontmatter `theme:` key (the
-  // per-deck overrides ride along in `theme_overrides:` and are derived, not
-  // synced here). A `theme:` naming a theme not in the library flags the
-  // MissingThemeBanner instead.
-  const syncThemeFromContent = useCallback((text: string) => {
-    const { frontmatter: fm } = extractFrontmatter(text);
-    if (typeof fm.theme === 'string') {
-      const found = allThemesRef.current.find((t) => t.id === fm.theme);
-      if (found) {
-        setActiveThemeId(found.id);
-        setMissingThemeId(null);
-      } else {
-        setMissingThemeId(fm.theme);
-      }
-    } else {
-      setActiveThemeId(DEFAULT_THEME.id);
-      setMissingThemeId(null);
-    }
   }, []);
 
   // Shared post-load sequence: apply theme, content, and watcher for a file that
@@ -1397,11 +1233,7 @@ export default function App() {
         if (cliTheme) {
           // --theme replaces the deck's *base* theme; the frontmatter
           // theme_overrides still ride on top (they are derived from `content`).
-          cliThemeRef.current = cliTheme;
-          const id = cliTheme.id;
-          setAllThemes((prev) => prev.some((t) => t.id === id) ? prev : [...prev, cliTheme]);
-          setActiveThemeId(id);
-          setMissingThemeId(null);
+          applyCliTheme(cliTheme);
         }
         if (cli.export) setColdExport(cli.export);
       } catch {
@@ -1411,7 +1243,7 @@ export default function App() {
         }).catch(() => {});
       }
     })();
-  }, [applyFileContent]);
+  }, [applyFileContent, applyCliTheme]);
 
   // Startup restore — only when the user has opted in via Settings. Best-effort:
   // a deleted/moved/unreadable file just leaves the app at its normal blank

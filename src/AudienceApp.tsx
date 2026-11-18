@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { convertFileSrc } from '@tauri-apps/api/core';
-import { downloadAndCacheFont } from './platform/ipc';
 import { emit, emitTo, listen } from '@tauri-apps/api/event';
 import { bestEffort } from './platform/bestEffort';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -8,7 +6,8 @@ import { SlideRenderer } from './components/preview/SlideRenderer';
 import { SLIDE_W, ScaledSlideBox, LaserDot } from './components/presentation/presentationShared';
 import type { Slide, AspectRatio } from './engine/types';
 import type { Theme } from './engine/theme';
-import { registerBundledFonts, registerCachedFont } from './engine/bundledFonts';
+import { registerBundledFonts } from './engine/bundledFonts';
+import { useRemoteFonts } from './hooks/useRemoteFonts';
 import { I18nProvider, useT } from './i18n';
 import { loadSettings } from './store/settings';
 import './styles/global.css';
@@ -97,19 +96,7 @@ function AudienceAppInner({ showProgressBar }: { showProgressBar: boolean }) {
     }
   }, [initData?.theme.bundledFonts]);
 
-  useEffect(() => {
-    const fonts = initData?.theme.remoteFonts;
-    if (!fonts?.length) return;
-    for (const font of fonts) {
-      downloadAndCacheFont(font.url, font.sha256)
-        .then((cachedPath) => {
-          registerCachedFont(font.family, cachedPath, font.weight, font.style, font.sha256, convertFileSrc);
-        })
-        .catch((err) => {
-          console.warn(`[kova] remote font "${font.family}" failed: ${err}`);
-        });
-    }
-  }, [initData?.theme.remoteFonts]);
+  useRemoteFonts(initData?.theme.remoteFonts);
 
   // Table-of-contents click on the audience-facing screen — resolve the real
   // slide index to a visible-slide index (mirrors PresentationOverlay's own
