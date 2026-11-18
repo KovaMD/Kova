@@ -4,7 +4,8 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { bestEffort } from '../../platform/bestEffort';
 import type { Slide } from '../../engine/types';
 import type { Theme } from '../../engine/theme';
-import { themeToVars, resolveTemplate, DEFAULT_THEME, isLightHex } from '../../engine/theme';
+import { themeToVars, DEFAULT_THEME, isLightHex } from '../../engine/theme';
+import { resolveSlideFrame } from '../../engine/render/slideModel';
 import { getSlideStepValues } from '../../engine/layout/steps';
 import './SlideRenderer.css';
 import { buildExportMermaidInit } from '../../engine/export/mermaidExportTheme';
@@ -18,7 +19,7 @@ mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'strict' 
 const MERMAID_READY_TIMEOUT_MS = 20_000;
 
 // Header/footer text. A `|` in the *theme template* splits it into left | center | right
-// parts (issue #30). Segments are pre-split from the template before variable resolution
+// parts (issue #30); the slide model pre-splits the template before variable resolution
 // so a doc title containing `|` (e.g. "Costs | Benefits") is never treated as a separator.
 function BarText({ segments, className }: { segments: string[]; className: string }) {
   if (segments.length <= 1) return <span className={className}>{segments[0] ?? ''}</span>;
@@ -59,17 +60,19 @@ interface Props {
 }
 
 export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, docTitle = '', docAuthor = '', docDate = '', scale = 1, isThumbnail: isThumbnailProp, hideOverflowBadge = false, onAllDiagramsReady, onNavigateTo, revealStepIndex }: Props) {
-  // Per-slide text colour: explicit `<!-- color -->` wins; otherwise a Marp
-  // `<!-- _class: invert -->` swaps to the theme's light "text on dark" colour
-  // (title_text). `slideTextOverride` stays undefined when neither applies, so
-  // themeToVars can fall back to the theme's own heading/bold colours instead
-  // of forcing them to match plain body text (issue #146).
-  const slideTextOverride = slide.textColor
-    ?? (slide.invert ? theme.colors.title_text : undefined);
-  const slideTextColor = slideTextOverride ?? theme.colors.text;
-  const slideCodeBg = slide.invert && !slide.textColor ? '#0d1117' : undefined;
+  // Header/footer visibility, bar text, logo placement and per-slide colour
+  // precedence all come from the shared slide model (engine/render/slideModel),
+  // so the preview and the PPTX export apply the same rules.
+  const frame = resolveSlideFrame(
+    slide,
+    theme,
+    { title: docTitle, author: docAuthor, date: docDate },
+    { slideNumber, totalSlides },
+  );
+  const { header, footer, logo } = frame;
+  const slideTextColor = frame.colours.text;
 
-  const vars = themeToVars(theme, slideTextOverride, slideCodeBg);
+  const vars = themeToVars(theme, frame.colours);
 
   // Signal export-readiness when all Mermaid diagrams on this slide have rendered.
   const mermaidCount = useMemo(() => slide.elements.filter((e) => e.type === 'mermaid').length, [slide.elements]);
@@ -110,34 +113,6 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
     const timer = setTimeout(signalAllDiagramsReady, MERMAID_READY_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [onAllDiagramsReady, mermaidCount, signalAllDiagramsReady]);
-
-  // A header/footer enabled in the theme can still be suppressed on just the
-  // title slide (issue #254) — computed once so the bars themselves, their
-  // template segments, and the floating-logo fallback below all agree.
-  const isTitleSlide = slide.layout === 'title';
-  const headerVisible = theme.header.show && !(theme.header.hide_on_title && isTitleSlide);
-  const footerVisible = theme.footer.show && !(theme.footer.hide_on_title && isTitleSlide);
-
-  const templateVars = { title: docTitle, author: docAuthor, date: docDate, slideNumber, totalSlides };
-  const headerSegs = headerVisible
-    ? theme.header.text.split('|').map((s) => resolveTemplate(s.trim(), templateVars))
-    : null;
-  const footerSegs = footerVisible
-    ? theme.footer.text.split('|').map((s) => resolveTemplate(s.trim(), templateVars))
-    : null;
-
-  // Show the floating logo whenever its position doesn't belong to a bar the
-  // theme has at all — e.g. logo_position='bottom-right' with only
-  // header.show=true still floats. "Belongs to" ignores hide_on_title
-  // deliberately: a bar merely hidden on *this* slide should take its logo
-  // down with it, not spawn a floating duplicate in its place.
-  const logoBelongsInHeader = ['top-left', 'top-right'].includes(theme.logo_position);
-  const logoBelongsInFooter = ['bottom-left', 'bottom-right'].includes(theme.logo_position);
-  const logoHasHeaderHome = theme.header.show && logoBelongsInHeader;
-  const logoHasFooterHome = theme.footer.show && logoBelongsInFooter;
-  const logoInHeader = headerVisible && theme.logo && logoBelongsInHeader;
-  const logoInFooter = footerVisible && theme.logo && logoBelongsInFooter;
-  const showFloatingLogo = theme.logo && !logoHasHeaderHome && !logoHasFooterHome;
 
   const isThumbnail = isThumbnailProp ?? scale !== 1;
 
@@ -201,26 +176,26 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
       onClick={handleContentClick}
     >
       {/* Header bar */}
-      {headerVisible && (
+      {header.visible && (
         <div className="sl-header-bar">
-          {logoInHeader && (
-            <img src={theme.logo} alt="Logo" className="sl-logo"
+          {logo.placement === 'header' && (
+            <img src={logo.src} alt="Logo" className="sl-logo"
               style={{
-                opacity: theme.logo_opacity,
-                ...(theme.logo_position === 'top-right' ? { marginLeft: 'auto', order: 2 } : {}),
+                opacity: logo.opacity,
+                ...(logo.position === 'top-right' ? { marginLeft: 'auto', order: 2 } : {}),
               }} />
           )}
-          {headerSegs?.some(Boolean) && <BarText segments={headerSegs} className="sl-header-text" />}
+          {header.hasText && <BarText segments={header.segments} className="sl-header-text" />}
         </div>
       )}
 
       {/* Floating logo (when no header/footer) */}
-      {showFloatingLogo && (
+      {logo.placement === 'floating' && (
         <img
-          src={theme.logo}
+          src={logo.src}
           alt="Logo"
-          className={`sl-logo-float pos-${theme.logo_position}`}
-          style={{ opacity: theme.logo_opacity }}
+          className={`sl-logo-float pos-${logo.position}`}
+          style={{ opacity: logo.opacity }}
         />
       )}
 
@@ -245,18 +220,19 @@ export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, total
       </div>
 
       {/* Footer bar */}
-      {footerVisible && (
+      {footer.visible && (
         <div className="sl-footer-bar">
-          {logoInFooter && (
-            <img src={theme.logo} alt="Logo" className="sl-logo-footer"
+          {logo.placement === 'footer' && (
+            <img src={logo.src} alt="Logo" className="sl-logo-footer"
               style={{
-                opacity: theme.logo_opacity,
-                ...(theme.logo_position === 'bottom-right' ? { marginLeft: 'auto', order: 2 } : {}),
+                opacity: logo.opacity,
+                ...(logo.position === 'bottom-right' ? { marginLeft: 'auto', order: 2 } : {}),
               }} />
           )}
-          {footerSegs?.some(Boolean) && <BarText segments={footerSegs} className="sl-footer-text" />}
-          {theme.footer.show_slide_number && slideNumber !== undefined && (
-            <span className="sl-slide-num">{slideNumber}</span>
+          {footer.hasText && <BarText segments={footer.segments} className="sl-footer-text" />}
+          {/* Bare number by design; the PPTX footer shows "n / total". */}
+          {footer.showSlideNumber && (
+            <span className="sl-slide-num">{footer.slideNumber}</span>
           )}
         </div>
       )}

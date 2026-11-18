@@ -1,5 +1,6 @@
 import yaml from 'js-yaml';
 import { normalizePath } from './resolvePath';
+import { resolveSlideColours, type SlideColours } from './render/slideModel';
 
 /**
  * Overrides for Mermaid flowchart/sequence-diagram colours (issue #245) —
@@ -520,27 +521,32 @@ export function isLightHex(hex: string): boolean {
  *                       and the code foreground is re-derived from `codeBgOverride`.
  *  @param codeBgOverride  Per-slide code background (inverted decks); when set,
  *                       the code foreground is chosen for that background. */
+/** The per-slide colours themeToVars needs, as resolved by the slide model. */
+export type SlideVarColours = Pick<SlideColours, 'text' | 'heading' | 'bold' | 'codeBg'>;
+
+/**
+ * CSS custom properties for a slide frame. `colours` are the slide's resolved
+ * colours (`resolveSlideFrame(...).colours`), which own the per-slide
+ * precedence (explicit colour, invert, theme heading/bold fallback). Omitted,
+ * they are the theme's plain, un-overridden slide colours.
+ */
 export function themeToVars(
   theme: Theme,
-  textOverride?: string,
-  codeBgOverride?: string,
+  // Layout plays no part in colour precedence; any layout gives a plain slide.
+  colours: SlideVarColours = resolveSlideColours({ layout: 'title-content' }, theme),
 ): React.CSSProperties {
   // Pick a legible foreground for code blocks based on code_bg luminance.
   // All built-in themes have dark code_bg; custom themes may not.
-  const codeBg  = codeBgOverride ?? theme.colors.code_bg;
-  const codeText = isLightHex(codeBg) ? '#1a1a1a' : '#F0F0F0';
+  const codeText = isLightHex(colours.codeBg) ? '#1a1a1a' : '#F0F0F0';
 
   return {
     '--sl-bg':           theme.colors.background,
-    '--sl-text':         textOverride ?? theme.colors.text,
-    // A per-slide override (explicit colour or invert) wins for heading/bold
-    // too, so a slide's text stays legible together; otherwise each falls
-    // back to its own theme colour, then the deck's plain text colour.
-    '--sl-heading-text': textOverride ?? theme.colors.heading ?? theme.colors.text,
-    '--sl-bold-text':    textOverride ?? theme.colors.bold ?? theme.colors.text,
+    '--sl-text':         colours.text,
+    '--sl-heading-text': colours.heading,
+    '--sl-bold-text':    colours.bold,
     '--sl-primary':      theme.colors.primary,
     '--sl-accent':       theme.colors.accent,
-    '--sl-code-bg':      codeBg,
+    '--sl-code-bg':      colours.codeBg,
     '--sl-code-text':    codeText,
     '--sl-title-text':   theme.colors.title_text,
     '--sl-section-bg':   theme.colors.section_bg,
