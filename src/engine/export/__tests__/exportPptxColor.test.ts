@@ -8,11 +8,10 @@ import type { Slide, SlideElement } from '../../types';
 // Per-slide text colour / invert must thread through to the body runs of every
 // content layout in the PPTX export (regression guard for issue #143 review:
 // split / two-column / bsp / grid were only recolouring the title, not the body).
+// CSS colour parsing itself is unit-tested in pptx/__tests__/colour.test.ts.
 
 const OVERRIDE = '#ff0000'; // -> FF0000
 const NAMED = 'red';       // Marp `_color: red` -> FF0000 (no collision with light theme)
-const FUNCTIONAL = 'rgb(0, 128, 0)'; // -> 008000
-const HSL_WHITE = 'hsl(0, 0%, 100%)';   // -> FFFFFF (DOM-resolves to rgb(255,255,255))
 const HSL_GREEN = 'hsl(120, 100%, 25%)'; // -> 008000 (dark green, DOM-resolves to rgb(0,128,0))
 const INVERT = 'FFFFFF';   // light "text on dark" = theme title_text -> FFFFFF
 const DEFAULT_BODY = '1A1A1A'; // light theme text colour
@@ -101,42 +100,9 @@ describe('exportPptx per-slide text colour', () => {
     expect(hasColor(xml, 'FF0000')).toBe(true);
   });
 
-  it('non-hex named color resolves to hex (regression: was silently black)', async () => {
-    const xml = await slideXml(makeSlide('title-content', [para('body text')], { textColor: NAMED }));
-    // `red` must become FF0000, not fall back to black (000000) like the old code did.
-    expect(hasColor(xml, 'FF0000')).toBe(true);
-    expect(hasColor(xml, '000000')).toBe(false);
-    const control = await slideXml(makeSlide('title-content', [para('body text')]));
-    expect(hasColor(control, 'FF0000')).toBe(false);
-  });
-
-  it('non-hex functional color resolves to hex', async () => {
-    const xml = await slideXml(makeSlide('title-content', [para('body text')], { textColor: FUNCTIONAL }));
-    expect(hasColor(xml, '008000')).toBe(true);
-  });
-
-  it('hsl() color resolves to hex via DOM (regression: was silently black)', async () => {
-    // The gap that bit first in review: hsl() is valid CSS but the old table
-    // only handled rgb()/color(), so it fell through to 000000 in the PPTX.
-    const white = await slideXml(makeSlide('title-content', [para('body text')], { textColor: HSL_WHITE }));
-    expect(hasColor(white, 'FFFFFF')).toBe(true);
-    expect(hasColor(white, '000000')).toBe(false);
-
-    const green = await slideXml(makeSlide('title-content', [para('body text')], { textColor: HSL_GREEN }));
-    expect(hasColor(green, '008000')).toBe(true);
-  });
-
   it('hsl() color threads through split body', async () => {
     const xml = await slideXml(makeSlide('split', [para('body text')], { textColor: HSL_GREEN }));
     expect(hasColor(xml, '008000')).toBe(true);
-  });
-
-  it('missing named color (darkmagenta) resolves to hex', async () => {
-    // darkmagenta was one of the 10 standard CSS names missing from the table;
-    // the DOM path resolves it in a real browser, but the fallback table must
-    // also carry it so DOM-less contexts don't silently fall back to black.
-    const xml = await slideXml(makeSlide('title-content', [para('body text')], { textColor: 'darkmagenta' }));
-    expect(hasColor(xml, '8B008B')).toBe(true);
   });
 
   it('named color threads through split body', async () => {
