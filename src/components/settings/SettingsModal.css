@@ -1,0 +1,576 @@
+/* Settings modal. Values carried over one-for-one from the former inline
+   styles; colours use the app's CSS variables from styles/global.css. */
+
+/* ── Frame ─────────────────────────────────────────────────────────────── */
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.settings-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Local chrome tokens for the two colours that have no global variable. */
+.settings-body {
+  --settings-toggle-knob: #fff;
+  --settings-error: #c0392b;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.settings-nav {
+  width: 172px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 12px 8px;
+  overflow-y: auto;
+}
+
+.settings-search-wrap {
+  margin-bottom: 10px;
+}
+
+.settings-search {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-alt);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  outline: none;
+  font-family: inherit;
+}
+
+.settings-nav-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  padding: 7px 9px;
+  margin-bottom: 1px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  border: none;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.settings-nav-item--active {
+  border-left-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 14px 20px 20px;
+}
+
+.settings-category-heading {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+}
+
+/* ── Shared controls ───────────────────────────────────────────────────── */
+
+.settings-group {
+  display: flex;
+  gap: 6px;
+}
+
+.settings-group--wrap {
+  flex-wrap: wrap;
+}
+
+.settings-group-btn {
+  flex: 1;
+  padding: 5px 0;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--border-alt);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-weight: 400;
+  transition: all 0.12s;
+}
+
+.settings-group-btn--active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.settings-group-btn--compact {
+  flex: 0 1 auto;
+  padding: 5px 10px;
+}
+
+.settings-toggle {
+  flex-shrink: 0;
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  border: none;
+  background: var(--btn-border);
+  cursor: pointer;
+  transition: background 0.18s;
+  padding: 0;
+}
+
+.settings-toggle--on {
+  background: var(--accent);
+}
+
+.settings-toggle__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--settings-toggle-knob);
+  transition: left 0.18s;
+  display: block;
+}
+
+.settings-toggle--on .settings-toggle__knob {
+  left: 19px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+}
+
+.settings-row__label {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.settings-row__desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.settings-select-wrap {
+  position: relative;
+}
+
+.settings-select {
+  width: 100%;
+  padding: 6px 28px 6px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-alt);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+}
+
+.settings-select__chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 6px;
+  pointer-events: none;
+  color: var(--text-dim);
+}
+
+/* ── Field blocks ──────────────────────────────────────────────────────── */
+
+.settings-field {
+  padding: 10px 0;
+}
+
+.settings-field--countdown {
+  padding: 6px 0 10px;
+}
+
+.settings-field__label {
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+/* Label followed by a description line. */
+.settings-field__label--tight {
+  margin-bottom: 4px;
+}
+
+.settings-field__desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.settings-field__desc--snug {
+  margin-bottom: 8px;
+}
+
+.settings-field__note {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.settings-field__hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+/* Indented follow-on control under a toggle (dictionary, save interval). */
+.settings-subfield {
+  padding-bottom: 10px;
+}
+
+.settings-subfield--short {
+  padding-bottom: 6px;
+}
+
+.settings-field__sublabel {
+  font-size: 11px;
+  color: var(--text-label);
+  margin-bottom: 8px;
+}
+
+/* ── Language & Spelling ───────────────────────────────────────────────── */
+
+.settings-words__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0;
+}
+
+.settings-words__header--open {
+  margin-bottom: 8px;
+}
+
+.settings-words__count {
+  font-size: 11px;
+  color: var(--text-label);
+}
+
+.settings-small-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid var(--border-alt);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+}
+
+.settings-words__list {
+  margin-top: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-app);
+}
+
+.settings-words__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-words__word {
+  font-size: 12px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.settings-words__remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* ── Presentation ──────────────────────────────────────────────────────── */
+
+.settings-swatches {
+  display: flex;
+  gap: 8px;
+}
+
+/* The fill is the laser colour itself (slide content), set inline. */
+.settings-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  padding: 0;
+  border: 2px solid transparent;
+  outline: 1px solid var(--border);
+  outline-offset: 2px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.settings-swatch--active {
+  border-color: var(--accent);
+  outline-color: var(--accent);
+}
+
+/* ── Updates ───────────────────────────────────────────────────────────── */
+
+.settings-updates-note {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  padding: 10px 0;
+}
+
+.settings-updates-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 4px;
+}
+
+.settings-action-btn {
+  padding: 5px 14px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--border-alt);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.settings-action-btn--busy {
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.settings-action-btn--primary {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.settings-status {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.settings-status--error {
+  color: var(--settings-error);
+}
+
+.settings-status--success {
+  color: var(--accent);
+}
+
+.settings-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-inline--wide {
+  gap: 10px;
+}
+
+.settings-progress {
+  width: 80px;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+/* Width is the download percentage, set inline. */
+.settings-progress__bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.15s;
+}
+
+.settings-restart-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* ── About ─────────────────────────────────────────────────────────────── */
+
+.settings-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 14px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.settings-subheading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.settings-list {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.settings-list--spaced {
+  margin-top: 16px;
+}
+
+.settings-licence {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 6px 12px;
+  padding: 7px 10px;
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-licence__name {
+  font-size: 12px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.settings-licence__copyright {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-left: 8px;
+}
+
+.settings-licence__badge {
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  border: 1px solid var(--border-alt);
+  border-radius: 3px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+.settings-about-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 4px;
+}
+
+.settings-about-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settings-about-licence {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+
+.settings-about-version {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+.settings-about-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+/* Zebra striping and no rule under the last row, as the old i % 2 / i < n-1
+   checks did. */
+.settings-licence:nth-child(odd),
+.settings-about-item:nth-child(odd) {
+  background: var(--bg-app);
+}
+
+.settings-licence:last-child,
+.settings-about-item:last-child {
+  border-bottom: none;
+}
+
+.settings-about-item__label {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.settings-about-item__desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.settings-about-item__icon {
+  color: var(--text-dim);
+  flex-shrink: 0;
+}

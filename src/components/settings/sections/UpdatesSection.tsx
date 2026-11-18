@@ -83,6 +83,7 @@ export function UpdatesSection({ settings, set, inView, availableUpdate, isDirty
       setUpdateState('install-error');
     }
   }
+
   return (
     <>
       {inView('updates', `${t('settings.checkForUpdates')} ${t('settings.checkForUpdatesDescription')} ${t('settings.notifyWhatsNew')} ${t('settings.notifyWhatsNewDescription')}`) && (
@@ -94,25 +95,17 @@ export function UpdatesSection({ settings, set, inView, availableUpdate, isDirty
               control={<Toggle checked={settings.checkForUpdates} onChange={(v) => set('checkForUpdates', v)} />}
             />
           ) : (
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6, padding: '10px 0' }}>
+            <div className="settings-updates-note">
               {t('settings.updatesManagedByDistro')}
             </div>
           )}
 
-          {selfUpdateSupported && <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 4 }}>
+          {selfUpdateSupported && <div className="settings-updates-actions">
             {(updateState === 'idle' || updateState === 'up-to-date' || updateState === 'error' || updateState === 'install-error') && (
               <button
                 type="button"
                 onClick={runCheck}
-                style={{
-                  padding: '5px 14px',
-                  fontSize: 11,
-                  borderRadius: 4,
-                  border: '1px solid var(--border-alt)',
-                  background: 'var(--bg-input)',
-                  color: 'var(--text-secondary)',
-                  cursor: 'pointer',
-                }}
+                className="settings-action-btn"
               >
                 {t('settings.checkNow')}
               </button>
@@ -122,48 +115,31 @@ export function UpdatesSection({ settings, set, inView, availableUpdate, isDirty
               <button
                 type="button"
                 disabled
-                style={{
-                  padding: '5px 14px',
-                  fontSize: 11,
-                  borderRadius: 4,
-                  border: '1px solid var(--border-alt)',
-                  background: 'var(--bg-input)',
-                  color: 'var(--text-dim)',
-                  cursor: 'default',
-                }}
+                className="settings-action-btn settings-action-btn--busy"
               >
                 {t('settings.checking')}
               </button>
             )}
 
             {updateState === 'up-to-date' && (
-              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{t('settings.upToDate', { version: APP_VERSION })}</span>
+              <span className="settings-status">{t('settings.upToDate', { version: APP_VERSION })}</span>
             )}
 
             {updateState === 'error' && (
-              <span style={{ fontSize: 11, color: '#c0392b' }}>{t('settings.updateCheckError')}</span>
+              <span className="settings-status settings-status--error">{t('settings.updateCheckError')}</span>
             )}
 
             {updateState === 'install-error' && (
-              <span style={{ fontSize: 11, color: '#c0392b' }}>{t('settings.updateInstallError')}</span>
+              <span className="settings-status settings-status--error">{t('settings.updateInstallError')}</span>
             )}
 
             {typeof updateState === 'object' && updateState.phase === 'available' && (
               <>
-                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{t('settings.updateAvailable', { version: updateState.version })}</span>
+                <span className="settings-status">{t('settings.updateAvailable', { version: updateState.version })}</span>
                 <button
                   type="button"
                   onClick={runInstall}
-                  style={{
-                    padding: '5px 14px',
-                    fontSize: 11,
-                    borderRadius: 4,
-                    border: '1px solid var(--accent)',
-                    background: 'var(--accent-bg)',
-                    color: 'var(--accent)',
-                    cursor: 'pointer',
-                    fontWeight: 500,
-                  }}
+                  className="settings-action-btn settings-action-btn--primary"
                 >
                   {t('settings.updateNow')}
                 </button>
@@ -171,27 +147,21 @@ export function UpdatesSection({ settings, set, inView, availableUpdate, isDirty
             )}
 
             {typeof updateState === 'object' && updateState.phase === 'downloading' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+              <div className="settings-inline">
+                <span className="settings-status">
                   {t('settings.downloading', { version: updateState.version, pct: updateState.pct !== null ? ` — ${updateState.pct}%` : '…' })}
                 </span>
                 {updateState.pct !== null && (
-                  <div style={{ width: 80, height: 3, background: 'var(--border)', borderRadius: 2 }}>
-                    <div style={{
-                      width: `${updateState.pct}%`,
-                      height: '100%',
-                      background: 'var(--accent)',
-                      borderRadius: 2,
-                      transition: 'width 0.15s',
-                    }} />
+                  <div className="settings-progress">
+                    <div className="settings-progress__bar" style={{ width: `${updateState.pct}%` }} />
                   </div>
                 )}
               </div>
             )}
 
             {typeof updateState === 'object' && updateState.phase === 'done' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 11, color: 'var(--accent)' }}>
+              <div className="settings-inline settings-inline--wide">
+                <span className="settings-status settings-status--success">
                   {t('settings.updateInstalled', { version: updateState.version })}
                 </span>
                 <button
@@ -200,16 +170,7 @@ export function UpdatesSection({ settings, set, inView, availableUpdate, isDirty
                     if (isDirty && !window.confirm(t('settings.restartConfirm'))) return;
                     restartApp();
                   }}
-                  style={{
-                    padding: '3px 10px',
-                    fontSize: 11,
-                    borderRadius: 4,
-                    border: '1px solid var(--accent)',
-                    background: 'transparent',
-                    color: 'var(--accent)',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
+                  className="settings-restart-btn"
                 >
                   {t('settings.restartNow')}
                 </button>

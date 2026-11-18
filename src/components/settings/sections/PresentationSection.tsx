@@ -2,19 +2,20 @@ import type { PresentationMode, NotesFontSize, LaserColor } from '../../../store
 import { LASER_COLOR_OPTIONS } from '../../../store/settings';
 import { useT } from '../../../i18n';
 import type { SectionProps } from '../types';
-import { groupBtnStyle, Toggle, Row } from '../controls';
+import { groupBtnClass, Toggle, Row } from '../controls';
 
 export function PresentationSection({ settings, set, inView }: SectionProps) {
   const t = useT();
+
   return (
     <>
       {inView('presentation', `${t('settings.displayMode')} ${t('settings.displayModeDescription')}`) && (
-        <div style={{ padding: '10px 0' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 4 }}>{t('settings.displayMode')}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
+        <div className="settings-field">
+          <div className="settings-field__label settings-field__label--tight">{t('settings.displayMode')}</div>
+          <div className="settings-field__desc">
             {t('settings.displayModeDescription')}
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div className="settings-group">
             {([
               { value: 'auto',   label: t('settings.displayModeAuto')   },
               { value: 'single', label: t('settings.displayModeSingle') },
@@ -22,7 +23,7 @@ export function PresentationSection({ settings, set, inView }: SectionProps) {
               { value: 'mirror', label: t('settings.displayModeMirror') },
             ] as { value: PresentationMode; label: string }[]).map(({ value, label }) => (
               <button key={value} type="button" onClick={() => set('presentationMode', value)}
-                style={groupBtnStyle(settings.presentationMode === value)}
+                className={groupBtnClass(settings.presentationMode === value)}
               >{label}</button>
             ))}
           </div>
@@ -32,16 +33,16 @@ export function PresentationSection({ settings, set, inView }: SectionProps) {
       {/* Directly under Display mode: adjusted more often than the other
           presenter-view options. */}
       {inView('presentation', t('settings.notesFontSize')) && (settings.presentationMode === 'dual' || settings.presentationMode === 'auto') && (
-        <div style={{ padding: '10px 0' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>{t('settings.notesFontSize')}</div>
-          <div style={{ display: 'flex', gap: 6 }}>
+        <div className="settings-field">
+          <div className="settings-field__label">{t('settings.notesFontSize')}</div>
+          <div className="settings-group">
             {([
               { value: 'sm', label: t('settings.fontSizeSmall')  },
               { value: 'md', label: t('settings.fontSizeMedium') },
               { value: 'lg', label: t('settings.fontSizeLarge')  },
             ] as { value: NotesFontSize; label: string }[]).map(({ value, label }) => (
               <button key={value} type="button" onClick={() => set('presenterNotesFontSize', value)}
-                style={groupBtnStyle(settings.presenterNotesFontSize === value)}
+                className={groupBtnClass(settings.presenterNotesFontSize === value)}
               >{label}</button>
             ))}
           </div>
@@ -52,24 +53,15 @@ export function PresentationSection({ settings, set, inView }: SectionProps) {
         <Row
           label={t('settings.laserPointerColour')}
           control={
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="settings-swatches">
               {LASER_COLOR_OPTIONS.map(({ value, label }) => (
                 <button
                   key={value}
                   type="button"
                   title={label}
                   onClick={() => set('laserColor', value as LaserColor)}
-                  style={{
-                    width: 22, height: 22, borderRadius: '50%', padding: 0,
-                    background: value,
-                    border: settings.laserColor === value
-                      ? '2px solid var(--accent)'
-                      : '2px solid transparent',
-                    outline: settings.laserColor === value ? '1px solid var(--accent)' : '1px solid var(--border)',
-                    outlineOffset: 2,
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                  }}
+                  className={`settings-swatch${settings.laserColor === value ? ' settings-swatch--active' : ''}`}
+                  style={{ background: value }}
                 />
               ))}
             </div>
@@ -102,18 +94,18 @@ export function PresentationSection({ settings, set, inView }: SectionProps) {
             control={<Toggle checked={settings.presenterShowTimer} onChange={(v) => set('presenterShowTimer', v)} />}
           />
           {settings.presenterShowTimer && (
-            <div style={{ padding: '6px 0 10px' }}>
-              <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 4 }}>{t('settings.countdownTarget')}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8, lineHeight: 1.5 }}>
+            <div className="settings-field--countdown">
+              <div className="settings-field__label settings-field__label--tight">{t('settings.countdownTarget')}</div>
+              <div className="settings-field__desc settings-field__desc--snug">
                 {t('settings.countdownTargetDescription')}
               </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <div className="settings-group settings-group--wrap">
                 {[0, 5, 10, 15, 20, 30, 45, 60].map((mins) => (
                   <button
                     key={mins}
                     type="button"
                     onClick={() => set('presenterCountdownMinutes', mins)}
-                    style={{ ...groupBtnStyle(settings.presenterCountdownMinutes === mins), flex: '0 1 auto', padding: '5px 10px' }}
+                    className={groupBtnClass(settings.presenterCountdownMinutes === mins, 'settings-group-btn--compact')}
                   >{mins === 0 ? t('settings.countdownOff') : t('settings.countdownMinutes', { count: mins })}</button>
                 ))}
               </div>

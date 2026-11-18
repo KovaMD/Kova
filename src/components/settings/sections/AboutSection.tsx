@@ -48,6 +48,7 @@ export function AboutSection({ inView, searching, aboutView, setAboutView }: Pic
     { kind: 'link', label: t('settings.aboutLinkCommunity'), description: t('settings.aboutLinkCommunityDescription'), url: 'https://matrix.to/#/#kova-md:matrix.org' },
     { kind: 'submenu', label: t('settings.showLicenses'),    description: t('settings.aboutLicensesDescription') },
   ];
+
   return (
     <>
       {inView('about', `Kova ${t('settings.aboutLicense')} ${ABOUT_ITEMS.map(l => `${l.label} ${l.description}`).join(' ')}`) && (
@@ -56,11 +57,7 @@ export function AboutSection({ inView, searching, aboutView, setAboutView }: Pic
             <button
               type="button"
               onClick={() => setAboutView('main')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5, marginBottom: 14,
-                background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                color: 'var(--text-secondary)', fontSize: 12, fontFamily: 'inherit',
-              }}
+              className="settings-back-btn"
             >
               <svg width="7" height="10" viewBox="0 0 7 10" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 1 1.5 5 6 9" />
@@ -68,41 +65,18 @@ export function AboutSection({ inView, searching, aboutView, setAboutView }: Pic
               {t('common.back')}
             </button>
 
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 10 }}>
+            <div className="settings-subheading">
               {t('settings.showLicenses')}
             </div>
 
-            <div style={{
-              border: '1px solid var(--border)',
-              borderRadius: 4,
-              overflow: 'hidden',
-            }}>
-              {THIRD_PARTY_LICENSES.map((entry, i) => (
-                <div
-                  key={entry.name}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr auto',
-                    alignItems: 'baseline',
-                    gap: '6px 12px',
-                    padding: '7px 10px',
-                    background: i % 2 === 0 ? 'var(--bg-app)' : 'transparent',
-                    borderBottom: i < THIRD_PARTY_LICENSES.length - 1 ? '1px solid var(--border)' : 'none',
-                  }}
-                >
+            <div className="settings-list">
+              {THIRD_PARTY_LICENSES.map((entry) => (
+                <div key={entry.name} className="settings-licence">
                   <div>
-                    <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500 }}>{entry.name}</span>
-                    <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 8 }}>{entry.copyright}</span>
+                    <span className="settings-licence__name">{entry.name}</span>
+                    <span className="settings-licence__copyright">{entry.copyright}</span>
                   </div>
-                  <span style={{
-                    fontSize: 10,
-                    color: 'var(--text-secondary)',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-alt)',
-                    borderRadius: 3,
-                    padding: '1px 6px',
-                    whiteSpace: 'nowrap',
-                  }}>
+                  <span className="settings-licence__badge">
                     {entry.license}
                   </span>
                 </div>
@@ -111,53 +85,40 @@ export function AboutSection({ inView, searching, aboutView, setAboutView }: Pic
           </>
         ) : (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
+            <div className="settings-about-header">
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Kova</div>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 3 }}>
+                <div className="settings-about-name">Kova</div>
+                <div className="settings-about-licence">
                   {t('settings.aboutLicense')}
                 </div>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+              <div className="settings-about-version">
                 v{APP_VERSION}
               </div>
             </div>
 
-            <div style={{
-              marginTop: 16,
-              border: '1px solid var(--border)',
-              borderRadius: 4,
-              overflow: 'hidden',
-            }}>
-              {ABOUT_ITEMS.map((item, i) => (
+            <div className="settings-list settings-list--spaced">
+              {ABOUT_ITEMS.map((item) => (
                 <button
                   key={item.kind === 'link' ? item.url : 'licenses'}
                   type="button"
                   onClick={() => item.kind === 'link' ? bestEffort(openUrl(item.url), 'openUrl') : setAboutView('licenses')}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                    width: '100%', textAlign: 'left', fontFamily: 'inherit',
-                    padding: '10px 12px',
-                    background: i % 2 === 0 ? 'var(--bg-app)' : 'transparent',
-                    border: 'none',
-                    borderBottom: i < ABOUT_ITEMS.length - 1 ? '1px solid var(--border)' : 'none',
-                    cursor: 'pointer',
-                  }}
+                  className="settings-about-item"
                 >
                   <div>
-                    <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>{item.label}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{item.description}</div>
+                    <div className="settings-about-item__label">{item.label}</div>
+                    <div className="settings-about-item__desc">{item.description}</div>
                   </div>
                   {item.kind === 'link' ? (
                     <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.2"
-                      strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-dim)', flexShrink: 0 }}
+                      strokeLinecap="round" strokeLinejoin="round" className="settings-about-item__icon"
                     >
                       <path d="M4 2h5v5" />
                       <path d="M8.8 2.2 2 9" />
                     </svg>
                   ) : (
                     <svg width="6" height="10" viewBox="0 0 6 10" fill="none" stroke="currentColor" strokeWidth="1.3"
-                      strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-dim)', flexShrink: 0 }}
+                      strokeLinecap="round" strokeLinejoin="round" className="settings-about-item__icon"
                     >
                       <path d="M1 1 5 5 1 9" />
                     </svg>

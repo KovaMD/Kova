@@ -10,6 +10,7 @@ import { WorkspaceSection } from './settings/sections/WorkspaceSection';
 import { PresentationSection } from './settings/sections/PresentationSection';
 import { UpdatesSection } from './settings/sections/UpdatesSection';
 import { AboutSection } from './settings/sections/AboutSection';
+import './settings/SettingsModal.css';
 
 // ── Main modal ────────────────────────────────────────────────────────────────
 // Each section stays mounted and gates its own items through inView(), so
@@ -70,29 +71,22 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
       cardStyle={{ padding: 0, display: 'flex', flexDirection: 'column', height: 'min(620px, 85vh)', overflow: 'hidden' }}
     >
         {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '16px 20px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0,
-        }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>{t('modals.settingsTitle')}</h2>
+        <div className="settings-header">
+          <h2 className="settings-title">{t('modals.settingsTitle')}</h2>
           <ModalCloseButton onClick={onClose} />
         </div>
 
-        <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0 }}>
+        <div className="settings-body">
 
           {/* Category rail */}
-          <nav style={{ width: 172, flexShrink: 0, borderRight: '1px solid var(--border)', padding: '12px 8px', overflowY: 'auto' }}>
-            <div style={{ marginBottom: 10 }}>
+          <nav className="settings-nav">
+            <div className="settings-search-wrap">
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t('settings.searchPlaceholder')}
-                style={{
-                  width: '100%', padding: '6px 10px', fontSize: 12, borderRadius: 4,
-                  border: '1px solid var(--border-alt)', background: 'var(--bg-input)',
-                  color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit',
-                }}
+                className="settings-search"
               />
             </div>
             {CATEGORIES.map((cat) => {
@@ -102,15 +96,7 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
                   key={cat.id}
                   type="button"
                   onClick={() => { setActiveCategory(cat.id); setQuery(''); setAboutView('main'); }}
-                  style={{
-                    display: 'block', width: '100%', textAlign: 'left', fontFamily: 'inherit',
-                    padding: '7px 9px', marginBottom: 1, borderRadius: 4, fontSize: 12.5,
-                    border: 'none', borderLeft: `2px solid ${active ? 'var(--accent)' : 'transparent'}`,
-                    background: active ? 'var(--accent-bg)' : 'transparent',
-                    color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    fontWeight: active ? 600 : 400,
-                    cursor: 'pointer',
-                  }}
+                  className={`settings-nav-item${active ? ' settings-nav-item--active' : ''}`}
                 >
                   {cat.label}
                 </button>
@@ -119,12 +105,9 @@ export function SettingsModal({ settings, availableUpdate, allThemes, isDirty, s
           </nav>
 
           {/* Category content */}
-          <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '14px 20px 20px' }}>
+          <div className="settings-content">
             {!searching && (
-              <div style={{
-                fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase',
-                letterSpacing: '0.1em', marginBottom: 10,
-              }}>
+              <div className="settings-category-heading">
                 {CATEGORIES.find((c) => c.id === activeCategory)?.label}
               </div>
             )}

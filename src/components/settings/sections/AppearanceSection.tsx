@@ -5,7 +5,7 @@ import type { Theme } from '../../../engine/theme';
 import { isFontAvailable } from '../../../engine/fontDetect';
 import { UI_LOCALE_OPTIONS, useT } from '../../../i18n';
 import type { SectionProps } from '../types';
-import { groupBtnStyle, Toggle, Row } from '../controls';
+import { groupBtnClass, Toggle, Row, Select } from '../controls';
 
 export function AppearanceSection({ settings, set, inView, allThemes }: SectionProps & { allThemes: Theme[] }) {
   const t = useT();
@@ -22,26 +22,27 @@ export function AppearanceSection({ settings, set, inView, allThemes }: SectionP
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- one-off check on open: depending on settings/onChange would re-run on every settings edit
   }, []);
+
   return (
     <>
       {inView('appearance', `${t('settings.appTheme')} ${t('settings.themeAuto')} ${t('settings.themeDark')} ${t('settings.themeLight')}`) && (
-        <div style={{ padding: '10px 0' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>{t('settings.appTheme')}</div>
-          <div style={{ display: 'flex', gap: 6 }}>
+        <div className="settings-field">
+          <div className="settings-field__label">{t('settings.appTheme')}</div>
+          <div className="settings-group">
             {([
               { value: 'auto',  label: t('settings.themeAuto')  },
               { value: 'dark',  label: t('settings.themeDark')  },
               { value: 'light', label: t('settings.themeLight') },
             ] as const).map(({ value, label }) => (
               <button key={value} type="button" onClick={() => set('uiTheme', value)}
-                style={groupBtnStyle(settings.uiTheme === value)}
+                className={groupBtnClass(settings.uiTheme === value)}
               >
                 {label}
               </button>
             ))}
           </div>
           {settings.uiTheme === 'auto' && (
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>
+            <div className="settings-field__hint">
               {t('settings.themeAutoDescription')}
             </div>
           )}
@@ -49,105 +50,42 @@ export function AppearanceSection({ settings, set, inView, allThemes }: SectionP
       )}
 
       {inView('appearance', t('settings.displayLanguage')) && (
-        <div style={{ padding: '10px 0' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>{t('settings.displayLanguage')}</div>
-          <div style={{ position: 'relative' }}>
-            <select
-              value={settings.locale}
-              onChange={(e) => set('locale', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '6px 28px 6px 10px',
-                fontSize: 12,
-                borderRadius: 4,
-                border: '1px solid var(--border-alt)',
-                background: 'var(--bg-input)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer',
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                outline: 'none',
-              }}
-            >
-              {UI_LOCALE_OPTIONS.map(({ code, label }) => (
-                <option key={code} value={code}>{label}</option>
-              ))}
-            </select>
-            <svg viewBox="0 0 10 6" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 10, height: 6, pointerEvents: 'none', color: 'var(--text-dim)' }}>
-              <path d="M0 0l5 6 5-6z" fill="currentColor" />
-            </svg>
-          </div>
+        <div className="settings-field">
+          <div className="settings-field__label">{t('settings.displayLanguage')}</div>
+          <Select value={settings.locale} onChange={(e) => set('locale', e.target.value)}>
+            {UI_LOCALE_OPTIONS.map(({ code, label }) => (
+              <option key={code} value={code}>{label}</option>
+            ))}
+          </Select>
         </div>
       )}
 
       {inView('appearance', t('settings.interfaceScale')) && (
-        <div style={{ padding: '10px 0' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>{t('settings.interfaceScale')}</div>
-          <div style={{ position: 'relative' }}>
-            <select
-              value={Math.round(settings.uiScale * 100)}
-              onChange={(e) => set('uiScale', Number(e.target.value) / 100)}
-              style={{
-                width: '100%',
-                padding: '6px 28px 6px 10px',
-                fontSize: 12,
-                borderRadius: 4,
-                border: '1px solid var(--border-alt)',
-                background: 'var(--bg-input)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer',
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                outline: 'none',
-              }}
-            >
-              {[70, 80, 90, 100, 110, 120, 130, 140, 150].map(pct => (
-                <option key={pct} value={pct}>{pct}%</option>
-              ))}
-            </select>
-            <svg viewBox="0 0 10 6" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 10, height: 6, pointerEvents: 'none', color: 'var(--text-dim)' }}>
-              <path d="M0 0l5 6 5-6z" fill="currentColor" />
-            </svg>
-          </div>
+        <div className="settings-field">
+          <div className="settings-field__label">{t('settings.interfaceScale')}</div>
+          <Select
+            value={Math.round(settings.uiScale * 100)}
+            onChange={(e) => set('uiScale', Number(e.target.value) / 100)}
+          >
+            {[70, 80, 90, 100, 110, 120, 130, 140, 150].map(pct => (
+              <option key={pct} value={pct}>{pct}%</option>
+            ))}
+          </Select>
         </div>
       )}
 
       {inView('appearance', t('settings.editorFont')) && (
-        <div style={{ padding: '10px 0' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>{t('settings.editorFont')}</div>
-          <div style={{ position: 'relative' }}>
-            <select
-              value={settings.editorFont}
-              onChange={(e) => set('editorFont', e.target.value as AppSettings['editorFont'])}
-              style={{
-                width: '100%',
-                padding: '6px 28px 6px 10px',
-                fontSize: 12,
-                fontFamily: availableFonts.find(o => o.value === settings.editorFont)?.family ?? 'monospace',
-                borderRadius: 4,
-                border: '1px solid var(--border-alt)',
-                background: 'var(--bg-input)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer',
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                outline: 'none',
-              }}
-            >
-              {availableFonts.map(({ value, label }) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-            <svg
-              viewBox="0 0 10 6"
-              style={{
-                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                width: 10, height: 6, pointerEvents: 'none', color: 'var(--text-dim)',
-              }}
-            >
-              <path d="M0 0l5 6 5-6z" fill="currentColor" />
-            </svg>
-          </div>
+        <div className="settings-field">
+          <div className="settings-field__label">{t('settings.editorFont')}</div>
+          <Select
+            value={settings.editorFont}
+            onChange={(e) => set('editorFont', e.target.value as AppSettings['editorFont'])}
+            style={{ fontFamily: availableFonts.find(o => o.value === settings.editorFont)?.family ?? 'monospace' }}
+          >
+            {availableFonts.map(({ value, label }) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </Select>
         </div>
       )}
 
@@ -168,18 +106,18 @@ export function AppearanceSection({ settings, set, inView, allThemes }: SectionP
       )}
 
       {inView('appearance', `${t('settings.contentWidth')} ${t('settings.contentWidthDescription')}`) && (
-        <div style={{ padding: '10px 0' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 4 }}>{t('settings.contentWidth')}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
+        <div className="settings-field">
+          <div className="settings-field__label settings-field__label--tight">{t('settings.contentWidth')}</div>
+          <div className="settings-field__desc">
             {t('settings.contentWidthDescription')}
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div className="settings-group">
             {([
               { value: 'fixed', label: t('settings.contentWidthFixed') },
               { value: 'full',  label: t('settings.contentWidthFull')  },
             ] as { value: AppSettings['editorContentWidth']; label: string }[]).map(({ value, label }) => (
               <button key={value} type="button" onClick={() => set('editorContentWidth', value)}
-                style={groupBtnStyle(settings.editorContentWidth === value)}
+                className={groupBtnClass(settings.editorContentWidth === value)}
               >{label}</button>
             ))}
           </div>
@@ -187,43 +125,16 @@ export function AppearanceSection({ settings, set, inView, allThemes }: SectionP
       )}
 
       {inView('appearance', `${t('settings.defaultTheme')} ${t('settings.defaultThemeDescription')}`) && (
-        <div style={{ padding: '10px 0' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>{t('settings.defaultTheme')}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>
+        <div className="settings-field">
+          <div className="settings-field__label">{t('settings.defaultTheme')}</div>
+          <div className="settings-field__note">
             {t('settings.defaultThemeDescription')}
           </div>
-          <div style={{ position: 'relative' }}>
-            <select
-              value={settings.defaultThemeId}
-              onChange={(e) => set('defaultThemeId', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '6px 28px 6px 10px',
-                fontSize: 12,
-                borderRadius: 4,
-                border: '1px solid var(--border-alt)',
-                background: 'var(--bg-input)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer',
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                outline: 'none',
-              }}
-            >
-              {allThemes.map(({ id, name }) => (
-                <option key={id} value={id}>{name}</option>
-              ))}
-            </select>
-            <svg
-              viewBox="0 0 10 6"
-              style={{
-                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                width: 10, height: 6, pointerEvents: 'none', color: 'var(--text-dim)',
-              }}
-            >
-              <path d="M0 0l5 6 5-6z" fill="currentColor" />
-            </svg>
-          </div>
+          <Select value={settings.defaultThemeId} onChange={(e) => set('defaultThemeId', e.target.value)}>
+            {allThemes.map(({ id, name }) => (
+              <option key={id} value={id}>{name}</option>
+            ))}
+          </Select>
         </div>
       )}
     </>

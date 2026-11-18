@@ -1,15 +1,9 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { ChangeEvent, CSSProperties, ReactNode } from 'react';
 
-// ── Shared button group style ─────────────────────────────────────────────────
+// ── Shared button group class ─────────────────────────────────────────────────
 
-export function groupBtnStyle(active: boolean): CSSProperties {
-  return {
-    flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 4,
-    border: `1px solid ${active ? 'var(--accent)' : 'var(--border-alt)'}`,
-    background: active ? 'var(--accent-bg)' : 'var(--bg-input)',
-    color: active ? 'var(--accent)' : 'var(--text-secondary)',
-    cursor: 'pointer', fontWeight: active ? 600 : 400, transition: 'all 0.12s',
-  };
+export function groupBtnClass(active: boolean, extra = ''): string {
+  return `settings-group-btn${active ? ' settings-group-btn--active' : ''}${extra ? ` ${extra}` : ''}`;
 }
 
 // ── Toggle switch ─────────────────────────────────────────────────────────────
@@ -21,30 +15,9 @@ export function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: 
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      style={{
-        flexShrink: 0,
-        position: 'relative',
-        width: 36,
-        height: 20,
-        borderRadius: 10,
-        border: 'none',
-        background: checked ? 'var(--accent)' : 'var(--btn-border)',
-        cursor: 'pointer',
-        transition: 'background 0.18s',
-        padding: 0,
-      }}
+      className={`settings-toggle${checked ? ' settings-toggle--on' : ''}`}
     >
-      <span style={{
-        position: 'absolute',
-        top: 3,
-        left: checked ? 19 : 3,
-        width: 14,
-        height: 14,
-        borderRadius: '50%',
-        background: '#fff',
-        transition: 'left 0.18s',
-        display: 'block',
-      }} />
+      <span className="settings-toggle__knob" />
     </button>
   );
 }
@@ -53,14 +26,35 @@ export function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: 
 
 export function Row({ label, description, control }: { label: string; description?: string; control: ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '10px 0' }}>
+    <div className="settings-row">
       <div>
-        <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.4 }}>{label}</div>
+        <div className="settings-row__label">{label}</div>
         {description && (
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>{description}</div>
+          <div className="settings-row__desc">{description}</div>
         )}
       </div>
       {control}
+    </div>
+  );
+}
+
+// ── Select with chevron ───────────────────────────────────────────────────────
+
+export function Select({ value, onChange, style, children }: {
+  value: string | number;
+  onChange: (e: ChangeEvent<HTMLSelectElement>) => void;
+  /** Only for data-driven values (e.g. previewing the chosen editor font). */
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
+  return (
+    <div className="settings-select-wrap">
+      <select value={value} onChange={onChange} className="settings-select" style={style}>
+        {children}
+      </select>
+      <svg viewBox="0 0 10 6" className="settings-select__chevron">
+        <path d="M0 0l5 6 5-6z" fill="currentColor" />
+      </svg>
     </div>
   );
 }
