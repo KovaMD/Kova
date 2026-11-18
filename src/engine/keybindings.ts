@@ -1,5 +1,5 @@
 import yaml from 'js-yaml';
-import * as ipc from '../platform/ipc';
+import { enginePorts, type KeybindingsStore } from './ports';
 
 export const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/i.test(
   (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.platform
@@ -30,8 +30,10 @@ export interface Keybindings {
 }
 
 /** Load keybindings from the platform config dir (created from defaults if absent). */
-export async function loadKeybindings(): Promise<Keybindings> {
-  const [path, content] = await ipc.loadKeybindings();
+export async function loadKeybindings(
+  store: KeybindingsStore = enginePorts().keybindings,
+): Promise<Keybindings> {
+  const [path, content] = await store.loadKeybindings();
   return { path, combos: parseKeybindings(content) };
 }
 

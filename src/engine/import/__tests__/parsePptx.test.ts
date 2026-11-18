@@ -1,20 +1,19 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// parsePptx reads the file via the read_file_b64 IPC wrapper — mock it to
-// hand back a hand-built in-memory PPTX zip instead of touching the filesystem.
-// Each wrapper forwards to one command-keyed mock so tests can dispatch on the
-// Rust command name.
-const mockedInvoke = vi.hoisted(() =>
-  vi.fn<(cmd: string, args?: Record<string, unknown>) => Promise<unknown>>(),
-);
-vi.mock('../../../platform/ipc', () => ({
-  readFileB64: (path: string) => mockedInvoke('read_file_b64', { path }),
-  writeAssetBytes: (args: Record<string, unknown>) => mockedInvoke('write_asset_bytes', { ...args }),
-}));
+// parsePptx reads the deck and writes extracted media through a FileSystem
+// port. Pass an in-memory fake that hands back a hand-built PPTX zip instead
+// of touching the filesystem. Each method forwards to one command-keyed mock
+// so tests can dispatch on the Rust command name.
+const mockedInvoke = vi.fn<(cmd: string, args?: Record<string, unknown>) => Promise<unknown>>();
+const fakeFs: FileSystem = {
+  readFileB64: (path) => mockedInvoke('read_file_b64', { path }) as Promise<string>,
+  writeAssetBytes: (args) => mockedInvoke('write_asset_bytes', { ...args }) as Promise<string>,
+};
 
 import JSZip from 'jszip';
 import { parsePptx } from '../parsePptx';
+import type { FileSystem } from '../../ports';
 
 beforeEach(() => {
   mockedInvoke.mockReset();
@@ -121,7 +120,7 @@ describe('parsePptx table geometry', () => {
       throw new Error(`unexpected invoke: ${cmd}`);
     });
 
-    const result = await parsePptx('/fake/deck.pptx', '/fake/dest');
+    const result = await parsePptx('/fake/deck.pptx', '/fake/dest', fakeFs);
     expect(result.slides).toHaveLength(1);
     const { blocks } = result.slides[0];
 
@@ -201,7 +200,7 @@ describe('parsePptx reading order', () => {
       throw new Error(`unexpected invoke: ${cmd}`);
     });
 
-    const result = await parsePptx('/fake/deck.pptx', '/fake/dest');
+    const result = await parsePptx('/fake/deck.pptx', '/fake/dest', fakeFs);
     const { blocks } = result.slides[0];
     expect(blocks.map((b) => b.kind)).toEqual(['image', 'body']);
   });
@@ -265,7 +264,7 @@ describe('parsePptx chrome suppression', () => {
       throw new Error(`unexpected invoke: ${cmd}`);
     });
 
-    const result = await parsePptx('/fake/deck.pptx', '/fake/dest');
+    const result = await parsePptx('/fake/deck.pptx', '/fake/dest', fakeFs);
     const { blocks } = result.slides[0];
 
     expect(blocks.some((b) => b.text?.includes('My Deck'))).toBe(false);
@@ -302,7 +301,7 @@ describe('parsePptx chrome suppression', () => {
       throw new Error(`unexpected invoke: ${cmd}`);
     });
 
-    const result = await parsePptx('/fake/deck.pptx', '/fake/dest');
+    const result = await parsePptx('/fake/deck.pptx', '/fake/dest', fakeFs);
     expect(result.slides[0].blocks.some((b) => b.kind === 'image')).toBe(false);
     expect(result.warnings.some((w) => /Skipped 1 Kova theme element/.test(w))).toBe(true);
   });
@@ -359,7 +358,7 @@ describe('parsePptx chrome suppression', () => {
       throw new Error(`unexpected invoke: ${cmd}`);
     });
 
-    const result = await parsePptx('/fake/deck.pptx', '/fake/dest');
+    const result = await parsePptx('/fake/deck.pptx', '/fake/dest', fakeFs);
     expect(result.slides).toHaveLength(2);
 
     const allText = result.slides.flatMap((s) => s.blocks.map((b) => b.text));
@@ -479,7 +478,7 @@ describe('parsePptx SmartArt', () => {
       throw new Error(`unexpected invoke: ${cmd}`);
     });
 
-    const result = await parsePptx('/fake/deck.pptx', '/fake/dest');
+    const result = await parsePptx('/fake/deck.pptx', '/fake/dest', fakeFs);
     expect(result.warnings.some((w) => w.includes('SmartArt skipped'))).toBe(true);
   });
 });
@@ -498,7 +497,7 @@ describe('parsePptx image dedup', () => {
       throw new Error(`unexpected invoke: ${cmd}`);
     });
 
-    const result = await parsePptx('/fake/deck.pptx', '/fake/dest');
+    const result = await parsePptx('/fake/deck.pptx', '/fake/dest', fakeFs);
     expect(result.slides).toHaveLength(3);
 
     // One write for the "AAAA" content, one for "BBBB" — the second "AAAA"

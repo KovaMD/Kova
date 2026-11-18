@@ -8,6 +8,11 @@ import '@fontsource/ibm-plex-mono/700.css';
 import App from "./App";
 import { AudienceApp } from "./AudienceApp";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { installTauriEnginePorts } from "./platform/enginePorts";
+
+// Composition root: bind the platform-free engine to its Tauri adapters
+// before anything renders (see src/engine/ports.ts).
+installTauriEnginePorts();
 
 // Last-resort fallback if a render crash escapes every inner boundary. Without
 // this, a crash inside a borderless/fullscreen presentation window (no

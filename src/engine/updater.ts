@@ -1,5 +1,4 @@
-import { check } from '@tauri-apps/plugin-updater';
-import * as ipc from '../platform/ipc';
+import { enginePorts, type UpdateService } from './ports';
 
 // ── Dev stub ──────────────────────────────────────────────────────────────────
 // Simulates a found update with a fake download to exercise all UI states.
@@ -32,10 +31,12 @@ export interface AvailableUpdate {
 const CHECK_TIMEOUT_MS = 15_000;
 const DOWNLOAD_TIMEOUT_MS = 5 * 60_000;
 
-export async function fetchUpdate(): Promise<AvailableUpdate | null> {
+export async function fetchUpdate(
+  updates: UpdateService = enginePorts().updates,
+): Promise<AvailableUpdate | null> {
   if (import.meta.env.DEV) return fetchUpdateDev();
 
-  const update = await check({ timeout: CHECK_TIMEOUT_MS });
+  const update = await updates.check({ timeout: CHECK_TIMEOUT_MS });
   if (!update) return null;
 
   return {
@@ -56,11 +57,11 @@ export async function fetchUpdate(): Promise<AvailableUpdate | null> {
   };
 }
 
-export async function canSelfUpdate(): Promise<boolean> {
-  return ipc.canSelfUpdate();
+export async function canSelfUpdate(updates: UpdateService = enginePorts().updates): Promise<boolean> {
+  return updates.canSelfUpdate();
 }
 
-export async function restartApp(): Promise<void> {
-  return ipc.restartApp();
+export async function restartApp(updates: UpdateService = enginePorts().updates): Promise<void> {
+  return updates.restartApp();
 }
 

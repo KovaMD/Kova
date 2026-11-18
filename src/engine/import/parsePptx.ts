@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { readFileB64, writeAssetBytes } from '../../platform/ipc';
+import { enginePorts, type FileSystem } from '../ports';
 
 // ── OOXML namespace URIs ──────────────────────────────────────────────────────
 
@@ -326,6 +326,7 @@ async function extractSlideBlocks(
   slidePath: string,
   imageCache: Map<string, string>,
   chromeSkipCounts: { kova: number; native: number },
+  fs: FileSystem,
 ): Promise<PptxBlock[]> {
   const blocks: PptxBlock[] = [];
   const spTree = q(slideDoc, P, 'spTree') ?? q(slideDoc, A, 'spTree');
@@ -420,7 +421,7 @@ async function extractSlideBlocks(
       const imgBase64 = uint8ArrayToBase64(imgBytes);
       const suggestedName = `pptx_slide${slideIndex + 1}_img${imgCounter}.${ext}`;
       try {
-        savedName = await writeAssetBytes({
+        savedName = await fs.writeAssetBytes({
           data: imgBase64,
           filename: suggestedName,
           destDir,
@@ -488,11 +489,15 @@ function resolveRelTarget(basePath: string, target: string): string {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export async function parsePptx(filePath: string, destDir: string): Promise<PptxParseResult> {
+export async function parsePptx(
+  filePath: string,
+  destDir: string,
+  fs: FileSystem = enginePorts().files,
+): Promise<PptxParseResult> {
   const warnings: string[] = [];
 
   // 1. Read binary via Rust, decode to Uint8Array
-  const b64: string = await readFileB64(filePath);
+  const b64: string = await fs.readFileB64(filePath);
   const bytes = base64ToUint8Array(b64);
 
   // 2. Open as ZIP
@@ -559,7 +564,7 @@ export async function parsePptx(filePath: string, destDir: string): Promise<Pptx
 
     const blocks = await extractSlideBlocks(
       slideDoc, slideRels, zip, slideW, slideH, i, destDir, warnings, slidePath,
-      imageCache, chromeSkipCounts,
+      imageCache, chromeSkipCounts, fs,
     );
     const speakerNotes = await extractSpeakerNotes(slideRels, slidePath, zip);
     slides.push({ blocks, speakerNotes });

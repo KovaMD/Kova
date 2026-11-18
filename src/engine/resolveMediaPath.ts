@@ -1,4 +1,3 @@
-import { convertFileSrc } from '@tauri-apps/api/core';
 import { normalizePath } from './resolvePath';
 import { MEDIA_EXTENSIONS, VIDEO_EXTENSIONS, extensionRegex } from './mediaTypes';
 
@@ -20,18 +19,25 @@ export function localPathFromMediaSrc(src: string, docDir: string): string | nul
   return normalizePath(docDir, p).replace(/[?#].*$/, '');
 }
 
+/** Turns an absolute local path into a URL the webview can load (Tauri's convertFileSrc). */
+export type ToAssetUrl = (path: string) => string;
+
 // localImageUrls maps absolute local paths → data: URLs loaded via read_file_b64.
-// Falls back to convertFileSrc (asset://) while the async load is in flight.
-export function resolveImageSrc(src: string, docDir: string, localImageUrls: Map<string, string>): string {
+// Falls back to toAssetUrl (asset://) while the async load is in flight.
+export function resolveImageSrc(
+  src: string, docDir: string, localImageUrls: Map<string, string>, toAssetUrl: ToAssetUrl,
+): string {
   const localPath = localPathFromMediaSrc(src, docDir);
-  if (localPath) return localImageUrls.get(localPath) ?? convertFileSrc(localPath.replace(/\\/g, '/'));
+  if (localPath) return localImageUrls.get(localPath) ?? toAssetUrl(localPath.replace(/\\/g, '/'));
   if (/^(https?|data|asset|tauri):\/\//i.test(src)) return src;
   const p = decodePathComponent(src);
-  if (p.startsWith('/') || /^[A-Za-z]:[/\\]/.test(p)) return convertFileSrc(p.replace(/\\/g, '/'));
+  if (p.startsWith('/') || /^[A-Za-z]:[/\\]/.test(p)) return toAssetUrl(p.replace(/\\/g, '/'));
   if (!docDir) return p;
-  return convertFileSrc(normalizePath(docDir, p).replace(/\\/g, '/'));
+  return toAssetUrl(normalizePath(docDir, p).replace(/\\/g, '/'));
 }
 
-export function resolveHtmlSrcs(html: string, docDir: string, localImageUrls: Map<string, string>): string {
-  return html.replace(/src="([^"]*)"/g, (_, src) => `src="${resolveImageSrc(src, docDir, localImageUrls)}"`);
+export function resolveHtmlSrcs(
+  html: string, docDir: string, localImageUrls: Map<string, string>, toAssetUrl: ToAssetUrl,
+): string {
+  return html.replace(/src="([^"]*)"/g, (_, src) => `src="${resolveImageSrc(src, docDir, localImageUrls, toAssetUrl)}"`);
 }
