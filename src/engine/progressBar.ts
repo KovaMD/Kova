@@ -5,7 +5,7 @@
 // previously each carried their own near-identical regex. The markup is shared
 // by the block <ProgressBar> (elements.tsx) and the table-cell HTML string, and
 // the PPTX exporter reverse-engineers a cell by these exact class names (see
-// progressBarText in exportPptx.ts).
+// progressBarText in export/pptx/elements/table.ts).
 
 import { escapeHtml } from './html';
 

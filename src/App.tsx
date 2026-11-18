@@ -51,7 +51,7 @@ import { extractFrontmatter, patchFrontmatter, frontmatterBlockLength } from './
 import { parseBgLine, formatBgLine } from './engine/parser/bgImage';
 import { fetchUpdate } from './engine/updater';
 import { APP_VERSION } from './version';
-import { exportToPptx } from './engine/export/exportPptx';
+import { exportToPptx } from './engine/export/pptx';
 import { BUILT_IN_THEMES, parseThemeYaml, resolveCustomThemeLibrary, sanitiseThemeOverrides, type ThemeOverridePatch, type ThemeLibrary } from './engine/theme';
 import type { Slide, ListItem, Frontmatter } from './engine/types';
 import { parseAspectRatio, nextAspectRatio } from './engine/types';

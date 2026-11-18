@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import JSZip from 'jszip';
-import { exportToPptx } from '../../exportPptx';
+import { exportToPptx } from '..';
 import { DEFAULT_THEME } from '../../../theme';
 import type { ListItem, Slide, SlideElement } from '../../../types';
 

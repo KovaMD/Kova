@@ -4,7 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
-import { exportToPptx } from '../exportPptx';
+import { exportToPptx } from '../pptx';
 import { parseDocument } from '../../parser/markdownToSlides';
 import { BUILT_IN_THEMES, DEFAULT_THEME, sanitiseThemeOverrides, type Theme } from '../../theme';
 

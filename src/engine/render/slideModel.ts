@@ -1,7 +1,7 @@
 // Shared slide presentation model (refactor card P2-01).
 //
 // The live preview (SlideRenderer + themeToVars) and the PPTX export
-// (exportPptx addSlide) each used to derive the same per-slide "frame" rules
+// (pptx/index.ts addSlide) each used to derive the same per-slide "frame" rules
 // on their own: whether the header/footer bar shows (incl. `hide_on_title`,
 // issue #254), where the theme logo goes, the per-slide colour precedence
 // (`<!-- color -->` vs Marp `_class: invert`, issue #146) and the deck's

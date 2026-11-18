@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import JSZip from 'jszip';
-import { exportToPptx } from '../exportPptx';
+import { exportToPptx } from '../pptx';
 import { DEFAULT_THEME } from '../../theme';
 import { parseDocument } from '../../parser/markdownToSlides';
 import { buildTocEntries } from '../../toc';
