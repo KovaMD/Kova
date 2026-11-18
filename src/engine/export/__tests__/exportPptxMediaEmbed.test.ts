@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 import { exportToPptx } from '../exportPptx';
 import { DEFAULT_THEME } from '../../theme';
 import type { Slide, SlideElement } from '../../types';
+import type { AssetLoader } from '../../ports';
 
 // Tiny valid-enough data URL so pptxgenjs accepts addMedia(type: 'video').
 const TINY_MP4 =
@@ -51,6 +52,24 @@ describe('exportPptx real media embeds (issue #219)', () => {
     expect(media.length).toBeGreaterThanOrEqual(1);
     const rels = await zip.file('ppt/slides/_rels/slide1.xml.rels')!.async('string');
     expect(rels).toMatch(/relationships\/video/);
+  });
+
+  it('embeds a local asset:// video read through the injected AssetLoader', async () => {
+    // In-memory fake: no Tauri, no installed ports.
+    const reads: string[] = [];
+    const assets: AssetLoader = {
+      readFileB64: async (path) => { reads.push(path); return TINY_MP4.split(',')[1]; },
+      fetchUrlB64: async () => { throw new Error('unexpected fetch'); },
+    };
+    const slide = makeSlide('media', [
+      { type: 'video', label: 'Local', src: 'asset://localhost/clips/demo%20one.mp4' },
+    ]);
+    const res = await exportToPptx([slide], {}, DEFAULT_THEME, 'en', assets);
+    expect(reads).toEqual(['/clips/demo one.mp4']);
+    expect(res.warnings).toEqual([]);
+    const zip = await JSZip.loadAsync(res.base64, { base64: true });
+    const media = Object.keys(zip.files).filter((f) => f.startsWith('ppt/media/') && f.endsWith('.mp4'));
+    expect(media.length).toBeGreaterThanOrEqual(1);
   });
 
   it('falls back to a text placeholder when the YouTube URL has no id', async () => {
