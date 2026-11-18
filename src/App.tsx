@@ -10,7 +10,6 @@ import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, usePanelRef
 import { ThumbnailPanel } from './components/layout/ThumbnailPanel';
 import { EditorPanel } from './components/layout/EditorPanel';
 import type { EditorHandle, FormatCmd } from './components/layout/EditorPanel';
-import { resolveImagePathForMarkdown } from './components/editor/mediaSnippet';
 import { InspectorPanel } from './components/layout/InspectorPanel';
 import { StatusBar } from './components/layout/StatusBar';
 import { PresentationOverlay } from './components/presentation/PresentationOverlay';
@@ -30,7 +29,6 @@ import { isMarp, importMarp } from './engine/import/marp';
 import { parsePptx } from './engine/import/parsePptx';
 import { pptxToMarkdown } from './engine/import/pptxToMarkdown';
 import { toRawUrl } from './engine/import/toRawUrl';
-import { IMAGE_DIALOG_FILTER } from './engine/mediaTypes';
 import { basename, dirname, dirnameOn, pathSeparator, toForwardSlashes } from './engine/paths';
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
 import { setDiagramRenderer } from './engine/export/diagramRenderer';
@@ -44,11 +42,10 @@ import { loadKeybindings, matchShortcut, getCombo, isMac } from './engine/keybin
 import type { Keybindings } from './engine/keybindings';
 import { I18nProvider, useLocaleTranslator, formatFallbackDate } from './i18n';
 
-import { parseDocument, splitIntoRawSlides } from './engine/parser/markdownToSlides';
+import { parseDocument } from './engine/parser/markdownToSlides';
 import { collectDiagnostics, formatCheckReport } from './engine/parser/diagnostics';
 import { evaluateImportCheck } from './engine/cli/importCheckGate';
-import { extractFrontmatter, patchFrontmatter, frontmatterBlockLength } from './engine/parser/frontmatter';
-import { parseBgLine, formatBgLine } from './engine/parser/bgImage';
+import { extractFrontmatter, patchFrontmatter } from './engine/parser/frontmatter';
 import { fetchUpdate } from './engine/updater';
 import { APP_VERSION } from './version';
 import { exportToPptx } from './engine/export/exportPptx';
@@ -62,6 +59,7 @@ import { useFindReplace } from './hooks/useFindReplace';
 import { useOffscreenCapture } from './hooks/useOffscreenCapture';
 import { useExports } from './hooks/useExports';
 import { useThemeState } from './hooks/useThemeState';
+import { useSlideEditing } from './hooks/useSlideEditing';
 import { OffscreenDeck } from './components/OffscreenDeck';
 import type { PendingCli, CliThemeArg, PendingImport, PendingExport } from './types/cli';
 
@@ -240,43 +238,6 @@ async function runCliImport(imp: PendingImport, check: boolean): Promise<void> {
       : raw;
     await fail(msg);
   }
-}
-
-// Shared by the 7 slide-editing handlers below: pulls the frontmatter block
-// off `prev`, splits the body into per-slide segments via the *same*
-// fence-aware splitIntoRawSlides the real parser uses (not a hand-rolled
-// body.split(/^---$/m), which would mis-split on a literal '---' line
-// inside a fenced code sample — segment N would then silently stop matching
-// the slide the user actually sees as N), lets `edit` transform the segment
-// array, and rejoins. `edit` returning null means "no-op" (e.g. an
-// out-of-range index) and `prev` is returned unchanged. Module-level (not a
-// hook/closure) since it has no dependency on component state — also makes
-// it directly unit-testable without rendering the component.
-//
-// `rejoin: 'trim'` normalises each segment's surrounding whitespace — for
-// operations that already restructure the segment list (reorder/duplicate/
-// insert/delete), where exact byte preservation isn't meaningful since
-// indices shift anyway.
-// `rejoin: 'preserve'` keeps every segment's exact original bytes (only the
-// edited segment's own text changes) — for in-place edits (toggle hidden,
-// set/clear background), so every *other* segment stays byte-identical and
-// the parser's positional cache still hits for them (no thumbnail remount /
-// scroll-position loss on an unrelated slide's edit). splitIntoRawSlides
-// strips each '---' boundary line rather than leaving it attached to a
-// segment, so 'preserve' reinserts it with '\n---\n'.
-export function editSlideSegments(
-  prev: string,
-  edit: (segments: string[]) => string[] | null,
-  rejoin: 'trim' | 'preserve',
-): string {
-  const fmBlock = prev.slice(0, frontmatterBlockLength(prev));
-  const body = prev.slice(fmBlock.length);
-  const segments = splitIntoRawSlides(body);
-  const next = edit(segments);
-  if (next === null) return prev;
-  return rejoin === 'trim'
-    ? fmBlock + next.map((s) => s.trim()).join('\n\n---\n\n') + '\n'
-    : fmBlock + next.join('\n---\n');
 }
 
 export default function App() {
@@ -1619,196 +1580,27 @@ export default function App() {
     setIsDirty(true);
   }, []);
 
-  const handleSlideReorder = useCallback((fromIndex: number, toIndex: number) => {
-    if (fromIndex === toIndex) return;
-    setContent((prev) => editSlideSegments(prev, (segments) => {
-      if (fromIndex < 0 || fromIndex >= segments.length || toIndex < 0 || toIndex >= segments.length) return null;
-      const reordered = [...segments];
-      const [moved] = reordered.splice(fromIndex, 1);
-      reordered.splice(toIndex, 0, moved);
-      return reordered;
-    }, 'trim'));
-    setIsDirty(true);
-    setCurrentSlideIndex(toIndex);
-    setTimeout(() => editorRef.current?.scrollToSlide(toIndex), 50);
-  }, []);
-
-  const handleDuplicateSlide = useCallback((index: number) => {
-    setContent((prev) => editSlideSegments(prev, (segments) => {
-      if (index < 0 || index >= segments.length) return null;
-      const next = [...segments];
-      next.splice(index + 1, 0, segments[index]);
-      return next;
-    }, 'trim'));
-    setIsDirty(true);
-    setCurrentSlideIndex(index + 1);
-    setTimeout(() => editorRef.current?.scrollToSlide(index + 1), 50);
-  }, []);
-
-  const handleNewSlide = useCallback((index: number) => {
-    setContent((prev) => editSlideSegments(prev, (segments) => {
-      if (index < 0 || index >= segments.length) return null;
-      const next = [...segments];
-      next.splice(index + 1, 0, '');
-      return next;
-    }, 'trim'));
-    setIsDirty(true);
-    setCurrentSlideIndex(index + 1);
-    setTimeout(() => editorRef.current?.scrollToSlide(index + 1), 50);
-  }, []);
-
-  const handleDeleteSlide = useCallback((index: number) => {
-    setContent((prev) => editSlideSegments(prev, (segments) => {
-      if (index < 0 || index >= segments.length || segments.length <= 1) return null;
-      const next = [...segments];
-      next.splice(index, 1);
-      return next;
-    }, 'trim'));
-    setIsDirty(true);
-    const newIndex = Math.max(0, Math.min(index, slides.length - 2));
-    setCurrentSlideIndex(newIndex);
-    setTimeout(() => editorRef.current?.scrollToSlide(newIndex), 50);
-  }, [slides.length]);
-
-  // Multi-select delete (ThumbnailPanel). Refuses to remove every slide,
-  // same guard as the single-slide delete above.
-  const handleDeleteMultiple = useCallback((indices: number[]) => {
-    if (indices.length === 0) return;
-    setContent((prev) => editSlideSegments(prev, (segments) => {
-      const toRemove = new Set(indices);
-      if (toRemove.size >= segments.length) return null;
-      return segments.filter((_, i) => !toRemove.has(i));
-    }, 'trim'));
-    setIsDirty(true);
-    const newIndex = Math.max(0, Math.min(Math.min(...indices), slides.length - indices.length - 1));
-    setCurrentSlideIndex(newIndex);
-    setTimeout(() => editorRef.current?.scrollToSlide(newIndex), 50);
-  }, [slides.length]);
-
-  // Multi-select block drag-reorder (ThumbnailPanel). `anchorIndex` is the
-  // specific thumbnail the user physically grabbed — its position relative to
-  // `toIndex` decides whether the block lands before or after the drop
-  // target, the same rule handleSlideReorder's two-step splice produces for
-  // a single slide (drag down → land after target; drag up → land before).
-  // The landing position is computed up front, synchronously, from the
-  // indices alone — not from inside the setContent updater, whose callback
-  // may run later (or twice, in StrictMode) rather than during this call.
-  const handleReorderMultiple = useCallback((fromIndices: number[], anchorIndex: number, toIndex: number) => {
-    if (fromIndices.length === 0 || fromIndices.includes(toIndex)) return;
-    const fromSet = new Set(fromIndices);
-    let restTargetPos = 0;
-    for (let i = 0; i < toIndex; i++) if (!fromSet.has(i)) restTargetPos++;
-    const insertAt = anchorIndex < toIndex ? restTargetPos + 1 : restTargetPos;
-
-    setContent((prev) => editSlideSegments(prev, (segments) => {
-      if (toIndex < 0 || toIndex >= segments.length) return null;
-      for (const i of fromIndices) if (i < 0 || i >= segments.length) return null;
-      const moving = [...fromIndices].sort((a, b) => a - b).map((i) => segments[i]);
-      const rest = segments.filter((_, i) => !fromSet.has(i));
-      const next = [...rest];
-      next.splice(insertAt, 0, ...moving);
-      return next;
-    }, 'trim'));
-    setIsDirty(true);
-    setCurrentSlideIndex(insertAt);
-    setTimeout(() => editorRef.current?.scrollToSlide(insertAt), 50);
-  }, []);
-
-  // Adds or removes a `<!-- name -->` marker line at the top of one slide.
-  const toggleSlideMarker = useCallback((index: number, name: 'hidden' | 'todo') => {
-    const re = new RegExp(`<!--\\s*${name}\\s*-->`);
-    const lineRe = new RegExp(`[ \\t]*<!--\\s*${name}\\s*-->[ \\t]*\\r?\\n?`);
-    setContent((prev) => editSlideSegments(prev, (segments) => {
-      if (index < 0 || index >= segments.length) return null;
-      const next = [...segments];
-      const seg = next[index];
-      next[index] = re.test(seg)
-        ? seg.replace(lineRe, '')
-        : seg.replace(/^(\s*)/, `$1<!-- ${name} -->\n`);
-      return next;
-    }, 'preserve'));
-    setIsDirty(true);
-  }, []);
-
-  const handleToggleHidden = useCallback((index: number) => toggleSlideMarker(index, 'hidden'), [toggleSlideMarker]);
-  const handleToggleTodo = useCallback((index: number) => toggleSlideMarker(index, 'todo'), [toggleSlideMarker]);
-
-  function setSlideBackgroundInRaw(raw: string, src: string | null): string {
-    // Keep formatting stable: only touch bg lines; keep other lines byte-identical.
-    const lines = raw.split('\n');
-    const out: string[] = [];
-    let inFence = false;
-    let handled = false;
-
-    for (const line of lines) {
-      const t = line.trim();
-      if (/^(`{3,}|~{3,})/.test(t)) {
-        inFence = !inFence;
-        out.push(line);
-        continue;
-      }
-      if (!inFence) {
-        const parsed = parseBgLine(t);
-        if (parsed) {
-          if (src && !handled) {
-            const indent = line.match(/^\s*/)?.[0] ?? '';
-            out.push(`${indent}${formatBgLine({ ...parsed, src })}`);
-          }
-          handled = true;
-          continue; // remove original bg line(s)
-        }
-      }
-      out.push(line);
-    }
-
-    if (src && !handled) {
-      // Insert near the top, after leading blanks and any `<!-- hidden -->`/`<!-- todo -->` markers.
-      let i = 0;
-      while (i < out.length && out[i].trim() === '') i++;
-      while (/^<!--\s*(?:hidden|todo)\s*-->$/.test(out[i]?.trim() ?? '')) i++;
-      out.splice(i, 0, formatBgLine({ src, size: 'cover' }));
-      if (out[i + 1] && out[i + 1].trim() !== '') out.splice(i + 1, 0, '');
-    }
-
-    return out.join('\n');
-  }
-
-  const handleSetSlideBackground = useCallback(async (index: number) => {
-    if (!filePath) {
-      handleWarn(t('editor.saveFirstDropMedia'));
-      return;
-    }
-    const selected = await open({
-      filters: [IMAGE_DIALOG_FILTER],
-      multiple: false,
-    });
-    if (!selected || Array.isArray(selected)) return;
-
-    const relPath = await resolveImagePathForMarkdown(selected, filePath, handleWarn);
-    if (!relPath) return;
-
-    setContent((prev) => editSlideSegments(prev, (segments) => {
-      if (index < 0 || index >= segments.length) return null;
-      const next = [...segments];
-      next[index] = setSlideBackgroundInRaw(next[index], relPath);
-      return next;
-    }, 'preserve'));
-    setIsDirty(true);
-    setCurrentSlideIndex(index);
-    setTimeout(() => editorRef.current?.scrollToSlide(index), 50);
-  }, [filePath, handleWarn, t]);
-
-  const handleClearSlideBackground = useCallback((index: number) => {
-    setContent((prev) => editSlideSegments(prev, (segments) => {
-      if (index < 0 || index >= segments.length) return null;
-      const next = [...segments];
-      next[index] = setSlideBackgroundInRaw(next[index], null);
-      return next;
-    }, 'preserve'));
-    setIsDirty(true);
-    setCurrentSlideIndex(index);
-    setTimeout(() => editorRef.current?.scrollToSlide(index), 50);
-  }, []);
+  const {
+    handleSlideReorder,
+    handleDuplicateSlide,
+    handleNewSlide,
+    handleDeleteSlide,
+    handleDeleteMultiple,
+    handleReorderMultiple,
+    handleToggleHidden,
+    handleToggleTodo,
+    handleSetSlideBackground,
+    handleClearSlideBackground,
+  } = useSlideEditing({
+    setContent,
+    setIsDirty,
+    setCurrentSlideIndex,
+    editorRef,
+    slideCount: slides.length,
+    filePath,
+    onWarn: handleWarn,
+    t,
+  });
 
   const findReplace = useFindReplace({ editorRef, slideCount: slides.length, onSelectSlide: setCurrentSlideIndex });
 

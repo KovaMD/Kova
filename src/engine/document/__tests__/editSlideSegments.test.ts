@@ -1,6 +1,5 @@
-// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { editSlideSegments } from '../App';
+import { editSlideSegments } from '../editSlideSegments';
 
 function doc(fm: string, slides: string[]): string {
   return `---\n${fm}\n---\n` + slides.join('\n---\n');
