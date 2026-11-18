@@ -19,6 +19,9 @@ import { parseAspectRatio } from '../types';
 import type { Theme } from '../theme';
 import { resolveDeckMeta, resolveSlideFrame } from '../render/slideModel';
 import type { DeckMeta, FooterFrame, SlideFrame } from '../render/slideModel';
+import type { PptxSlide } from './pptx/pptxTypes';
+import { withThemeCodeBg } from './pptx/context';
+import type { Area, ElementRenderContext, SlideRenderContext, StepTarget } from './pptx/context';
 
 mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'antiscript' });
 
@@ -141,7 +144,6 @@ const M = 0.5;     // standard margin
 const HEAD_H = 0.4;
 const FOOT_H = 0.35;
 
-interface Area { x: number; y: number; w: number; h: number }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
@@ -351,10 +353,10 @@ export async function exportToPptx(
   const perSlideStepTargets: StepTarget[][] = [];
 
   for (let i = 0; i < resolvedSlides.length; i++) {
-    const pSlide = pres.addSlide();
+    const pSlide: PptxSlide = pres.addSlide();
     const stepTargets: StepTarget[] = [];
     const position = { slideNumber: i + 1, totalSlides: slides.length };
-    addSlide(pSlide as PS, resolvedSlides[i], theme, deckMeta, position, H, warnings, logoDataUrl, logoAr, stepTargets);
+    addSlide(pSlide, resolvedSlides[i], theme, deckMeta, position, H, warnings, logoDataUrl, logoAr, stepTargets);
     perSlideStepTargets.push(stepTargets);
   }
 
@@ -423,15 +425,6 @@ function applyFadeTransition(xml: string): string {
 // index gets its own <p:set>, batched onto the same click as sibling
 // behaviours under one clickEffect instead of merged into one target's
 // <p:pRg>. See the `range: [idx, idx]` comment in applyStepAnimations.
-
-interface StepTarget {
-  step: number;
-  objectName: string;
-  /** 0-based paragraph indices within that (merged text box) shape, in the
-   *  order they were written — omitted for a whole-shape target (a lone
-   *  image/code-block/callout that already gets its own dedicated shape). */
-  paragraphs?: number[];
-}
 
 // A shape only needs an objectName when it actually has a stepped target —
 // area coordinates are already unique per addElements() call within one
@@ -606,11 +599,8 @@ async function applyPptxPostProcessing(base64: string, perSlideTargets: StepTarg
 
 // ── Per-slide dispatcher ──────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- pptxgenjs slide surface is untyped here; proper pptx types land in Phase 5
-type PS = any;
-
 function addSlide(
-  s: PS, slide: Slide, t: Theme, deckMeta: DeckMeta,
+  s: PptxSlide, slide: Slide, t: Theme, deckMeta: DeckMeta,
   position: { slideNumber: number; totalSlides: number }, H: number, warnings: string[],
   logoDataUrl: string | null, logoAr: number | null, stepTargets: StepTarget[] = [],
 ) {
@@ -633,15 +623,25 @@ function addSlide(
   // or a functional notation (`rgb(...)`). PptxGenJS only accepts 6-digit hex,
   // so convert any CSS colour to hex before it reaches the layout renderers —
   // otherwise pptxgenjs silently falls back to black (DEF_FONT_COLOR).
-  const { colours } = frame;
-  const slideTextColor = cssColorToHex(colours.text);
-  const slideHeadingColor = cssColorToHex(colours.heading);
-  const slideBoldColor = cssColorToHex(colours.bold);
+  //
   // Known difference from the preview: the invert code background is only
-  // passed on title-content, code and math (and the default) layouts. Split,
-  // two-/three-column, bsp and grid keep the theme code_bg, so those layout
-  // calls below deliberately don't receive slideCodeBg.
-  const slideCodeBg = colours.codeBgOverride;
+  // honoured on title-content, code and math (and the default) layouts.
+  // Split, two-/three-column, bsp and grid keep the theme code_bg, so those
+  // layouts deliberately render through withThemeCodeBg(ctx).
+  const { colours } = frame;
+  const ctx: SlideRenderContext = {
+    s, slide, theme: t,
+    area: { x: M, y: cy, w: W - M * 2, h: ch },
+    slideH: H,
+    colours: {
+      text: cssColorToHex(colours.text),
+      heading: cssColorToHex(colours.heading),
+      bold: cssColorToHex(colours.bold),
+      codeBg: colours.codeBgOverride,
+    },
+    warnings,
+    steps: stepTargets,
+  };
 
   if (slide.backgroundImage) {
     const ar = slide.backgroundImage.size === 'contain' ? slide.backgroundImage.aspectRatio : undefined;
@@ -649,22 +649,22 @@ function addSlide(
   }
 
   switch (slide.layout) {
-    case 'title':         addTitleSlide(s, slide, t, cy, ch); break;
-    case 'section':       addSectionSlide(s, slide, t, cy, ch); break;
-    case 'title-content': addTitleContentSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, slideBoldColor, stepTargets); break;
-    case 'title-image':   addTitleImageSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, stepTargets); break;
-    case 'split':         addSplitSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, stepTargets); break;
-    case 'full-bleed':    addFullBleedSlide(s, slide, t, H, warnings); break;
-    case 'quote':         addQuoteSlide(s, slide, t, cy, ch, slideTextColor); break;
-    case 'two-column':    addMultiColumnSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, 2, stepTargets); break;
-    case 'three-column':  addMultiColumnSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, 3, stepTargets); break;
-    case 'bsp':           addBspSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, stepTargets); break;
-    case 'grid':          addGridSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor, slideBoldColor, stepTargets); break;
-    case 'media':         addMediaSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideHeadingColor); break;
-    case 'code':          addCodeSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, stepTargets); break;
-    case 'math':          addTitleContentSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, slideBoldColor, stepTargets); break;
-    case 'blank':         addBlankSlide(s, t); break;
-    default:              addTitleContentSlide(s, slide, t, cy, ch, warnings, slideTextColor, slideCodeBg, slideHeadingColor, slideBoldColor, stepTargets);
+    case 'title':         addTitleSlide(ctx); break;
+    case 'section':       addSectionSlide(ctx); break;
+    case 'title-content': addTitleContentSlide(ctx); break;
+    case 'title-image':   addTitleImageSlide(ctx); break;
+    case 'split':         addSplitSlide(withThemeCodeBg(ctx)); break;
+    case 'full-bleed':    addFullBleedSlide(ctx); break;
+    case 'quote':         addQuoteSlide(ctx); break;
+    case 'two-column':    addMultiColumnSlide(withThemeCodeBg(ctx), 2); break;
+    case 'three-column':  addMultiColumnSlide(withThemeCodeBg(ctx), 3); break;
+    case 'bsp':           addBspSlide(withThemeCodeBg(ctx)); break;
+    case 'grid':          addGridSlide(withThemeCodeBg(ctx)); break;
+    case 'media':         addMediaSlide(ctx); break;
+    case 'code':          addCodeSlide(ctx); break;
+    case 'math':          addTitleContentSlide(ctx); break;
+    case 'blank':         addBlankSlide(ctx); break;
+    default:              addTitleContentSlide(ctx);
   }
 
   if (hasHead) addHeaderBar(s, t, frame.header.segments);
@@ -672,7 +672,7 @@ function addSlide(
   if (logoDataUrl && frame.logo.placement !== 'hidden') {
     addLogo(s, logoDataUrl, logoAr, frame.logo.position, frame.logo.opacity, H);
   }
-  if (slide.references.length > 0) addReferences(s, slide.references, t, H, hasFoot, slideTextColor);
+  if (slide.references.length > 0) addReferences(ctx, hasFoot);
   if (slide.speakerNotes) s.addNotes(slide.speakerNotes);
 }
 
@@ -688,7 +688,9 @@ function titleVAlign(a: Theme['layout']['title_align'], hasSubs: boolean): 'top'
   return a === 'bottom-left' ? 'bottom' : 'middle';
 }
 
-function addTitleSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) {
+function addTitleSlide(ctx: SlideRenderContext) {
+  const { s, slide, theme: t } = ctx;
+  const { y: cy, h: ch } = ctx.area;
   s.background = { fill: hex(t.colors.primary) };
   const subtitles = slide.elements.filter((e) => e.type === 'paragraph') as Extract<SlideElement, { type: 'paragraph' }>[];
   const hasSubs   = subtitles.length > 0;
@@ -719,7 +721,9 @@ function addTitleSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) {
   }
 }
 
-function addSectionSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) {
+function addSectionSlide(ctx: SlideRenderContext) {
+  const { s, slide, theme: t } = ctx;
+  const { y: cy, h: ch } = ctx.area;
   s.background = { fill: hex(t.colors.section_bg) };
   if (slide.title) {
     s.addText(slide.title, {
@@ -734,22 +738,26 @@ function addSectionSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number) 
   }
 }
 
-function addTitleContentSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), codeBg?: string, hc: string = tc, boldColor: string = tc, stepTargets: StepTarget[] = []) {
+function addTitleContentSlide(ctx: SlideRenderContext) {
+  const { s, slide, theme: t } = ctx;
+  const { y: cy, h: ch } = ctx.area;
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.85 : 0;
   if (slide.title) {
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 28, bold: true,
-      color: hc,
+      color: ctx.colours.heading,
       fontFace: firstFont(t.fonts.title),
       align: t.layout.heading_align, valign: 'middle', wrap: true, shrinkText: true,
     });
   }
-  addElements(s, slide.elements, t, { x: M, y: cy + hh + 0.1, w: W - M * 2, h: ch - hh - 0.1 }, warnings, tc, codeBg, boldColor, stepTargets);
+  addElements(ctx, slide.elements, { x: M, y: cy + hh + 0.1, w: W - M * 2, h: ch - hh - 0.1 });
 }
 
-function addTitleImageSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, stepTargets: StepTarget[] = []) {
+function addTitleImageSlide(ctx: SlideRenderContext) {
+  const { s, slide, theme: t, warnings } = ctx;
+  const { y: cy, h: ch } = ctx.area;
   s.background = { fill: hex(t.colors.background) };
   // 3% gap mirrors .sl-split__body { gap: 3% } in CSS
   const GAP  = 0.3;
@@ -759,7 +767,7 @@ function addTitleImageSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: numbe
     s.addText(slide.title, {
       x: M, y: cy, w: colW, h: ch,
       fontSize: 26, bold: true,
-      color: hc,
+      color: ctx.colours.heading,
       fontFace: firstFont(t.fonts.title),
       align: 'left', valign: 'middle', wrap: true, shrinkText: true,
     });
@@ -770,19 +778,21 @@ function addTitleImageSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: numbe
     const imgArea: Area = { x: M + colW + GAP, y: cy, w: colW, h: ch - capH };
     const objectName = img.step !== undefined ? stepShapeName(imgArea, 'img') : undefined;
     tryAddImage(s, img.src, imgArea, warnings, imgAr(img), objectName);
-    if (objectName) stepTargets.push({ step: img.step!, objectName });
+    if (objectName) ctx.steps.push({ step: img.step!, objectName });
     addCaption(s, img.caption, t, M + colW + GAP, cy + ch - capH, colW);
   }
 }
 
-function addSplitSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, boldColor: string = tc, stepTargets: StepTarget[] = []) {
+function addSplitSlide(ctx: SlideRenderContext) {
+  const { s, slide, theme: t, warnings } = ctx;
+  const { y: cy, h: ch } = ctx.area;
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.65 : 0;
   if (slide.title) {
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 24, bold: true,
-      color: hc,
+      color: ctx.colours.heading,
       fontFace: firstFont(t.fonts.title),
       align: t.layout.heading_align, wrap: true, shrinkText: true,
     });
@@ -800,13 +810,13 @@ function addSplitSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, wa
   const capH = img && img.type === 'image' && img.caption ? CAPTION_H : 0;
 
   if (imgOnRight) {
-    addElements(s, rest, t, { x: M, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
+    addElements(ctx, rest, { x: M, y: bodyY, w: colW, h: bodyH });
     if (img && img.type === 'image') {
       const imgX = M + colW + 0.3;
       const imgArea: Area = { x: imgX, y: bodyY, w: colW, h: bodyH - capH };
       const objectName = img.step !== undefined ? stepShapeName(imgArea, 'img') : undefined;
       tryAddImage(s, img.src, imgArea, warnings, ar, objectName);
-      if (objectName) stepTargets.push({ step: img.step!, objectName });
+      if (objectName) ctx.steps.push({ step: img.step!, objectName });
       addCaption(s, img.caption, t, imgX, bodyY + bodyH - capH, colW);
     }
   } else {
@@ -814,14 +824,15 @@ function addSplitSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, wa
       const imgArea: Area = { x: M, y: bodyY, w: colW, h: bodyH - capH };
       const objectName = img.step !== undefined ? stepShapeName(imgArea, 'img') : undefined;
       tryAddImage(s, img.src, imgArea, warnings, ar, objectName);
-      if (objectName) stepTargets.push({ step: img.step!, objectName });
+      if (objectName) ctx.steps.push({ step: img.step!, objectName });
       addCaption(s, img.caption, t, M, bodyY + bodyH - capH, colW);
     }
-    addElements(s, rest, t, { x: M + colW + 0.3, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
+    addElements(ctx, rest, { x: M + colW + 0.3, y: bodyY, w: colW, h: bodyH });
   }
 }
 
-function addFullBleedSlide(s: PS, slide: Slide, t: Theme, H: number, warnings: string[]) {
+function addFullBleedSlide(ctx: SlideRenderContext) {
+  const { s, slide, theme: t, warnings, slideH: H } = ctx;
   // Use background colour as fallback so a missing image doesn't render as a
   // dark primary-coloured slide that looks like a broken title slide.
   s.background = { fill: hex(t.colors.background) };
@@ -843,7 +854,9 @@ function addFullBleedSlide(s: PS, slide: Slide, t: Theme, H: number, warnings: s
   }
 }
 
-function addQuoteSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, tc: string = hex(t.colors.text)) {
+function addQuoteSlide(ctx: SlideRenderContext) {
+  const { s, slide, theme: t } = ctx;
+  const { y: cy, h: ch } = ctx.area;
   s.background = { fill: hex(t.colors.background) };
   const bq = slide.elements.find((e) => e.type === 'blockquote');
   if (!bq || bq.type !== 'blockquote') return;
@@ -853,7 +866,7 @@ function addQuoteSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, tc
   s.addText(`“${bq.text}”`, {
     x: M + 0.5, y: cy, w: W - M * 2 - 1, h: quoteH,
     fontSize: 24, italic: true,
-    color: tc,
+    color: ctx.colours.text,
     fontFace: firstFont(t.fonts.body),
     align: 'center', valign: 'middle', wrap: true,
   });
@@ -868,14 +881,16 @@ function addQuoteSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, tc
   }
 }
 
-function addMultiColumnSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, boldColor: string = tc, columns: 2 | 3 = 2, stepTargets: StepTarget[] = []) {
+function addMultiColumnSlide(ctx: SlideRenderContext, columns: 2 | 3) {
+  const { s, slide, theme: t } = ctx;
+  const { y: cy, h: ch } = ctx.area;
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.65 : 0;
   if (slide.title) {
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 24, bold: true,
-      color: hc,
+      color: ctx.colours.heading,
       fontFace: firstFont(t.fonts.title),
       align: t.layout.heading_align, wrap: true, shrinkText: true,
     });
@@ -890,18 +905,20 @@ function addMultiColumnSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: numb
     : [...autoSplitElements(slide.elements), ...Array(columns - 2).fill([])];
 
   groups.forEach((group, i) => {
-    addElements(s, group, t, { x: M + i * (colW + GAP), y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
+    addElements(ctx, group, { x: M + i * (colW + GAP), y: bodyY, w: colW, h: bodyH });
   });
 }
 
-function addBspSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, boldColor: string = tc, stepTargets: StepTarget[] = []) {
+function addBspSlide(ctx: SlideRenderContext) {
+  const { s, slide, theme: t } = ctx;
+  const { y: cy, h: ch } = ctx.area;
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.65 : 0;
   if (slide.title) {
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 24, bold: true,
-      color: hc,
+      color: ctx.colours.heading,
       fontFace: firstFont(t.fonts.title),
       align: t.layout.heading_align, wrap: true, shrinkText: true,
     });
@@ -914,7 +931,7 @@ function addBspSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warn
   // Mirror preview: group consecutive progress bars, then apply same placement logic
   const groups = groupProgressRuns(slide.elements);
   if (groups.length < 2) {
-    addElements(s, slide.elements, t, { x: M, y: bodyY, w: W - M * 2, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
+    addElements(ctx, slide.elements, { x: M, y: bodyY, w: W - M * 2, h: bodyH });
     return;
   }
 
@@ -937,27 +954,29 @@ function addBspSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warn
     rightGroups = groups.slice(1);
   }
 
-  addElements(s, leftGroup, t, { x: M, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
+  addElements(ctx, leftGroup, { x: M, y: bodyY, w: colW, h: bodyH });
 
   if (rightGroups.length === 1) {
-    addElements(s, rightGroups[0], t, { x: M + colW + GAP, y: bodyY, w: colW, h: bodyH }, warnings, tc, undefined, boldColor, stepTargets);
+    addElements(ctx, rightGroups[0], { x: M + colW + GAP, y: bodyY, w: colW, h: bodyH });
   } else {
     const subH = (bodyH - 0.2) / 2;
-    addElements(s, rightGroups[0], t, { x: M + colW + GAP, y: bodyY,              w: colW, h: subH }, warnings, tc, undefined, boldColor, stepTargets);
+    addElements(ctx, rightGroups[0], { x: M + colW + GAP, y: bodyY,              w: colW, h: subH });
     if (rightGroups[1]) {
-      addElements(s, rightGroups[1], t, { x: M + colW + GAP, y: bodyY + subH + 0.2, w: colW, h: subH }, warnings, tc, undefined, boldColor, stepTargets);
+      addElements(ctx, rightGroups[1], { x: M + colW + GAP, y: bodyY + subH + 0.2, w: colW, h: subH });
     }
   }
 }
 
-function addGridSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc, boldColor: string = tc, stepTargets: StepTarget[] = []) {
+function addGridSlide(ctx: SlideRenderContext) {
+  const { s, slide, theme: t } = ctx;
+  const { y: cy, h: ch } = ctx.area;
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.65 : 0;
   if (slide.title) {
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 24, bold: true,
-      color: hc,
+      color: ctx.colours.heading,
       fontFace: firstFont(t.fonts.title),
       align: t.layout.heading_align, wrap: true, shrinkText: true,
     });
@@ -975,22 +994,25 @@ function addGridSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, war
   groups.forEach((group, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    addElements(s, group, t, {
+    addElements(ctx, group, {
       x: M + col * (cellW + GAP),
       y: bodyY + row * (cellH + GAP),
       w: cellW, h: cellH,
-    }, warnings, tc, undefined, boldColor, stepTargets);
+    });
   });
 }
 
-function addMediaSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), hc: string = tc) {
+function addMediaSlide(ctx: SlideRenderContext) {
+  const { s, slide, theme: t, warnings } = ctx;
+  const { y: cy, h: ch } = ctx.area;
+  const tc = ctx.colours.text;
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.65 : 0;
   if (slide.title) {
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 24, bold: true,
-      color: hc,
+      color: ctx.colours.heading,
       fontFace: firstFont(t.fonts.title),
       align: t.layout.heading_align, wrap: true, shrinkText: true,
     });
@@ -1008,13 +1030,13 @@ function addMediaSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, wa
 
   if (vid && vid.type === 'video') {
     if (!tryAddLocalVideo(s, vid.src, full, warnings)) {
-      addMediaTextFallback(s, vid.label || 'Video', vid.src, full, t, tc);
+      addMediaTextFallback(ctx, vid.label || 'Video', vid.src, full);
     }
   }
 
   if (yt && yt.type === 'youtube') {
     if (!tryAddOnlineVideo(s, yt.url, ytArea, warnings)) {
-      addMediaTextFallback(s, yt.label || 'YouTube Video', yt.url, ytArea, t, tc);
+      addMediaTextFallback(ctx, yt.label || 'YouTube Video', yt.url, ytArea);
     }
   }
   if (poll && poll.type === 'poll') {
@@ -1031,26 +1053,25 @@ function addMediaSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, wa
 }
 
 function addMediaTextFallback(
-  s: PS,
+  ctx: ElementRenderContext,
   label: string,
   detail: string,
   area: Area,
-  t: Theme,
-  tc: string,
 ) {
+  const { s, theme: t } = ctx;
   s.addText([
     { text: '▶ ', options: { fontSize: 30, bold: true } },
     { text: label, options: { fontSize: 20, breakLine: true } },
     { text: detail, options: { fontSize: 11, color: hex(t.colors.accent) } },
   ], {
     x: area.x, y: area.y, w: area.w, h: area.h,
-    color: tc, fontFace: firstFont(t.fonts.body),
+    color: ctx.colours.text, fontFace: firstFont(t.fonts.body),
     align: 'center', valign: 'middle', wrap: true,
   });
 }
 
 /** Embed a YouTube URL as an online media object (desktop PowerPoint). */
-function tryAddOnlineVideo(s: PS, url: string, area: Area, warnings: string[]): boolean {
+function tryAddOnlineVideo(s: PptxSlide, url: string, area: Area, warnings: string[]): boolean {
   const id = extractYoutubeId(url);
   if (!id) return false;
   try {
@@ -1067,7 +1088,7 @@ function tryAddOnlineVideo(s: PS, url: string, area: Area, warnings: string[]): 
 }
 
 /** Embed a pre-resolved `data:` video via pptxgenjs `addMedia`. */
-function tryAddLocalVideo(s: PS, src: string, area: Area, warnings: string[]): boolean {
+function tryAddLocalVideo(s: PptxSlide, src: string, area: Area, warnings: string[]): boolean {
   if (!src.startsWith('data:')) {
     warnings.push(`Video skipped (could not be fetched): ${src.slice(0, 80)}`);
     return false;
@@ -1086,14 +1107,16 @@ function tryAddLocalVideo(s: PS, src: string, area: Area, warnings: string[]): b
   }
 }
 
-function addCodeSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, warnings: string[], tc: string = hex(t.colors.text), codeBg?: string, hc: string = tc, stepTargets: StepTarget[] = []) {
+function addCodeSlide(ctx: SlideRenderContext) {
+  const { s, slide, theme: t, warnings } = ctx;
+  const { y: cy, h: ch } = ctx.area;
   s.background = { fill: hex(t.colors.background) };
   const hh = slide.title ? 0.65 : 0;
   if (slide.title) {
     s.addText(slide.title, {
       x: M, y: cy, w: W - M * 2, h: hh,
       fontSize: 24, bold: true,
-      color: hc,
+      color: ctx.colours.heading,
       fontFace: firstFont(t.fonts.title),
       align: t.layout.heading_align, wrap: true, shrinkText: true,
     });
@@ -1110,7 +1133,7 @@ function addCodeSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, war
     const imgArea: Area = { x: M, y: codeY, w: W - M * 2, h: codeH - capH };
     const objectName = imgEl.step !== undefined ? stepShapeName(imgArea, 'img') : undefined;
     tryAddImage(s, imgEl.src, imgArea, warnings, isFinite(ar) ? ar : undefined, objectName);
-    if (objectName) stepTargets.push({ step: imgEl.step!, objectName });
+    if (objectName) ctx.steps.push({ step: imgEl.step!, objectName });
     addCaption(s, imgEl.caption, t, M, codeY + codeH - capH, W - M * 2);
     return;
   }
@@ -1118,12 +1141,12 @@ function addCodeSlide(s: PS, slide: Slide, t: Theme, cy: number, ch: number, war
   const codeEl = slide.elements.find((e) => e.type === 'code' || e.type === 'mermaid');
   if (!codeEl) return;
 
-  addCodeBlock(s, codeEl.value, codeEl.type === 'code' ? codeEl.lang : undefined, t,
-    { x: M, y: codeY, w: W - M * 2, h: codeH }, codeBg, codeEl.step, stepTargets);
+  addCodeBlock(ctx, codeEl.value, codeEl.type === 'code' ? codeEl.lang : undefined,
+    { x: M, y: codeY, w: W - M * 2, h: codeH }, codeEl.step);
 }
 
-function addBlankSlide(s: PS, t: Theme) {
-  s.background = { fill: hex(t.colors.background) };
+function addBlankSlide(ctx: SlideRenderContext) {
+  ctx.s.background = { fill: hex(ctx.theme.colors.background) };
 }
 
 // ── Academic references ───────────────────────────────────────────────────────
@@ -1137,7 +1160,10 @@ function blendColor(fg: string, bg: string, alpha: number): string {
   return [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
-function addReferences(s: PS, refs: string[], t: Theme, H: number, hasFoot: boolean, tc: string = hex(t.colors.text)) {
+function addReferences(ctx: SlideRenderContext, hasFoot: boolean) {
+  const { s, theme: t, slideH: H } = ctx;
+  const refs = ctx.slide.references;
+  const tc = ctx.colours.text;
   const REF_H = Math.min(0.06 + refs.length * 0.17, H * 0.35);
   const bottomPad = hasFoot ? FOOT_H + 0.08 : 0.15;
   const color = blendColor(tc, t.colors.background, 0.60);
@@ -1165,7 +1191,7 @@ function addReferences(s: PS, refs: string[], t: Theme, H: number, hasFoot: bool
 // Receives pre-split segments (split from the template *before* variable resolution
 // so a doc title containing `|` is never treated as a column separator).
 function addBarText(
-  s: PS,
+  s: PptxSlide,
   segments: string[],
   x: number, y: number, w: number, h: number,
   fontSize: number, color: string, fontFace: string,
@@ -1183,7 +1209,7 @@ function addBarText(
   if (right)  s.addText(right,  { x: x + colW * 2, y, w: colW, h, fontSize, color, fontFace, align: 'right',  valign: 'middle', objectName });
 }
 
-function addHeaderBar(s: PS, t: Theme, segs: string[]) {
+function addHeaderBar(s: PptxSlide, t: Theme, segs: string[]) {
   s.addShape('rect', {
     x: 0, y: 0, w: W, h: HEAD_H,
     fill: { color: hex(t.colors.primary) },
@@ -1194,7 +1220,7 @@ function addHeaderBar(s: PS, t: Theme, segs: string[]) {
   }
 }
 
-function addFooterBar(s: PS, t: Theme, footer: FooterFrame, H: number) {
+function addFooterBar(s: PptxSlide, t: Theme, footer: FooterFrame, H: number) {
   // The CSS footer renders as a thin border-top line, not a filled bar —
   // use a thin accent-coloured rectangle to match the live preview.
   const footY = H - FOOT_H;
@@ -1223,7 +1249,7 @@ function addFooterBar(s: PS, t: Theme, footer: FooterFrame, H: number) {
 }
 
 function addLogo(
-  s: PS,
+  s: PptxSlide,
   logoDataUrl: string,
   logoAr: number | null,
   position: Theme['logo_position'],
@@ -1466,9 +1492,10 @@ const CALLOUT_COLORS: Record<string, string> = {
 };
 
 function addCalloutBlock(
-  s: PS, el: Extract<SlideElement, { type: 'blockquote' }>, t: Theme, area: Area, tc: string = hex(t.colors.text),
-  step?: number, stepTargets: StepTarget[] = [],
+  ctx: ElementRenderContext, el: Extract<SlideElement, { type: 'blockquote' }>, area: Area, step?: number,
 ) {
+  const { s, theme: t, steps: stepTargets } = ctx;
+  const tc = ctx.colours.text;
   const color = CALLOUT_COLORS[el.calloutType ?? 'note'] ?? CALLOUT_COLORS.note;
   const BAR_W = 0.06;
   const PAD   = 0.15;
@@ -1524,9 +1551,10 @@ function addCalloutBlock(
 // ── Styled code block (reused by addCodeSlide and addElements) ────────────────
 
 function addCodeBlock(
-  s: PS, value: string, lang: string | undefined, t: Theme, area: Area, codeBgOverride?: string,
-  step?: number, stepTargets: StepTarget[] = [],
+  ctx: ElementRenderContext, value: string, lang: string | undefined, area: Area, step?: number,
 ) {
+  const { s, theme: t, steps: stepTargets } = ctx;
+  const codeBgOverride = ctx.colours.codeBg;
   // A code block is 3-4 separate pptxgenjs shapes (outer rect, optional lang
   // badge, inner rect, code text) rather than one — registering each of them
   // as its own whole-shape target under the *same* step, all inside the same
@@ -1627,8 +1655,10 @@ function addCodeBlock(
 
 // ── Element renderer ──────────────────────────────────────────────────────────
 
-function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warnings: string[] = [], tc: string = hex(t.colors.text), codeBg?: string, boldColor: string = tc, stepTargets: StepTarget[] = []) {
+function addElements(ctx: ElementRenderContext, elements: SlideElement[], area: Area) {
   if (elements.length === 0) return;
+  const { s, theme: t, warnings, steps: stepTargets } = ctx;
+  const { text: tc, bold: boldColor } = ctx.colours;
 
   // Single image fills the area
   if (elements.length === 1 && elements[0].type === 'image') {
@@ -1651,13 +1681,13 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
   // applies to the callout case just below.
   if (elements.length === 1 && elements[0].type === 'code') {
     const el = elements[0];
-    addCodeBlock(s, el.value, el.lang, t, area, codeBg, el.step, stepTargets);
+    addCodeBlock(ctx, el.value, el.lang, area, el.step);
     return;
   }
 
   // Single callout — render as a bordered/accent-barred box, not a plain quote
   if (elements.length === 1 && elements[0].type === 'blockquote' && elements[0].calloutType) {
-    addCalloutBlock(s, elements[0], t, area, tc, elements[0].step, stepTargets);
+    addCalloutBlock(ctx, elements[0], area, elements[0].step);
     return;
   }
 
@@ -1903,7 +1933,7 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
       // addTable itself, this was previously never wired to stepTargets at
       // all, so a stepped table rendered fully visible regardless of step.
       const objectName = tableEl.step !== undefined ? stepShapeName(tableArea, 'table') : undefined;
-      const usedH = addTable(s, tableEl, t, tableArea, tc, objectName, warnings);
+      const usedH = addTable(ctx, tableEl, tableArea, objectName);
       if (objectName) stepTargets.push({ step: tableEl.step!, objectName });
       // Anchor the caption just under the fitted table (which is usually
       // shorter than its allotted share) rather than at the bottom of the
@@ -1934,11 +1964,11 @@ function addElements(s: PS, elements: SlideElement[], t: Theme, area: Area, warn
       const mediaArea: Area = { x: area.x, y, w: area.w, h: perH };
       if (el.type === 'youtube') {
         if (!tryAddOnlineVideo(s, el.url, mediaArea, warnings)) {
-          addMediaTextFallback(s, el.label || 'YouTube Video', el.url, mediaArea, t, tc);
+          addMediaTextFallback(ctx, el.label || 'YouTube Video', el.url, mediaArea);
         }
       } else if (el.type === 'video') {
         if (!tryAddLocalVideo(s, el.src, mediaArea, warnings)) {
-          addMediaTextFallback(s, el.label || 'Video', el.src, mediaArea, t, tc);
+          addMediaTextFallback(ctx, el.label || 'Video', el.src, mediaArea);
         }
       }
     });
@@ -2135,14 +2165,13 @@ function scaleRuns(runs: TextRun[], scale: number): TextRun[] {
 /** Renders the table into `area`, auto-fitting font/columns/rows. Returns the
  *  height actually consumed (<= area.h) so the caller can place a caption. */
 function addTable(
-  s: PS,
+  ctx: ElementRenderContext,
   el: Extract<SlideElement, { type: 'table' }>,
-  t: Theme,
   area: Area,
-  tc: string = hex(t.colors.text),
   objectName?: string,
-  warnings: string[] = [],
 ): number {
+  const { s, theme: t, warnings } = ctx;
+  const tc = ctx.colours.text;
   const colAlign = (i: number): 'left' | 'center' | 'right' =>
     (el.align?.[i] as 'left' | 'center' | 'right' | null | undefined) ?? 'left';
 
@@ -2200,7 +2229,7 @@ function imgAr(el: Extract<SlideElement, { type: 'image' }>): number | undefined
 // before placing the caption in the freed strip.
 const CAPTION_H = 0.28;
 
-function addCaption(s: PS, caption: string | undefined, t: Theme, x: number, y: number, w: number) {
+function addCaption(s: PptxSlide, caption: string | undefined, t: Theme, x: number, y: number, w: number) {
   if (!caption) return;
   s.addText(caption, {
     x, y, w, h: CAPTION_H,
@@ -2224,7 +2253,7 @@ function containArea(area: Area, aspectRatio: number): Area {
   }
 }
 
-function tryAddImage(s: PS, src: string, area: Area, warnings: string[], aspectRatio?: number, objectName?: string) {
+function tryAddImage(s: PptxSlide, src: string, area: Area, warnings: string[], aspectRatio?: number, objectName?: string) {
   if (!src) return;
   const placed = aspectRatio ? containArea(area, aspectRatio) : area;
   if (src.startsWith('data:')) {
