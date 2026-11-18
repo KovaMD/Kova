@@ -31,7 +31,6 @@ import { parsePptx } from './engine/import/parsePptx';
 import { pptxToMarkdown } from './engine/import/pptxToMarkdown';
 import { toRawUrl } from './engine/import/toRawUrl';
 import { IMAGE_DIALOG_FILTER } from './engine/mediaTypes';
-import { SLIDE_W } from './engine/constants';
 import { basename, dirname, dirnameOn, isLocalRelative, pathSeparator, toForwardSlashes } from './engine/paths';
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
 import { setDiagramRenderer } from './engine/export/diagramRenderer';
@@ -55,7 +54,6 @@ import { APP_VERSION } from './version';
 import { exportToPptx } from './engine/export/exportPptx';
 import { exportToPdf, printPresentation } from './engine/export/exportPdf';
 import { exportPdfNative, buildInteractiveDocument, type PdfExportOpts } from './engine/export/exportPdfNative';
-import { SlideRenderer } from './components/preview/SlideRenderer';
 import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml, resolveCustomThemeLibrary, sanitiseThemeOverrides, type ThemeParseResult, type ThemeOverridePatch, type ThemeLibrary } from './engine/theme';
 import { registerBundledFonts, registerCachedFont } from './engine/bundledFonts';
 import type { Slide, ListItem, Frontmatter } from './engine/types';
@@ -65,6 +63,8 @@ import { imageMime } from './engine/export/imageMime';
 import type { Theme } from './engine/theme';
 import { useResolvedSlides } from './hooks/useResolvedSlides';
 import { useFindReplace } from './hooks/useFindReplace';
+import { useOffscreenCapture } from './hooks/useOffscreenCapture';
+import { OffscreenDeck } from './components/OffscreenDeck';
 import type { PendingCli, CliThemeArg, PendingImport, PendingExport } from './types/cli';
 
 import './styles/global.css';
@@ -343,16 +343,13 @@ export default function App() {
   const [isRenaming, setIsRenaming]       = useState(false);
   const [renameValue, setRenameValue]     = useState('');
   const [resolvedUiTheme, setResolvedUiTheme] = useState<'dark' | 'light'>('dark');
-  const [pdfExportContext, setPdfExportContext] = useState<{ slides: Slide[] } | null>(null);
-  const pdfSlideRefs         = useRef<Map<number, HTMLElement>>(new Map());
-  const pdfExportRunnerRef   = useRef<(() => Promise<void>) | null>(null);
-  const pdfSlideReadyCount   = useRef(0);
-  const pdfSlideReadyTotal   = useRef(0);
-  const [printContext, setPrintContext] = useState<{ slides: Slide[] } | null>(null);
-  const printSlideRefs       = useRef<Map<number, HTMLElement>>(new Map());
-  const printExportRunnerRef = useRef<(() => Promise<void>) | null>(null);
-  const printSlideReadyCount = useRef(0);
-  const printSlideReadyTotal = useRef(0);
+  const {
+    context: offscreenContext,
+    capturing,
+    runCapture: runOffscreenCapture,
+    onSlideReady: onOffscreenSlideReady,
+    setSlideRef: setOffscreenSlideRef,
+  } = useOffscreenCapture();
   const [fileDragOver, setFileDragOver]       = useState(false);
   const [dropConfirmPath, setDropConfirmPath] = useState<string | null>(null);
 
@@ -1715,61 +1712,6 @@ export default function App() {
     }
   }, [visibleSlides, frontmatter, activeTheme, filePath, settings.locale, t]);
 
-  // Called by each SlideRenderer when all its Mermaid diagrams have rendered.
-  const onPdfSlideReady = useRef(() => {
-    pdfSlideReadyCount.current += 1;
-    if (pdfSlideReadyCount.current >= pdfSlideReadyTotal.current) {
-      const fn = pdfExportRunnerRef.current;
-      pdfExportRunnerRef.current = null;
-      // Defer to a task (not a microtask) so React StrictMode's simulated
-      // unmount+remount cycle completes before we read element dimensions.
-      // Without this, StrictMode detaches the off-screen slide elements between
-      // the runner firing and captureSlide reading offsetWidth, producing a
-      // 0×0 canvas and a blank PDF.
-      if (fn) setTimeout(() => void fn(), 0);
-    }
-  });
-  const onPrintSlideReady = useRef(() => {
-    printSlideReadyCount.current += 1;
-    if (printSlideReadyCount.current >= printSlideReadyTotal.current) {
-      const fn = printExportRunnerRef.current;
-      printExportRunnerRef.current = null;
-      if (fn) setTimeout(() => void fn(), 0);
-    }
-  });
-
-  // Mounts the off-screen slide list, waits for every slide to signal ready
-  // (onPdfSlideReady), then runs `capture` against the rendered elements and
-  // resolves with its result. Shared by the PDF and HTML export paths (button
-  // and headless CLI alike); each caller supplies just the capture step and
-  // reports success/failure its own way. Rejects if `capture` throws.
-  const runOffscreenCapture = useCallback(<T,>(
-    visSlides: Slide[],
-    capture: (elements: HTMLElement[]) => Promise<T>,
-  ): Promise<T> => {
-    pdfSlideRefs.current.clear();
-    pdfSlideReadyCount.current = 0;
-    pdfSlideReadyTotal.current = visSlides.length;
-    return new Promise<T>((resolve, reject) => {
-      pdfExportRunnerRef.current = async () => {
-        try {
-          const elements = Array.from(
-            { length: visSlides.length },
-            (_, i) => pdfSlideRefs.current.get(i),
-          ).filter((el): el is HTMLElement => Boolean(el));
-          resolve(await capture(elements));
-        } catch (err) {
-          reject(err instanceof Error ? err : new Error(String(err)));
-        } finally {
-          setPdfExportContext(null);
-          pdfSlideRefs.current.clear();
-          pdfExportRunnerRef.current = null;
-        }
-      };
-      setPdfExportContext({ slides: visSlides });
-    });
-  }, []);
-
   // Shared by the button (handleExportPdf) and the headless CLI export path:
   // native print first, raster fallback on failure. Reports what happened
   // rather than alerting — each caller handles that its own way (a dialog
@@ -1807,7 +1749,7 @@ export default function App() {
     // the macOS native menu bar has no such guard (its items are always
     // enabled) — without this, triggering a second export via the menu while
     // one is running clobbers the first's shared in-flight refs/state.
-    if (pdfExportContext !== null || printContext !== null) return;
+    if (capturing !== null) return;
     const defaultPath = filePath
       ? filePath.replace(/\.(md|markdown)$/i, '.pdf')
       : 'presentation.pdf';
@@ -1832,7 +1774,7 @@ export default function App() {
       console.error('PDF export failed:', err);
       window.alert(t('app.pdfExportFailed', { error: String(err) }));
     }
-  }, [visibleSlides, filePath, runPdfExportCapture, t, pdfExportContext, printContext]);
+  }, [visibleSlides, filePath, runPdfExportCapture, t, capturing]);
 
   // Cold-start export (kova --export pptx|pdf|html FILE OUT): the load effect
   // above applies --theme and loads the deck; this fires once slides are
@@ -1902,7 +1844,7 @@ export default function App() {
 
   const handleExportHtml = useCallback(async () => {
     if (visibleSlides.length === 0) return;
-    if (pdfExportContext !== null || printContext !== null) return;
+    if (capturing !== null) return;
     const defaultPath = filePath
       ? filePath.replace(/\.(md|markdown)$/i, '.html')
       : 'presentation.html';
@@ -1919,38 +1861,22 @@ export default function App() {
       console.error('HTML export failed:', err);
       window.alert(t('app.htmlExportFailed', { error: String(err) }));
     }
-  }, [visibleSlides, filePath, runHtmlExportCapture, t, pdfExportContext, printContext]);
+  }, [visibleSlides, filePath, runHtmlExportCapture, t, capturing]);
 
   const handlePrint = useCallback(async () => {
     if (visibleSlides.length === 0) return;
-    if (pdfExportContext !== null || printContext !== null) return;
-    const visSlides = [...visibleSlides];
-    printSlideRefs.current.clear();
-    printSlideReadyCount.current = 0;
-    printSlideReadyTotal.current = visSlides.length;
-    await new Promise<void>(resolve => {
-      printExportRunnerRef.current = async () => {
-        try {
-          const elements = Array.from(
-            { length: visSlides.length },
-            (_, i) => printSlideRefs.current.get(i),
-          ).filter((el): el is HTMLElement => Boolean(el));
-          const { warnings } = await printPresentation(elements, activeTheme, aspectRatio);
-          if (warnings.length > 0) {
-            window.alert(t('app.printCompleteWithWarnings', { count: warnings.length, warnings: warnings.join('\n') }));
-          }
-        } catch (err) {
-          console.error('Print failed:', err);
-        } finally {
-          setPrintContext(null);
-          printSlideRefs.current.clear();
-          printExportRunnerRef.current = null;
-          resolve();
+    if (capturing !== null) return;
+    try {
+      await runOffscreenCapture([...visibleSlides], async (elements) => {
+        const { warnings } = await printPresentation(elements, activeTheme, aspectRatio);
+        if (warnings.length > 0) {
+          window.alert(t('app.printCompleteWithWarnings', { count: warnings.length, warnings: warnings.join('\n') }));
         }
-      };
-      setPrintContext({ slides: visSlides });
-    });
-  }, [visibleSlides, activeTheme, aspectRatio, t, pdfExportContext, printContext]);
+      }, 'print');
+    } catch (err) {
+      console.error('Print failed:', err);
+    }
+  }, [visibleSlides, activeTheme, aspectRatio, t, capturing, runOffscreenCapture]);
 
   const handleCopyWithAssets = useCallback(async () => {
     if (!filePath) return;
@@ -2230,7 +2156,7 @@ export default function App() {
 
   // Export menu items are enabled when there is something to export and no PDF
   // export is already running (Print additionally waits for a running print).
-  const canExport = slides.length > 0 && pdfExportContext === null;
+  const canExport = slides.length > 0 && capturing !== 'export';
 
   // ── Menu actions (native macOS menu bar + in-window FileMenu) ──────────────
   // Latest menu actions, refreshed every render. The native menu is rebuilt only
@@ -2449,8 +2375,8 @@ export default function App() {
               isDirty={isDirty}
               hasContent={!!content}
               canExport={canExport}
-              pdfExporting={pdfExportContext !== null}
-              printing={printContext !== null}
+              pdfExporting={capturing === 'export'}
+              printing={capturing === 'print'}
               combos={keybindings.combos}
             />
             <EditMenu editorRef={editorRef} onFind={findReplace.openDialog} />
@@ -2698,89 +2624,19 @@ export default function App() {
         }}
       />
 
-      {/* Off-screen slide rendering for Print */}
-      {printContext && (() => {
-        const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
-        return (
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'fixed',
-              top: -99999,
-              left: -99999,
-              width: SLIDE_W,
-              display: 'flex',
-              flexDirection: 'column',
-              pointerEvents: 'none',
-            }}
-          >
-            {printContext.slides.map((slide, i) => (
-              <div
-                key={i}
-                ref={(el) => {
-                  if (el) printSlideRefs.current.set(i, el);
-                  else printSlideRefs.current.delete(i);
-                }}
-                style={{ width: SLIDE_W, height: slideH, flexShrink: 0, overflow: 'hidden' }}
-              >
-                <SlideRenderer
-                  slide={slide}
-                  theme={activeTheme}
-                  slideNumber={i + 1}
-                  totalSlides={printContext.slides.length}
-                  docTitle={docTitle}
-                  docAuthor={docAuthor}
-                  docDate={docDate}
-                  hideOverflowBadge
-                  onAllDiagramsReady={onPrintSlideReady.current}
-                />
-              </div>
-            ))}
-          </div>
-        );
-      })()}
-
-      {/* Off-screen slide rendering for PDF export */}
-      {pdfExportContext && (() => {
-        const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
-        return (
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'fixed',
-              top: -99999,
-              left: -99999,
-              width: SLIDE_W,
-              display: 'flex',
-              flexDirection: 'column',
-              pointerEvents: 'none',
-            }}
-          >
-            {pdfExportContext.slides.map((slide, i) => (
-              <div
-                key={i}
-                ref={(el) => {
-                  if (el) pdfSlideRefs.current.set(i, el);
-                  else pdfSlideRefs.current.delete(i);
-                }}
-                style={{ width: SLIDE_W, height: slideH, flexShrink: 0, overflow: 'hidden' }}
-              >
-                <SlideRenderer
-                  slide={slide}
-                  theme={activeTheme}
-                  slideNumber={i + 1}
-                  totalSlides={pdfExportContext.slides.length}
-                  docTitle={docTitle}
-                  docAuthor={docAuthor}
-                  docDate={docDate}
-                  hideOverflowBadge
-                  onAllDiagramsReady={onPdfSlideReady.current}
-                />
-              </div>
-            ))}
-          </div>
-        );
-      })()}
+      {/* Off-screen slide rendering for PDF/HTML export and Print */}
+      {offscreenContext && (
+        <OffscreenDeck
+          slides={offscreenContext.slides}
+          theme={activeTheme}
+          aspectRatio={aspectRatio}
+          docTitle={docTitle}
+          docAuthor={docAuthor}
+          docDate={docDate}
+          setSlideRef={setOffscreenSlideRef}
+          onSlideReady={onOffscreenSlideReady}
+        />
+      )}
     </div>
     </I18nProvider>
   );
