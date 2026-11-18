@@ -8,6 +8,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { focusModeCompartment, focusModeExtension } from '../editor/focusMode';
+import { useCompartment } from '../editor/useCompartment';
 import { slideDivider } from '../editor/slideDivider';
 import { stepMarkerDecoration } from '../editor/stepMarkerDecoration';
 import { urlLinkDecoration } from '../editor/urlLinkDecoration';
@@ -109,6 +110,13 @@ function makeContentWidthTheme(contentWidth: 'fixed' | 'full') {
   });
 }
 
+function makeColorTheme(uiTheme: 'dark' | 'light') {
+  return uiTheme === 'light' ? editorLightTheme : [oneDark, editorDarkTheme];
+}
+
+function makeLineWrap(wordWrap: boolean) {
+  return wordWrap ? EditorView.lineWrapping : [];
+}
 
 const editorColorCompartment    = new Compartment();
 const editorFontCompartment     = new Compartment();
@@ -296,12 +304,10 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
       doc: content,
       extensions: [
         basicSetup,
-        editorColorCompartment.of(
-          uiThemeRef.current === 'light' ? editorLightTheme : [oneDark, editorDarkTheme]
-        ),
+        editorColorCompartment.of(makeColorTheme(uiThemeRef.current)),
         editorFontCompartment.of(makeFontTheme(editorFontFamily)),
         editorFontSizeCompartment.of(makeFontSizeTheme(DEFAULT_FONT_SIZE)),
-        lineWrapCompartment.of(wordWrap ? EditorView.lineWrapping : []),
+        lineWrapCompartment.of(makeLineWrap(wordWrap)),
         contentWidthCompartment.of(makeContentWidthTheme(contentWidth)),
         markdown({ codeLanguages: languages }),
         Prec.high(keymap.of([
@@ -426,26 +432,10 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
     }
   }, [content]);
 
-  // Toggle focus mode extension when prop changes
-  useEffect(() => {
-    viewRef.current?.dispatch({
-      effects: focusModeCompartment.reconfigure(focusModeExtension(focusMode)),
-    });
-  }, [focusMode]);
-
-  // Toggle line wrapping when prop changes
-  useEffect(() => {
-    viewRef.current?.dispatch({
-      effects: lineWrapCompartment.reconfigure(wordWrap ? EditorView.lineWrapping : []),
-    });
-  }, [wordWrap]);
-
-  // Switch content width when prop changes
-  useEffect(() => {
-    viewRef.current?.dispatch({
-      effects: contentWidthCompartment.reconfigure(makeContentWidthTheme(contentWidth)),
-    });
-  }, [contentWidth]);
+  // Keep focus mode, line wrapping and content width in step with their props
+  useCompartment(viewRef, focusModeCompartment, focusMode, focusModeExtension);
+  useCompartment(viewRef, lineWrapCompartment, wordWrap, makeLineWrap);
+  useCompartment(viewRef, contentWidthCompartment, contentWidth, makeContentWidthTheme);
 
   // Manage spell check extension
   useEffect(() => {
@@ -463,21 +453,9 @@ export const EditorPanel = forwardRef<EditorHandle, Props>(function EditorPanel(
     }
   }, [spellCheckEnabled, spellCheckLanguage]);
 
-  // Switch editor color theme when uiTheme prop changes
-  useEffect(() => {
-    viewRef.current?.dispatch({
-      effects: editorColorCompartment.reconfigure(
-        uiTheme === 'light' ? editorLightTheme : [oneDark, editorDarkTheme]
-      ),
-    });
-  }, [uiTheme]);
-
-  // Switch editor font when editorFontFamily prop changes
-  useEffect(() => {
-    viewRef.current?.dispatch({
-      effects: editorFontCompartment.reconfigure(makeFontTheme(editorFontFamily)),
-    });
-  }, [editorFontFamily]);
+  // Switch editor colour theme and font when their props change
+  useCompartment(viewRef, editorColorCompartment, uiTheme, makeColorTheme);
+  useCompartment(viewRef, editorFontCompartment, editorFontFamily, makeFontTheme);
 
   // ── Context menu ────────────────────────────────────────────────────────────
 
