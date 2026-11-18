@@ -1,5 +1,5 @@
 import { toJpeg } from 'html-to-image';
-import { fetchUrlB64, readFileB64 } from '../../platform/ipc';
+import { enginePorts } from '../ports';
 import { mermaidSvgCache } from './mermaidSvgCache';
 import { svgToPngDataUrl } from './svgToPng';
 import { queuedMermaidRender } from './mermaidRenderQueue';
@@ -36,10 +36,10 @@ async function preResolveExternalImages(el: HTMLElement): Promise<void> {
       if (src.startsWith('asset://')) {
         const path = decodeURIComponent(src.replace(/^asset:\/\/[^/]*/, ''));
         const ext  = path.split('.').pop()?.toLowerCase() ?? 'png';
-        const b64  = await readFileB64(path);
+        const b64  = await enginePorts().assets.readFileB64(path);
         dataUrl = `data:${imageMime(ext)};base64,${b64}`;
       } else if (src.startsWith('http://') || src.startsWith('https://')) {
-        const [b64, mime] = await fetchUrlB64(src);
+        const [b64, mime] = await enginePorts().assets.fetchUrlB64(src);
         dataUrl = `data:${mime};base64,${b64}`;
       }
     } catch { /* leave original src */ }

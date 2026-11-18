@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock the typed IPC layer so the module can be imported without a Tauri context
-vi.mock('../../platform/ipc', () => ({ loadKeybindings: vi.fn() }));
-
-import * as ipc from '../../platform/ipc';
 import {
   matchShortcut,
   formatCombo,
@@ -11,8 +7,11 @@ import {
   loadKeybindings,
   DEFAULT_COMBOS,
 } from '../keybindings';
+import type { KeybindingsStore } from '../ports';
 
-const mockedInvoke = vi.mocked(ipc.loadKeybindings);
+// In-memory KeybindingsStore fake, passed straight to loadKeybindings.
+const mockedInvoke = vi.fn<KeybindingsStore['loadKeybindings']>();
+const store: KeybindingsStore = { loadKeybindings: mockedInvoke };
 
 beforeEach(() => {
   mockedInvoke.mockReset();
@@ -184,7 +183,7 @@ describe('DEFAULT_COMBOS', () => {
 describe('loadKeybindings', () => {
   it('returns the config path from load_keybindings', async () => {
     mockedInvoke.mockResolvedValueOnce(['/config/kova.yaml', 'save: ctrl+s\n']);
-    const { path } = await loadKeybindings();
+    const { path } = await loadKeybindings(store);
     expect(path).toBe('/config/kova.yaml');
   });
 
@@ -193,7 +192,7 @@ describe('loadKeybindings', () => {
       '/config/kova.yaml',
       'save: ctrl+d\nopen_file: ctrl+shift+o\nfocus_mode: ctrl+alt+f\n',
     ]);
-    const { combos } = await loadKeybindings();
+    const { combos } = await loadKeybindings(store);
     expect(combos).toEqual({
       save: 'ctrl+d',
       openFile: 'ctrl+shift+o',
@@ -203,19 +202,19 @@ describe('loadKeybindings', () => {
 
   it('lowercases and trims combo strings', async () => {
     mockedInvoke.mockResolvedValueOnce(['/p', 'save:   CTRL+S   \n']);
-    const { combos } = await loadKeybindings();
+    const { combos } = await loadKeybindings(store);
     expect(combos.save).toBe('ctrl+s');
   });
 
   it('ignores unknown keys and non-string values', async () => {
     mockedInvoke.mockResolvedValueOnce(['/p', 'custom_action: ctrl+x\nsave: true\n']);
-    const { combos } = await loadKeybindings();
+    const { combos } = await loadKeybindings(store);
     expect(combos).toEqual({});
   });
 
   it('returns empty combos for malformed YAML', async () => {
     mockedInvoke.mockResolvedValueOnce(['/p', ': bad: yaml:\n']);
-    const { combos } = await loadKeybindings();
+    const { combos } = await loadKeybindings(store);
     expect(combos).toEqual({});
   });
 });

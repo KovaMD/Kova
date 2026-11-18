@@ -10,6 +10,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
+    // Installs the Tauri-backed engine ports, as src/main.tsx does in the app.
+    setupFiles: ['src/test/installEnginePorts.ts'],
     globals: true,
     // Node 25+ ships its own global localStorage, which without
     // --localstorage-file is undefined and shadows jsdom's, so jsdom tests

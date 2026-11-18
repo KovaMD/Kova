@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { readFileB64 } from '../platform/ipc';
+import { toAssetUrl } from '../platform/enginePorts';
 import { detectLayout } from '../engine/layout/autoLayout';
 import { buildTocEntries } from '../engine/toc';
 import { imageMime } from '../engine/export/imageMime';
@@ -125,7 +126,7 @@ export function useResolvedSlides(rawSlides: Slide[], docDir: string): Slide[] {
 
   const slides = useMemo<Slide[]>(() => {
     function resolveItem(item: ListItem): ListItem {
-      return { ...item, html: resolveHtmlSrcs(item.html, docDir, localImageUrls), children: item.children.map(resolveItem) };
+      return { ...item, html: resolveHtmlSrcs(item.html, docDir, localImageUrls, toAssetUrl), children: item.children.map(resolveItem) };
     }
 
     let cacheHolder = resolvedSlidesCacheRef.current;
@@ -143,8 +144,8 @@ export function useResolvedSlides(rawSlides: Slide[], docDir: string): Slide[] {
         if (cached) return cached;
       }
       const resolvedElements = slide.elements.map((el) => {
-        if (el.type === 'image' || el.type === 'video') return { ...el, src: resolveImageSrc(el.src, docDir, localImageUrls) };
-        if (el.type === 'paragraph') return { ...el, html: resolveHtmlSrcs(el.html, docDir, localImageUrls) };
+        if (el.type === 'image' || el.type === 'video') return { ...el, src: resolveImageSrc(el.src, docDir, localImageUrls, toAssetUrl) };
+        if (el.type === 'paragraph') return { ...el, html: resolveHtmlSrcs(el.html, docDir, localImageUrls, toAssetUrl) };
         if (el.type === 'list')      return { ...el, items: el.items.map(resolveItem) };
         if (el.type === 'toc') {
           // Derived from rawSlides (headings are identical in raw vs resolved)
@@ -167,7 +168,7 @@ export function useResolvedSlides(rawSlides: Slide[], docDir: string): Slide[] {
         elements: resolvedElements,
         layout,
         backgroundImage: slide.backgroundImage
-          ? { ...slide.backgroundImage, src: resolveImageSrc(slide.backgroundImage.src, docDir, localImageUrls) }
+          ? { ...slide.backgroundImage, src: resolveImageSrc(slide.backgroundImage.src, docDir, localImageUrls, toAssetUrl) }
           : undefined,
       };
       if (!hasToc) cache.set(slide, resolved);
