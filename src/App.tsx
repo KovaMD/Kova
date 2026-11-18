@@ -40,8 +40,8 @@ import type { AppSettings } from './store/settings';
 import { loadLastSession, saveLastSession } from './store/lastSession';
 import { loadLastSeenVersion, saveLastSeenVersion } from './store/lastSeenVersion';
 import { loadRecentFiles, addRecentFile, removeRecentFile, clearRecentFiles, recentFileBasename } from './store/recentFiles';
-import { buildMacMenu } from './macMenu';
-import type { MacMenuHandlers } from './macMenu';
+import { buildMacMenu, delegateMenuActions } from './macMenu';
+import type { MenuActions } from './macMenu';
 import { loadKeybindings, matchShortcut, getCombo, isMac } from './engine/keybindings';
 import type { Keybindings } from './engine/keybindings';
 import { I18nProvider, useLocaleTranslator, formatFallbackDate } from './i18n';
@@ -2266,11 +2266,15 @@ export default function App() {
   const handleSaveRef = useRef(handleSave);
   handleSaveRef.current = handleSave;
 
-  // ── macOS native menu bar ──────────────────────────────────────────────────
+  // Export menu items are enabled when there is something to export and no PDF
+  // export is already running (Print additionally waits for a running print).
+  const canExport = slides.length > 0 && pdfExportContext === null;
+
+  // ── Menu actions (native macOS menu bar + in-window FileMenu) ──────────────
   // Latest menu actions, refreshed every render. The native menu is rebuilt only
   // when `recents` changes, so its items delegate through this ref (below) to
   // always run current logic without rebuilding on every keystroke.
-  const menuHandlersRef = useRef<MacMenuHandlers>({} as MacMenuHandlers);
+  const menuHandlersRef = useRef<MenuActions>({} as MenuActions);
   menuHandlersRef.current = {
     newFile: handleNewFile,
     openFile: handleOpenFile,
@@ -2278,6 +2282,7 @@ export default function App() {
     clearRecent: () => { clearRecentFiles(); setRecents([]); },
     save: handleSave,
     saveAs: () => { void handleSaveAs(); },
+    copyWithAssets: () => { void handleCopyWithAssets(); },
     import: () => guardDirty(() => setShowImport(true)),
     importUrl: () => guardDirty(() => setShowImportUrl(true)),
     importMarp: handleImportMarp,
@@ -2285,6 +2290,7 @@ export default function App() {
     exportPdf: () => { setPdfPerPage(1); setPdfNotesOn(false); setPdfOptionsOpen(true); },
     exportHtml: handleExportHtml,
     print: handlePrint,
+    exit: () => guardDirty(actuallyCloseWindow),
     present: () => { void handlePresentEnter(); },
     toggleInspector: () => setShowInspector((v) => !v),
     openSettings: () => setShowSettings(true),
@@ -2302,29 +2308,11 @@ export default function App() {
       })();
     },
   };
-  const stableMenuHandlers = useRef<MacMenuHandlers>({
-    newFile: () => menuHandlersRef.current.newFile(),
-    openFile: () => menuHandlersRef.current.openFile(),
-    openRecent: (p) => menuHandlersRef.current.openRecent(p),
-    clearRecent: () => menuHandlersRef.current.clearRecent(),
-    save: () => menuHandlersRef.current.save(),
-    saveAs: () => menuHandlersRef.current.saveAs(),
-    import: () => menuHandlersRef.current.import(),
-    importUrl: () => menuHandlersRef.current.importUrl(),
-    importMarp: () => menuHandlersRef.current.importMarp(),
-    export: () => menuHandlersRef.current.export(),
-    exportPdf: () => menuHandlersRef.current.exportPdf(),
-    exportHtml: () => menuHandlersRef.current.exportHtml(),
-    print: () => menuHandlersRef.current.print(),
-    present: () => menuHandlersRef.current.present(),
-    toggleInspector: () => menuHandlersRef.current.toggleInspector(),
-    openSettings: () => menuHandlersRef.current.openSettings(),
-    installCli: () => menuHandlersRef.current.installCli(),
-  }).current;
+  const menuActions = useRef(delegateMenuActions(menuHandlersRef)).current;
 
   useEffect(() => {
     if (!isMac) return;
-    void buildMacMenu(stableMenuHandlers, recents, {
+    void buildMacMenu(menuActions, recents, {
       present: t('macMenu.present'),
       view: t('macMenu.view'),
       toggleInspector: t('macMenu.toggleInspector'),
@@ -2348,7 +2336,7 @@ export default function App() {
       exportHtml: t('app.menuExportHtml'),
       print: t('app.menuPrint'),
     });
-  }, [recents, stableMenuHandlers, t]);
+  }, [recents, menuActions, t]);
 
   // File association: open files delivered via double-click / "Open With".
   // On macOS, paths arrive via RunEvent::Opened; on Linux/Windows, via CLI arg
@@ -2493,34 +2481,20 @@ export default function App() {
         menus={!isMac && (
           <>
             <FileMenu
+              actions={menuActions}
               recents={recents}
               filePath={filePath}
               isDirty={isDirty}
               hasContent={!!content}
-              slideCount={slides.length}
+              canExport={canExport}
               pdfExporting={pdfExportContext !== null}
               printing={printContext !== null}
               combos={keybindings.combos}
-              onNewFile={handleNewFile}
-              onOpenFile={handleOpenFile}
-              onOpenRecent={(p) => menuHandlersRef.current.openRecent(p)}
-              onClearRecent={() => menuHandlersRef.current.clearRecent()}
-              onImportPptx={() => guardDirty(() => setShowImport(true))}
-              onImportUrl={() => guardDirty(() => setShowImportUrl(true))}
-              onImportMarp={handleImportMarp}
-              onSave={handleSave}
-              onSaveAs={handleSaveAs}
-              onCopyWithAssets={handleCopyWithAssets}
-              onExportPptx={handleExport}
-              onExportPdf={() => { setPdfPerPage(1); setPdfNotesOn(false); setPdfOptionsOpen(true); }}
-              onExportHtml={handleExportHtml}
-              onPrint={handlePrint}
-              onExit={() => guardDirty(actuallyCloseWindow)}
             />
             <EditMenu editorRef={editorRef} onFind={openFindDialog} />
           </>
         )}
-        windowControls={!isMac && <WindowControls onClose={() => guardDirty(actuallyCloseWindow)} />}
+        windowControls={!isMac && <WindowControls onClose={menuActions.exit} />}
         filePath={filePath}
         isDirty={isDirty}
         isRenaming={isRenaming}

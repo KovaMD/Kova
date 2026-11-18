@@ -2,42 +2,30 @@ import { useEffect, useRef, useState } from 'react';
 import { useT } from '../../i18n';
 import { formatCombo, getCombo } from '../../engine/keybindings';
 import { recentFileMenuLabel } from '../../store/recentFiles';
+import type { MenuActions } from '../../macMenu';
 
 export interface FileMenuProps {
+  /** Shared with the native macOS menu bar (see macMenu.ts). */
+  actions: MenuActions;
   recents: string[];
   filePath: string | null;
   isDirty: boolean;
   hasContent: boolean;
-  slideCount: number;
+  /** There are slides to export and no PDF export is running (D15). */
+  canExport: boolean;
   pdfExporting: boolean;
   printing: boolean;
   combos: Record<string, string>;
-  onNewFile: () => void;
-  onOpenFile: () => void;
-  onOpenRecent: (path: string) => void;
-  onClearRecent: () => void;
-  onImportPptx: () => void;
-  onImportUrl: () => void;
-  onImportMarp: () => void;
-  onSave: () => void;
-  onSaveAs: () => void;
-  onCopyWithAssets: () => void;
-  onExportPptx: () => void;
-  onExportPdf: () => void;
-  onExportHtml: () => void;
-  onPrint: () => void;
-  onExit: () => void;
 }
 
 /** In-window File menu (Windows/Linux; macOS uses the native menu bar). */
-export function FileMenu(p: FileMenuProps) {
+export function FileMenu({ actions, recents, filePath, isDirty, hasContent, canExport, pdfExporting, printing, combos }: FileMenuProps) {
   const t = useT();
   const [fileMenuOpen, setFileMenuOpen]       = useState(false);
   const [importSubmenuOpen, setImportSubmenuOpen] = useState(false);
   const [recentSubmenuOpen, setRecentSubmenuOpen] = useState(false);
   const [exportSubmenuOpen, setExportSubmenuOpen] = useState(false);
   const fileMenuRef = useRef<HTMLDivElement>(null);
-  const { recents, filePath, isDirty, slideCount, combos } = p;
 
   // Close the menu when the user clicks outside it.
   useEffect(() => {
@@ -63,10 +51,10 @@ export function FileMenu(p: FileMenuProps) {
       </button>
       {fileMenuOpen && (
         <div className="btn-group-menu">
-          <button className="btn-group-menu-item btn-group-menu-item--shortcut" onClick={() => { setFileMenuOpen(false); p.onNewFile(); }}>
+          <button className="btn-group-menu-item btn-group-menu-item--shortcut" onClick={() => { setFileMenuOpen(false); actions.newFile(); }}>
             {t('app.menuNew')} <span>{formatCombo(getCombo(combos, 'newFile'))}</span>
           </button>
-          <button className="btn-group-menu-item btn-group-menu-item--shortcut" onClick={() => { setFileMenuOpen(false); p.onOpenFile(); }}>
+          <button className="btn-group-menu-item btn-group-menu-item--shortcut" onClick={() => { setFileMenuOpen(false); actions.openFile(); }}>
             {t('app.menuOpen')} <span>{formatCombo(getCombo(combos, 'openFile'))}</span>
           </button>
           <div style={{ position: 'relative' }} onMouseEnter={() => setRecentSubmenuOpen(true)} onMouseLeave={() => setRecentSubmenuOpen(false)}>
@@ -90,7 +78,7 @@ export function FileMenu(p: FileMenuProps) {
                         key={path}
                         className="btn-group-menu-item"
                         title={path}
-                        onClick={() => { setFileMenuOpen(false); p.onOpenRecent(path); }}
+                        onClick={() => { setFileMenuOpen(false); actions.openRecent(path); }}
                       >
                         {recentFileMenuLabel(path, recents)}
                       </button>
@@ -98,7 +86,7 @@ export function FileMenu(p: FileMenuProps) {
                     <div className="btn-group-menu-separator" />
                     <button
                       className="btn-group-menu-item"
-                      onClick={() => { setFileMenuOpen(false); p.onClearRecent(); }}
+                      onClick={() => { setFileMenuOpen(false); actions.clearRecent(); }}
                     >
                       {t('app.menuClearMenu')}
                     </button>
@@ -119,26 +107,26 @@ export function FileMenu(p: FileMenuProps) {
             </button>
             {importSubmenuOpen && (
               <div className="btn-group-menu btn-group-menu--sub">
-                <button className="btn-group-menu-item" onClick={() => { setFileMenuOpen(false); p.onImportPptx(); }}>
+                <button className="btn-group-menu-item" onClick={() => { setFileMenuOpen(false); actions.import(); }}>
                   {t('app.menuImportFromPowerPoint')}
                 </button>
-                <button className="btn-group-menu-item" onClick={() => { setFileMenuOpen(false); p.onImportUrl(); }}>
+                <button className="btn-group-menu-item" onClick={() => { setFileMenuOpen(false); actions.importUrl(); }}>
                   {t('app.menuImportFromUrl')}
                 </button>
-                <button className="btn-group-menu-item" onClick={() => { setFileMenuOpen(false); p.onImportMarp(); }}>
+                <button className="btn-group-menu-item" onClick={() => { setFileMenuOpen(false); actions.importMarp(); }}>
                   {t('app.menuImportFromMarp')}
                 </button>
               </div>
             )}
           </div>
           <div className="btn-group-menu-separator" />
-          <button className="btn-group-menu-item btn-group-menu-item--shortcut" disabled={!filePath || !isDirty} onClick={() => { setFileMenuOpen(false); p.onSave(); }}>
+          <button className="btn-group-menu-item btn-group-menu-item--shortcut" disabled={!filePath || !isDirty} onClick={() => { setFileMenuOpen(false); actions.save(); }}>
             {t('app.menuSave')} <span>{formatCombo(getCombo(combos, 'save'))}</span>
           </button>
-          <button className="btn-group-menu-item btn-group-menu-item--shortcut" disabled={!p.hasContent} onClick={() => { setFileMenuOpen(false); p.onSaveAs(); }}>
+          <button className="btn-group-menu-item btn-group-menu-item--shortcut" disabled={!hasContent} onClick={() => { setFileMenuOpen(false); actions.saveAs(); }}>
             {t('app.menuSaveAs')} <span>{formatCombo(getCombo(combos, 'saveAs'))}</span>
           </button>
-          <button className="btn-group-menu-item" disabled={!filePath} onClick={() => { setFileMenuOpen(false); p.onCopyWithAssets(); }}>
+          <button className="btn-group-menu-item" disabled={!filePath} onClick={() => { setFileMenuOpen(false); actions.copyWithAssets(); }}>
             {t('app.menuCopyWithAssets')}
           </button>
           <div className="btn-group-menu-separator" />
@@ -147,7 +135,7 @@ export function FileMenu(p: FileMenuProps) {
               className="btn-group-menu-item btn-group-menu-item--shortcut"
               aria-haspopup="true"
               aria-expanded={exportSubmenuOpen}
-              disabled={slideCount === 0 || p.pdfExporting}
+              disabled={!canExport}
               onClick={() => setExportSubmenuOpen((o) => !o)}
               onKeyDown={(e) => { if (e.key === 'ArrowRight' || e.key === 'Enter') setExportSubmenuOpen(true); }}
             >
@@ -155,23 +143,23 @@ export function FileMenu(p: FileMenuProps) {
             </button>
             {exportSubmenuOpen && (
               <div className="btn-group-menu btn-group-menu--sub">
-                <button className="btn-group-menu-item" disabled={slideCount === 0 || p.pdfExporting} onClick={() => { setFileMenuOpen(false); p.onExportPptx(); }}>
+                <button className="btn-group-menu-item" disabled={!canExport} onClick={() => { setFileMenuOpen(false); actions.export(); }}>
                   {t('app.menuExportPowerpoint')}
                 </button>
-                <button className="btn-group-menu-item" disabled={slideCount === 0 || p.pdfExporting} onClick={() => { setFileMenuOpen(false); p.onExportPdf(); }}>
-                  {p.pdfExporting ? t('app.menuExportingPdf') : t('app.menuExportPdf')}
+                <button className="btn-group-menu-item" disabled={!canExport} onClick={() => { setFileMenuOpen(false); actions.exportPdf(); }}>
+                  {pdfExporting ? t('app.menuExportingPdf') : t('app.menuExportPdf')}
                 </button>
-                <button className="btn-group-menu-item" disabled={slideCount === 0 || p.pdfExporting} onClick={() => { setFileMenuOpen(false); p.onExportHtml(); }}>
-                  {p.pdfExporting ? t('app.menuExporting') : t('app.menuExportHtml')}
+                <button className="btn-group-menu-item" disabled={!canExport} onClick={() => { setFileMenuOpen(false); actions.exportHtml(); }}>
+                  {pdfExporting ? t('app.menuExporting') : t('app.menuExportHtml')}
                 </button>
               </div>
             )}
           </div>
-          <button className="btn-group-menu-item" disabled={slideCount === 0 || p.pdfExporting || p.printing} onClick={() => { setFileMenuOpen(false); p.onPrint(); }}>
-            {p.printing ? t('app.menuPreparingPrint') : t('app.menuPrint')}
+          <button className="btn-group-menu-item" disabled={!canExport || printing} onClick={() => { setFileMenuOpen(false); actions.print(); }}>
+            {printing ? t('app.menuPreparingPrint') : t('app.menuPrint')}
           </button>
           <div className="btn-group-menu-separator" />
-          <button className="btn-group-menu-item" onClick={() => { setFileMenuOpen(false); p.onExit(); }}>
+          <button className="btn-group-menu-item" onClick={() => { setFileMenuOpen(false); actions.exit(); }}>
             {t('app.menuExit')}
           </button>
         </div>
