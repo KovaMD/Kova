@@ -22,6 +22,10 @@ import { ImportPptxModal } from './components/ImportPptxModal';
 import { ImportUrlModal } from './components/ImportUrlModal';
 import { ModalShell } from './components/ModalShell';
 import { InfoBanner } from './components/InfoBanner';
+import { FileMenu } from './components/app/FileMenu';
+import { EditMenu } from './components/app/EditMenu';
+import { WindowControls } from './components/app/WindowControls';
+import { Toolbar } from './components/app/Toolbar';
 import { isMarp, importMarp } from './engine/import/marp';
 import { parsePptx } from './engine/import/parsePptx';
 import { pptxToMarkdown } from './engine/import/pptxToMarkdown';
@@ -35,10 +39,10 @@ import { setDiagramRenderer } from './engine/export/diagramRenderer';
 import type { AppSettings } from './store/settings';
 import { loadLastSession, saveLastSession } from './store/lastSession';
 import { loadLastSeenVersion, saveLastSeenVersion } from './store/lastSeenVersion';
-import { loadRecentFiles, addRecentFile, removeRecentFile, clearRecentFiles, recentFileBasename, recentFileMenuLabel } from './store/recentFiles';
+import { loadRecentFiles, addRecentFile, removeRecentFile, clearRecentFiles, recentFileBasename } from './store/recentFiles';
 import { buildMacMenu } from './macMenu';
 import type { MacMenuHandlers } from './macMenu';
-import { loadKeybindings, matchShortcut, getCombo, formatCombo, isMac } from './engine/keybindings';
+import { loadKeybindings, matchShortcut, getCombo, isMac } from './engine/keybindings';
 import type { Keybindings } from './engine/keybindings';
 import { I18nProvider, useLocaleTranslator, formatFallbackDate } from './i18n';
 
@@ -346,13 +350,6 @@ export default function App() {
   const [isRenaming, setIsRenaming]       = useState(false);
   const [renameValue, setRenameValue]     = useState('');
   const [resolvedUiTheme, setResolvedUiTheme] = useState<'dark' | 'light'>('dark');
-  const [fileMenuOpen, setFileMenuOpen]       = useState(false);
-  const [importSubmenuOpen, setImportSubmenuOpen] = useState(false);
-  const [recentSubmenuOpen, setRecentSubmenuOpen] = useState(false);
-  const [exportSubmenuOpen, setExportSubmenuOpen] = useState(false);
-  const fileMenuRef = useRef<HTMLDivElement>(null);
-  const [editMenuOpen, setEditMenuOpen]       = useState(false);
-  const editMenuRef = useRef<HTMLDivElement>(null);
   const [pdfExportContext, setPdfExportContext] = useState<{ slides: Slide[] } | null>(null);
   const pdfSlideRefs         = useRef<Map<number, HTMLElement>>(new Map());
   const pdfExportRunnerRef   = useRef<(() => Promise<void>) | null>(null);
@@ -2411,33 +2408,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [presentMode, presenterMode, keybindings.combos, filePath, slides.length, safeSlideIndex, handleNewFile, handleOpenFile, handleSave, handleSaveAs, toggleFocusMode, handlePresentEnter, handleToggleHidden]);
 
-  // Close menus when the user clicks outside them.
-  useEffect(() => {
-    if (!fileMenuOpen) {
-      setImportSubmenuOpen(false);
-      setExportSubmenuOpen(false);
-      setRecentSubmenuOpen(false);
-      return;
-    }
-    const onDown = (e: MouseEvent) => {
-      if (fileMenuRef.current && !fileMenuRef.current.contains(e.target as Node)) {
-        setFileMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [fileMenuOpen]);
-
-  useEffect(() => {
-    if (!editMenuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (editMenuRef.current && !editMenuRef.current.contains(e.target as Node)) {
-        setEditMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [editMenuOpen]);
 
 
   const presentationOverlays = (
@@ -2519,265 +2489,55 @@ export default function App() {
         </div>
       )}
       {presentationOverlays}
-      <div className="app-toolbar">
-        {/* macOS uses native traffic lights (titleBarStyle: Overlay) + the native
-            menu bar, so reserve a draggable strip for the lights and drop the
-            custom window buttons + in-window File/Edit menus here. */}
-        {isMac && <div className="mac-traffic-pad" data-tauri-drag-region />}
-        {!isMac && <div className="btn-group" ref={fileMenuRef}>
-          <button className="btn" onClick={() => setFileMenuOpen((o) => !o)}>
-            {t('app.menuFile')}
-          </button>
-          {fileMenuOpen && (
-            <div className="btn-group-menu">
-              <button className="btn-group-menu-item btn-group-menu-item--shortcut" onClick={() => { setFileMenuOpen(false); handleNewFile(); }}>
-                {t('app.menuNew')} <span>{formatCombo(getCombo(keybindings.combos, 'newFile'))}</span>
-              </button>
-              <button className="btn-group-menu-item btn-group-menu-item--shortcut" onClick={() => { setFileMenuOpen(false); handleOpenFile(); }}>
-                {t('app.menuOpen')} <span>{formatCombo(getCombo(keybindings.combos, 'openFile'))}</span>
-              </button>
-              <div style={{ position: 'relative' }} onMouseEnter={() => setRecentSubmenuOpen(true)} onMouseLeave={() => setRecentSubmenuOpen(false)}>
-                <button
-                  className="btn-group-menu-item btn-group-menu-item--shortcut"
-                  aria-haspopup="true"
-                  aria-expanded={recentSubmenuOpen}
-                  onClick={() => setRecentSubmenuOpen((p) => !p)}
-                  onKeyDown={(e) => { if (e.key === 'ArrowRight' || e.key === 'Enter') setRecentSubmenuOpen(true); }}
-                >
-                  {t('app.menuOpenRecent')} <span>›</span>
-                </button>
-                {recentSubmenuOpen && (
-                  <div className="btn-group-menu btn-group-menu--sub">
-                    {recents.length === 0 ? (
-                      <button className="btn-group-menu-item" disabled>{t('app.menuNoRecentFiles')}</button>
-                    ) : (
-                      <>
-                        {recents.map((p) => (
-                          <button
-                            key={p}
-                            className="btn-group-menu-item"
-                            title={p}
-                            onClick={() => { setFileMenuOpen(false); menuHandlersRef.current.openRecent(p); }}
-                          >
-                            {recentFileMenuLabel(p, recents)}
-                          </button>
-                        ))}
-                        <div className="btn-group-menu-separator" />
-                        <button
-                          className="btn-group-menu-item"
-                          onClick={() => { setFileMenuOpen(false); menuHandlersRef.current.clearRecent(); }}
-                        >
-                          {t('app.menuClearMenu')}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div style={{ position: 'relative' }} onMouseEnter={() => setImportSubmenuOpen(true)} onMouseLeave={() => setImportSubmenuOpen(false)}>
-                <button
-                  className="btn-group-menu-item btn-group-menu-item--shortcut"
-                  aria-haspopup="true"
-                  aria-expanded={importSubmenuOpen}
-                  onClick={() => setImportSubmenuOpen((p) => !p)}
-                  onKeyDown={(e) => { if (e.key === 'ArrowRight' || e.key === 'Enter') setImportSubmenuOpen(true); }}
-                >
-                  {t('app.menuImport')} <span>›</span>
-                </button>
-                {importSubmenuOpen && (
-                  <div className="btn-group-menu btn-group-menu--sub">
-                    <button className="btn-group-menu-item" onClick={() => { setFileMenuOpen(false); guardDirty(() => setShowImport(true)); }}>
-                      {t('app.menuImportFromPowerPoint')}
-                    </button>
-                    <button className="btn-group-menu-item" onClick={() => { setFileMenuOpen(false); guardDirty(() => setShowImportUrl(true)); }}>
-                      {t('app.menuImportFromUrl')}
-                    </button>
-                    <button className="btn-group-menu-item" onClick={() => { setFileMenuOpen(false); handleImportMarp(); }}>
-                      {t('app.menuImportFromMarp')}
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="btn-group-menu-separator" />
-              <button className="btn-group-menu-item btn-group-menu-item--shortcut" disabled={!filePath || !isDirty} onClick={() => { setFileMenuOpen(false); handleSave(); }}>
-                {t('app.menuSave')} <span>{formatCombo(getCombo(keybindings.combos, 'save'))}</span>
-              </button>
-              <button className="btn-group-menu-item btn-group-menu-item--shortcut" disabled={!content} onClick={() => { setFileMenuOpen(false); handleSaveAs(); }}>
-                {t('app.menuSaveAs')} <span>{formatCombo(getCombo(keybindings.combos, 'saveAs'))}</span>
-              </button>
-              <button className="btn-group-menu-item" disabled={!filePath} onClick={() => { setFileMenuOpen(false); handleCopyWithAssets(); }}>
-                {t('app.menuCopyWithAssets')}
-              </button>
-              <div className="btn-group-menu-separator" />
-              <div style={{ position: 'relative' }} onMouseEnter={() => setExportSubmenuOpen(true)} onMouseLeave={() => setExportSubmenuOpen(false)}>
-                <button
-                  className="btn-group-menu-item btn-group-menu-item--shortcut"
-                  aria-haspopup="true"
-                  aria-expanded={exportSubmenuOpen}
-                  disabled={slides.length === 0 || pdfExportContext !== null}
-                  onClick={() => setExportSubmenuOpen((p) => !p)}
-                  onKeyDown={(e) => { if (e.key === 'ArrowRight' || e.key === 'Enter') setExportSubmenuOpen(true); }}
-                >
-                  {t('app.menuExport')} <span>›</span>
-                </button>
-                {exportSubmenuOpen && (
-                  <div className="btn-group-menu btn-group-menu--sub">
-                    <button className="btn-group-menu-item" disabled={slides.length === 0 || pdfExportContext !== null} onClick={() => { setFileMenuOpen(false); handleExport(); }}>
-                      {t('app.menuExportPowerpoint')}
-                    </button>
-                    <button className="btn-group-menu-item" disabled={slides.length === 0 || pdfExportContext !== null} onClick={() => { setFileMenuOpen(false); setPdfPerPage(1); setPdfNotesOn(false); setPdfOptionsOpen(true); }}>
-                      {pdfExportContext ? t('app.menuExportingPdf') : t('app.menuExportPdf')}
-                    </button>
-                    <button className="btn-group-menu-item" disabled={slides.length === 0 || pdfExportContext !== null} onClick={() => { setFileMenuOpen(false); handleExportHtml(); }}>
-                      {pdfExportContext ? t('app.menuExporting') : t('app.menuExportHtml')}
-                    </button>
-                  </div>
-                )}
-              </div>
-              <button className="btn-group-menu-item" disabled={slides.length === 0 || pdfExportContext !== null || printContext !== null} onClick={() => { setFileMenuOpen(false); handlePrint(); }}>
-                {printContext ? t('app.menuPreparingPrint') : t('app.menuPrint')}
-              </button>
-              <div className="btn-group-menu-separator" />
-              <button className="btn-group-menu-item" onClick={() => { setFileMenuOpen(false); guardDirty(actuallyCloseWindow); }}>
-                {t('app.menuExit')}
-              </button>
-            </div>
-          )}
-        </div>}
-        {!isMac && <div className="btn-group" ref={editMenuRef}>
-          <button className="btn" onClick={() => setEditMenuOpen((o) => !o)}>
-            {t('app.menuEdit')}
-          </button>
-          {editMenuOpen && (
-            <div className="btn-group-menu">
-              <button className="btn-group-menu-item btn-group-menu-item--shortcut" onClick={() => { setEditMenuOpen(false); editorRef.current?.undo(); }}>
-                {t('app.menuUndo')} <span>{formatCombo('ctrl+z')}</span>
-              </button>
-              <button className="btn-group-menu-item btn-group-menu-item--shortcut" onClick={() => { setEditMenuOpen(false); editorRef.current?.redo(); }}>
-                {t('app.menuRedo')} <span>{formatCombo(isMac ? 'meta+shift+z' : 'ctrl+y')}</span>
-              </button>
-              <div className="btn-group-menu-separator" />
-              <button className="btn-group-menu-item btn-group-menu-item--shortcut" onClick={() => { setEditMenuOpen(false); setTimeout(() => { editorRef.current?.focus(); document.execCommand('cut'); }, 0); }}>
-                {t('app.menuCut')} <span>{formatCombo('ctrl+x')}</span>
-              </button>
-              <button className="btn-group-menu-item btn-group-menu-item--shortcut" onClick={() => { setEditMenuOpen(false); setTimeout(() => { editorRef.current?.focus(); document.execCommand('copy'); }, 0); }}>
-                {t('app.menuCopy')} <span>{formatCombo('ctrl+c')}</span>
-              </button>
-              <button className="btn-group-menu-item btn-group-menu-item--shortcut" onClick={() => { setEditMenuOpen(false); setTimeout(() => { editorRef.current?.focus(); document.execCommand('paste'); }, 0); }}>
-                {t('app.menuPaste')} <span>{formatCombo('ctrl+v')}</span>
-              </button>
-              <div className="btn-group-menu-separator" />
-              <button className="btn-group-menu-item btn-group-menu-item--shortcut" onClick={() => { setEditMenuOpen(false); editorRef.current?.selectAll(); }}>
-                {t('app.menuSelectAll')} <span>{formatCombo('ctrl+a')}</span>
-              </button>
-              <div className="btn-group-menu-separator" />
-              <button className="btn-group-menu-item btn-group-menu-item--shortcut" onClick={() => { setEditMenuOpen(false); openFindDialog(); }}>
-                {t('editor.findDialogTitle')} <span>{formatCombo('ctrl+f')}</span>
-              </button>
-            </div>
-          )}
-        </div>}
-        <div className="toolbar-spacer" data-tauri-drag-region />
-        {isRenaming ? (
-          <input
-            className="toolbar-doctitle toolbar-doctitle--editing"
-            value={renameValue}
-            autoFocus
-            onChange={(e) => setRenameValue(e.target.value)}
-            onBlur={handleRenameCommit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); handleRenameCommit(); }
-              if (e.key === 'Escape') { e.preventDefault(); setIsRenaming(false); }
-            }}
-          />
-        ) : (
-          <div
-            className="toolbar-doctitle"
-            onDoubleClick={() => {
-              if (!filePath) return;
-              const base = basename(filePath);
-              setRenameValue(base.replace(/\.(md|markdown)$/i, ''));
-              setIsRenaming(true);
-            }}
-          >
-            {filePath ? basename(filePath) : t('app.untitledFilename')}{isDirty ? ' *' : ''}
-          </div>
+      <Toolbar
+        menus={!isMac && (
+          <>
+            <FileMenu
+              recents={recents}
+              filePath={filePath}
+              isDirty={isDirty}
+              hasContent={!!content}
+              slideCount={slides.length}
+              pdfExporting={pdfExportContext !== null}
+              printing={printContext !== null}
+              combos={keybindings.combos}
+              onNewFile={handleNewFile}
+              onOpenFile={handleOpenFile}
+              onOpenRecent={(p) => menuHandlersRef.current.openRecent(p)}
+              onClearRecent={() => menuHandlersRef.current.clearRecent()}
+              onImportPptx={() => guardDirty(() => setShowImport(true))}
+              onImportUrl={() => guardDirty(() => setShowImportUrl(true))}
+              onImportMarp={handleImportMarp}
+              onSave={handleSave}
+              onSaveAs={handleSaveAs}
+              onCopyWithAssets={handleCopyWithAssets}
+              onExportPptx={handleExport}
+              onExportPdf={() => { setPdfPerPage(1); setPdfNotesOn(false); setPdfOptionsOpen(true); }}
+              onExportHtml={handleExportHtml}
+              onPrint={handlePrint}
+              onExit={() => guardDirty(actuallyCloseWindow)}
+            />
+            <EditMenu editorRef={editorRef} onFind={openFindDialog} />
+          </>
         )}
-        <button
-          className="btn btn-primary"
-          onClick={handlePresentEnter}
-          disabled={slides.length === 0}
-          title={t('app.presentButtonTitle')}
-        >{t('app.presentButton')}</button>
-        <button
-          className="wm-btn"
-          onClick={toggleFocusMode}
-          title={focusMode
-            ? t('app.exitFocusMode', { combo: formatCombo(getCombo(keybindings.combos, 'focusMode')) })
-            : t('app.enterFocusMode', { combo: formatCombo(getCombo(keybindings.combos, 'focusMode')) })}
-          style={{ marginLeft: 4, color: focusMode ? 'var(--accent)' : undefined }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
-            <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
-            <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
-            <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
-          </svg>
-        </button>
-        <button
-          className={`wm-btn${showInspector ? ' wm-btn--active' : ''}`}
-          onClick={() => setShowInspector((v) => !v)}
-          title={t('app.toggleInspector')}
-          style={{ marginLeft: 4 }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="8" strokeWidth="2"/>
-            <line x1="12" y1="12" x2="12" y2="16"/>
-          </svg>
-        </button>
-        <button
-          className="wm-btn"
-          onClick={() => setShowSettings(true)}
-          title={t('app.settingsButtonTitle')}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-        </button>
-        {!isMac && (
-          <div className="wm-controls">
-            <button
-              className="wm-btn"
-              onMouseDown={(e) => { e.preventDefault(); getCurrentWindow().minimize(); }}
-              title={t('app.minimise')}
-            >
-              <svg width="12" height="2" viewBox="0 0 12 2"><rect width="12" height="2" rx="1" fill="currentColor"/></svg>
-            </button>
-            <button
-              className="wm-btn"
-              onMouseDown={(e) => { e.preventDefault(); getCurrentWindow().toggleMaximize(); }}
-              title={t('app.maximiseRestore')}
-            >
-              <svg width="11" height="11" viewBox="0 0 11 11"><rect x="1" y="1" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5"/></svg>
-            </button>
-            <button
-              className="wm-btn wm-btn--close"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                guardDirty(actuallyCloseWindow);
-              }}
-              title={t('app.windowClose')}
-            >
-              <svg width="11" height="11" viewBox="0 0 11 11">
-                <line x1="1" y1="1" x2="10" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                <line x1="10" y1="1" x2="1" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            </button>
-          </div>
-        )}
-      </div>
+        windowControls={!isMac && <WindowControls onClose={() => guardDirty(actuallyCloseWindow)} />}
+        filePath={filePath}
+        isDirty={isDirty}
+        isRenaming={isRenaming}
+        renameValue={renameValue}
+        onRenameStart={(value) => { setRenameValue(value); setIsRenaming(true); }}
+        onRenameChange={setRenameValue}
+        onRenameCommit={handleRenameCommit}
+        onRenameCancel={() => setIsRenaming(false)}
+        canPresent={slides.length > 0}
+        onPresent={handlePresentEnter}
+        focusMode={focusMode}
+        focusModeCombo={getCombo(keybindings.combos, 'focusMode')}
+        onToggleFocusMode={toggleFocusMode}
+        showInspector={showInspector}
+        onToggleInspector={() => setShowInspector((v) => !v)}
+        onOpenSettings={() => setShowSettings(true)}
+      />
 
       <div className="app-panels">
         <PanelGroup
