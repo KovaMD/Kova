@@ -45,4 +45,24 @@ export default tseslint.config(
       "no-useless-escape": "warn",
     },
   },
+  {
+    // Platform-free engine (refactor card P3-04). src/engine depends only on
+    // the port interfaces in src/engine/ports.ts; the Tauri-backed adapters
+    // live in src/platform/enginePorts.ts and are installed by src/main.tsx.
+    files: ["src/engine/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          {
+            group: ["@tauri-apps/*"],
+            message: "src/engine must stay platform-free: depend on a port in src/engine/ports.ts and implement it in src/platform/enginePorts.ts.",
+          },
+          {
+            regex: "(^|/)platform(/|$)",
+            message: "src/engine must not import src/platform: take a port from src/engine/ports.ts instead.",
+          },
+        ],
+      }],
+    },
+  },
 );
