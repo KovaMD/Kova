@@ -7,6 +7,68 @@ pub fn set_wake_lock(active: bool) {
     crate::wake_lock::set(active);
 }
 
+/// A monitor's geometry as `(x, y, width, height)` in GDK screen coordinates.
+#[cfg(any(target_os = "linux", test))]
+type MonitorRect = (i32, i32, i32, i32);
+
+/// The points handed to GDK's `monitor_at_point`, in the order they are tried.
+/// Each is offset by +1 so it lands inside the monitor rather than on its edge.
+/// Wayland only gets the logical point; X11 tries physical first, then logical.
+#[cfg(any(target_os = "linux", test))]
+fn audience_probe_points(
+    is_wayland: bool,
+    x: f64,
+    y: f64,
+    physical_x: f64,
+    physical_y: f64,
+) -> Vec<(i32, i32)> {
+    if is_wayland {
+        vec![(x as i32 + 1, y as i32 + 1)]
+    } else {
+        vec![
+            (physical_x as i32 + 1, physical_y as i32 + 1),
+            (x as i32 + 1, y as i32 + 1),
+        ]
+    }
+}
+
+/// Chooses the monitor index for `fullscreen_on_monitor`.
+///
+/// `hit` is the geometry of the monitor GDK found at one of the probe points,
+/// if any. `monitors[i]` is the geometry of GDK monitor `i` (None if GDK could
+/// not return it). `target` is the logical target point.
+///
+/// With a hit, returns the first index whose geometry equals it (0 if none
+/// does). Without one, falls back to proximity: the monitor whose origin is
+/// closest to `target`. That works regardless of primary-monitor availability
+/// (Wayland exposes no primary) and regardless of DPI configuration.
+#[cfg(any(target_os = "linux", test))]
+fn pick_audience_monitor(
+    hit: Option<MonitorRect>,
+    monitors: &[Option<MonitorRect>],
+    target: (i32, i32),
+) -> i32 {
+    let n = monitors.len() as i32;
+    if let Some(geom) = hit {
+        (0..n)
+            .find(|&i| monitors[i as usize].map(|m| m == geom).unwrap_or(false))
+            .unwrap_or(0)
+    } else {
+        let (tx, ty) = target;
+        (0..n)
+            .min_by_key(|&i| {
+                monitors[i as usize]
+                    .map(|(gx, gy, _, _)| {
+                        let dx = (gx - tx) as i64;
+                        let dy = (gy - ty) as i64;
+                        dx * dx + dy * dy
+                    })
+                    .unwrap_or(i64::MAX)
+            })
+            .unwrap_or(0)
+    }
+}
+
 /// Move the audience window to the correct external monitor then fullscreen it.
 ///
 /// On Linux/Wayland setPosition is a no-op — the compositor controls window
@@ -109,14 +171,7 @@ pub async fn setup_audience_window(
             let display_name = display.name();
             let is_wayland = display_name.to_ascii_lowercase().contains("wayland");
 
-            let candidates: &[(i32, i32)] = if is_wayland {
-                &[(x as i32 + 1, y as i32 + 1)]
-            } else {
-                &[
-                    (physical_x as i32 + 1, physical_y as i32 + 1),
-                    (x as i32 + 1, y as i32 + 1),
-                ]
-            };
+            let candidates = audience_probe_points(is_wayland, x, y, physical_x, physical_y);
 
             let found_monitor = candidates.iter().find_map(|&(cx, cy)| {
                 let m = display.monitor_at_point(cx, cy)?;
@@ -129,31 +184,19 @@ pub async fn setup_audience_window(
                 Some(m)
             });
 
-            let target: i32 = if let Some(mon) = found_monitor {
-                let geom = mon.geometry();
-                (0..n)
-                    .find(|&i| display.monitor(i).map(|m| m.geometry() == geom).unwrap_or(false))
-                    .unwrap_or(0)
-            } else {
-                // Proximity fallback: pick the monitor whose origin is closest to the
-                // logical target point. Works regardless of primary-monitor availability
-                // (Wayland exposes no primary) and regardless of DPI configuration.
-                #[cfg(debug_assertions)]
+            #[cfg(debug_assertions)]
+            if found_monitor.is_none() {
                 eprintln!("[kova] monitor_at_point returned None; using proximity fallback");
-                let (tx, ty) = (x as i32, y as i32);
-                (0..n)
-                    .min_by_key(|&i| {
-                        display.monitor(i)
-                            .map(|m| {
-                                let g = m.geometry();
-                                let dx = (g.x() - tx) as i64;
-                                let dy = (g.y() - ty) as i64;
-                                dx * dx + dy * dy
-                            })
-                            .unwrap_or(i64::MAX)
-                    })
-                    .unwrap_or(0)
-            };
+            }
+            let to_rect = |g: gdk::Rectangle| -> MonitorRect { (g.x(), g.y(), g.width(), g.height()) };
+            let monitors: Vec<Option<MonitorRect>> = (0..n)
+                .map(|i| display.monitor(i).map(|m| to_rect(m.geometry())))
+                .collect();
+            let target = pick_audience_monitor(
+                found_monitor.map(|m| to_rect(m.geometry())),
+                &monitors,
+                (x as i32, y as i32),
+            );
 
             #[cfg(debug_assertions)]
             eprintln!("[kova] calling fullscreen_on_monitor({target})");
