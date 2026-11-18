@@ -31,7 +31,7 @@ import { parsePptx } from './engine/import/parsePptx';
 import { pptxToMarkdown } from './engine/import/pptxToMarkdown';
 import { toRawUrl } from './engine/import/toRawUrl';
 import { IMAGE_DIALOG_FILTER } from './engine/mediaTypes';
-import { basename, dirname, dirnameOn, isLocalRelative, pathSeparator, toForwardSlashes } from './engine/paths';
+import { basename, dirname, dirnameOn, pathSeparator, toForwardSlashes } from './engine/paths';
 import { loadSettings, saveSettings, EDITOR_FONT_OPTIONS } from './store/settings';
 import { setDiagramRenderer } from './engine/export/diagramRenderer';
 import type { AppSettings } from './store/settings';
@@ -52,8 +52,6 @@ import { parseBgLine, formatBgLine } from './engine/parser/bgImage';
 import { fetchUpdate } from './engine/updater';
 import { APP_VERSION } from './version';
 import { exportToPptx } from './engine/export/exportPptx';
-import { exportToPdf, printPresentation } from './engine/export/exportPdf';
-import { exportPdfNative, buildInteractiveDocument, type PdfExportOpts } from './engine/export/exportPdfNative';
 import { BUILT_IN_THEMES, DEFAULT_THEME, parseThemeYaml, resolveCustomThemeLibrary, sanitiseThemeOverrides, type ThemeParseResult, type ThemeOverridePatch, type ThemeLibrary } from './engine/theme';
 import { registerBundledFonts, registerCachedFont } from './engine/bundledFonts';
 import type { Slide, ListItem, Frontmatter } from './engine/types';
@@ -64,6 +62,7 @@ import type { Theme } from './engine/theme';
 import { useResolvedSlides } from './hooks/useResolvedSlides';
 import { useFindReplace } from './hooks/useFindReplace';
 import { useOffscreenCapture } from './hooks/useOffscreenCapture';
+import { useExports } from './hooks/useExports';
 import { OffscreenDeck } from './components/OffscreenDeck';
 import type { PendingCli, CliThemeArg, PendingImport, PendingExport } from './types/cli';
 
@@ -1689,92 +1688,25 @@ export default function App() {
     } catch (err) { console.error('Save As failed:', err); setWarnMessage(`Save failed: ${err}`); return null; }
   }, [filePath, content]);
 
-  const handleExport = useCallback(async () => {
-    if (visibleSlides.length === 0) return;
-    try {
-      const { base64, warnings } = await exportToPptx(visibleSlides, frontmatter, activeTheme, settings.locale);
-      const defaultPath = filePath
-        ? filePath.replace(/\.(md|markdown)$/i, '.pptx')
-        : 'presentation.pptx';
-      const target = await save({
-        filters: [{ name: 'PowerPoint', extensions: ['pptx'] }],
-        defaultPath,
-      });
-      if (!target) return;
-      const savePath = target.toLowerCase().endsWith('.pptx') ? target : `${target}.pptx`;
-      await invoke('write_file_bytes', { path: savePath, data: base64 });
-      if (warnings.length > 0) {
-        window.alert(t('app.exportCompleteWithWarnings', { count: warnings.length, warnings: warnings.join('\n') }));
-      }
-    } catch (err) {
-      console.error('Export failed:', err);
-      window.alert(t('app.pptxExportFailed', { error: String(err) }));
-    }
-  }, [visibleSlides, frontmatter, activeTheme, filePath, settings.locale, t]);
-
-  // Shared by the button (handleExportPdf) and the headless CLI export path:
-  // native print first, raster fallback on failure. Reports what happened
-  // rather than alerting — each caller handles that its own way (a dialog
-  // here, stdout/stderr for the CLI). Rejects only on total failure (both
-  // native and the raster fallback failed).
-  const runPdfExportCapture = useCallback((
-    visSlides: Slide[],
-    savePath: string,
-    opts: PdfExportOpts,
-  ): Promise<{ warnings: string[]; usedFallback: boolean; fallbackReason?: string }> =>
-    runOffscreenCapture(visSlides, async (elements) => {
-      try {
-        await exportPdfNative(elements, aspectRatio, savePath, opts);
-        return { warnings: [], usedFallback: false };
-      } catch (nativeErr) {
-        // Native backend unavailable/failed — degrade to the raster renderer.
-        // It's one-slide-per-page and ignores handout/N-up/paper options.
-        const { base64, warnings } = await exportToPdf(elements, activeTheme, aspectRatio);
-        await invoke('write_file_bytes', { path: savePath, data: base64 });
-        return { warnings, usedFallback: true, fallbackReason: String(nativeErr) };
-      }
-    }), [runOffscreenCapture, aspectRatio, activeTheme]);
-
-  // Shared by the button (handleExportHtml) and the headless CLI export path
-  // (kova --export html): assembles the self-contained interactive deck.
-  // Returns the HTML string; each caller reports failure its own way.
-  const runHtmlExportCapture = useCallback((visSlides: Slide[]): Promise<string> =>
-    runOffscreenCapture(visSlides, (elements) =>
-      buildInteractiveDocument(elements, aspectRatio, visSlides),
-    ), [runOffscreenCapture, aspectRatio]);
-
-  const handleExportPdf = useCallback(async (opts: PdfExportOpts = {}) => {
-    if (visibleSlides.length === 0) return;
-    // The in-window buttons disable while an export is already in flight, but
-    // the macOS native menu bar has no such guard (its items are always
-    // enabled) — without this, triggering a second export via the menu while
-    // one is running clobbers the first's shared in-flight refs/state.
-    if (capturing !== null) return;
-    const defaultPath = filePath
-      ? filePath.replace(/\.(md|markdown)$/i, '.pdf')
-      : 'presentation.pdf';
-    const target = await save({
-      filters: [{ name: 'PDF', extensions: ['pdf'] }],
-      defaultPath,
-    });
-    if (!target) return;
-    const savePath = target.toLowerCase().endsWith('.pdf') ? target : `${target}.pdf`;
-
-    try {
-      const outcome = await runPdfExportCapture([...visibleSlides], savePath, opts);
-      if (outcome.usedFallback) {
-        console.error('Native PDF failed, falling back to raster:', outcome.fallbackReason);
-        window.alert(
-          t('app.pdfExportFallback') +
-          `\n\n${t('app.pdfExportFallbackReason', { error: outcome.fallbackReason ?? '' })}` +
-          (outcome.warnings.length ? `\n\n${outcome.warnings.join('\n')}` : ''),
-        );
-      }
-    } catch (err) {
-      console.error('PDF export failed:', err);
-      window.alert(t('app.pdfExportFailed', { error: String(err) }));
-    }
-  }, [visibleSlides, filePath, runPdfExportCapture, t, capturing]);
+  const {
+    exportPptx: handleExport,
+    exportPdf: handleExportPdf,
+    exportHtml: handleExportHtml,
+    print: handlePrint,
+    copyWithAssets: handleCopyWithAssets,
+    runPdfExportCapture,
+    runHtmlExportCapture,
+  } = useExports({
+    visibleSlides,
+    frontmatter,
+    activeTheme,
+    aspectRatio,
+    locale: settings.locale,
+    filePath,
+    contentRef,
+    t,
+    offscreen: { capturing, runCapture: runOffscreenCapture },
+  });
 
   // Cold-start export (kova --export pptx|pdf|html FILE OUT): the load effect
   // above applies --theme and loads the deck; this fires once slides are
@@ -1841,75 +1773,6 @@ export default function App() {
       }
     })();
   }, [coldExport, filePath, visibleSlides, hasPendingLocalMedia, mediaWaitExpired, frontmatter, activeTheme, settings.locale, settings.pdfPageSize, runPdfExportCapture, runHtmlExportCapture]);
-
-  const handleExportHtml = useCallback(async () => {
-    if (visibleSlides.length === 0) return;
-    if (capturing !== null) return;
-    const defaultPath = filePath
-      ? filePath.replace(/\.(md|markdown)$/i, '.html')
-      : 'presentation.html';
-    const target = await save({
-      filters: [{ name: 'HTML', extensions: ['html'] }],
-      defaultPath,
-    });
-    if (!target) return;
-    const savePath = target.toLowerCase().endsWith('.html') ? target : `${target}.html`;
-    try {
-      const html = await runHtmlExportCapture([...visibleSlides]);
-      await invoke('write_file', { path: savePath, content: html });
-    } catch (err) {
-      console.error('HTML export failed:', err);
-      window.alert(t('app.htmlExportFailed', { error: String(err) }));
-    }
-  }, [visibleSlides, filePath, runHtmlExportCapture, t, capturing]);
-
-  const handlePrint = useCallback(async () => {
-    if (visibleSlides.length === 0) return;
-    if (capturing !== null) return;
-    try {
-      await runOffscreenCapture([...visibleSlides], async (elements) => {
-        const { warnings } = await printPresentation(elements, activeTheme, aspectRatio);
-        if (warnings.length > 0) {
-          window.alert(t('app.printCompleteWithWarnings', { count: warnings.length, warnings: warnings.join('\n') }));
-        }
-      }, 'print');
-    } catch (err) {
-      console.error('Print failed:', err);
-    }
-  }, [visibleSlides, activeTheme, aspectRatio, t, capturing, runOffscreenCapture]);
-
-  const handleCopyWithAssets = useCallback(async () => {
-    if (!filePath) return;
-    const defaultPath = filePath.replace(/\.(md|markdown)$/i, '') + '-copy.md';
-    const target = await save({
-      filters: [{ name: 'Markdown', extensions: ['md'] }],
-      defaultPath,
-    });
-    if (!target) return;
-    const destPath = target.toLowerCase().endsWith('.md') ? target : `${target}.md`;
-    const src = contentRef.current;
-    const seen = new Set<string>();
-    const WEB_URL = /^(https?|data|asset|tauri):\/\//i;
-    // Rust re-validates and is the real security boundary (asset refs must
-    // resolve to a plain relative path under src/dest dir) — this just avoids
-    // surfacing a Rust-side error for the common case of a malformed doc.
-    for (const m of src.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)) {
-      const ref = decodeURIComponent(m[1]);
-      if (!WEB_URL.test(ref) && isLocalRelative(ref)) seen.add(ref);
-    }
-    for (const m of src.matchAll(/<img[^>]+src=["']([^"']+)["']/g)) {
-      const ref = decodeURIComponent(m[1]);
-      if (!WEB_URL.test(ref) && isLocalRelative(ref)) seen.add(ref);
-    }
-    try {
-      await invoke('copy_file_with_assets', {
-        srcPath: filePath,
-        content: src,
-        destPath,
-        assetRefs: Array.from(seen),
-      });
-    } catch (err) { console.error('Copy with assets failed:', err); }
-  }, [filePath]);
 
   const handleContentChange = useCallback((newBody: string) => {
     if (showFrontmatterRef.current) {
