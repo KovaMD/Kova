@@ -2,9 +2,8 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { message } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { emit, emitTo, listen } from '@tauri-apps/api/event';
-import { availableMonitors, currentMonitor, getCurrentWindow } from '@tauri-apps/api/window';
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { emitTo, listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, usePanelRef, useDefaultLayout } from 'react-resizable-panels';
 
 import { ThumbnailPanel } from './components/layout/ThumbnailPanel';
@@ -14,7 +13,6 @@ import { InspectorPanel } from './components/layout/InspectorPanel';
 import { StatusBar } from './components/layout/StatusBar';
 import { PresentationOverlay } from './components/presentation/PresentationOverlay';
 import { PresenterOverlay } from './components/presentation/PresenterOverlay';
-import type { PresentInitPayload } from './AudienceApp';
 import { SettingsModal } from './components/SettingsModal';
 import { ThemeLibraryModal } from './components/inspector/ThemeLibraryModal';
 import { ImportPptxModal } from './components/ImportPptxModal';
@@ -59,6 +57,7 @@ import { useExports } from './hooks/useExports';
 import { useThemeState } from './hooks/useThemeState';
 import { useSlideEditing } from './hooks/useSlideEditing';
 import { useDocument, useLastSessionRecord, type DocumentThemePort } from './hooks/useDocument';
+import { usePresentationSession } from './hooks/usePresentationSession';
 import { OffscreenDeck } from './components/OffscreenDeck';
 import type { PendingCli, CliThemeArg, PendingImport, PendingExport } from './types/cli';
 
@@ -224,7 +223,6 @@ async function runCliImport(imp: PendingImport, check: boolean): Promise<void> {
 export default function App() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [focusMode, setFocusMode]         = useState(false);
-  const [presentMode, setPresentMode]     = useState(false);
   // Index into visibleSlides (hidden slides skipped) while presenting — kept
   // separate from currentSlideIndex (which indexes the full editor deck).
   const [presentIndex, setPresentIndex]   = useState(0);
@@ -255,7 +253,6 @@ export default function App() {
   const [showImport, setShowImport]       = useState(false);
   const [showImportUrl, setShowImportUrl] = useState(false);
   const [showInspector, setShowInspector] = useState(true);
-  const [presenterMode, setPresenterMode] = useState(false);
   const [availableUpdate, setAvailableUpdate] = useState<string | null>(null);
   const [keybindings, setKeybindings]     = useState<Keybindings>({ path: '', combos: {} });
   const [warnMessage, setWarnMessage]     = useState<string | null>(null);
@@ -582,297 +579,38 @@ export default function App() {
     });
   }, [thumbPanelRef, inspectorPanelRef, showInspector]);
 
-  // Cold-start present guards: the load must run once (applyFileContent's
-  // identity changes re-run the drain effect) and presentation must be
-  // entered exactly once (visibleSlides/handlePresentEnter identity changes
-  // re-run the auto-enter effect).
+  // Cold-start present guard: the load must run once (applyFileContent's
+  // identity changes re-run the drain effect). The matching enter-once guard
+  // lives in usePresentationSession.
   const coldLoadStartedRef = useRef(false);
-  const coldEnterFiredRef = useRef(false);
-  // Render-updated mirror of coldPresent for the audience window's
-  // tauri://error and tauri://destroyed once-handlers, whose closures
-  // outlive the render that registered them.
-  const coldPresentRef = useRef(coldPresent);
-  coldPresentRef.current = coldPresent;
-  // Prevents double-exit when the audience window is closed externally while
-  // handlePresentExit is already in flight.
-  const isExitingRef = useRef(false);
-  // Incremented each time a presentation session starts so that a stale
-  // tauri://destroyed handler from a previous session (e.g. close of a leftover
-  // audience window) can detect it is out of date and skip its state reset.
-  const presentSessionRef = useRef(0);
-  // Windows silently drops WS_EX_TOPMOST on various compositor/dialog
-  // interactions, so a one-shot setAlwaysOnTop isn't enough — reassert it
-  // on an interval for as long as the presenter window should stay on top.
-  const alwaysOnTopIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const stopAlwaysOnTopReassert = useCallback(() => {
-    if (alwaysOnTopIntervalRef.current !== null) {
-      clearInterval(alwaysOnTopIntervalRef.current);
-      alwaysOnTopIntervalRef.current = null;
-    }
-  }, []);
 
-  const handlePresentExit = useCallback(async () => {
-    if (isExitingRef.current) return;
-    isExitingRef.current = true;
-    await emit('present:exit', null).catch(() => {});
-    // Close the audience window directly — the present:exit event may not be
-    // processed promptly if macOS App Nap has throttled the window's WebView
-    // after extended idle time (typically 10+ minutes on an external display).
-    try {
-      const audienceWin = await WebviewWindow.getByLabel('audience');
-      if (audienceWin) await audienceWin.close().catch(() => {});
-    } catch { /* ignore */ }
-    // Cold-started session (kova --present): exiting the presentation is
-    // exiting the app — there is no editor session to return to. Release the
-    // wake lock explicitly first: cli_exit is a hard process exit, so the
-    // effect that normally releases it on presentMode→false never runs, and
-    // an orphaned macOS caffeinate child would keep the machine awake.
-    stopAlwaysOnTopReassert();
-    if (coldPresent) {
-      await invoke('set_wake_lock', { active: false }).catch(() => {});
-      await invoke('cli_exit', { code: 0 }).catch(() => {});
-      return;
-    }
-    setPresentMode(false);
-    setPresenterMode(false);
-    // Land the editor on whatever slide we exited on (translate visible→full).
-    const full = slides.indexOf(visibleSlides[safePresentIndex]);
-    if (full >= 0) setCurrentSlideIndex(full);
-    await getCurrentWindow().setFullscreen(false).catch(() => {});
-    await getCurrentWindow().setAlwaysOnTop(false).catch(() => {});
-    isExitingRef.current = false;
-  }, [slides, visibleSlides, safePresentIndex, coldPresent, stopAlwaysOnTopReassert]);
-
-  // Moved above handlePresentEnter (originally declared much further down)
-  // so its stable-identity useCallback can be listed in handlePresentEnter's
-  // own dependency array without a temporal-dead-zone reference.
+  // Declared above usePresentationSession so its stable-identity useCallback
+  // can be passed in without a temporal-dead-zone reference.
   const handleWarn = useCallback((msg: string) => {
     setWarnMessage(msg);
     if (warnTimerRef.current) clearTimeout(warnTimerRef.current);
     warnTimerRef.current = setTimeout(() => setWarnMessage(null), 6000);
   }, []);
 
-  const handlePresentEnter = useCallback(async (eOrFromCurrent?: React.MouseEvent | boolean) => {
-    if (visibleSlides.length === 0) return;
-    isExitingRef.current = false;
-    const sessionId = ++presentSessionRef.current;
-    // "Present from current" — accepts a boolean (keyboard path) or a MouseEvent
-    // (alt+click path). If a hidden slide is current, indexOf is -1 → first visible.
-    const fromCurrent = typeof eOrFromCurrent === 'boolean' ? eOrFromCurrent : eOrFromCurrent?.altKey ?? false;
-    const startIndex = fromCurrent ? Math.max(0, visibleSlides.indexOf(slides[safeSlideIndex])) : 0;
-    setPresentIndex(startIndex);
-    setPresentStep(0);
-
-    // Resolve 'auto': detect monitors first, then pick mode.
-    // Use currentMonitor() (not primaryMonitor()) to find the monitor Kova is
-    // running on — on Wayland, primaryMonitor() returns null for both monitors
-    // because "primary" is an X11 concept the compositor doesn't expose.
-    let all: Awaited<ReturnType<typeof availableMonitors>> = [];
-    let currentMon: Awaited<ReturnType<typeof currentMonitor>> = null;
-    try {
-      [all, currentMon] = await Promise.all([availableMonitors(), currentMonitor()]);
-    } catch { /* ignore */ }
-    const external = (() => {
-      if (all.length <= 1) return null;
-      if (currentMon) {
-        // Name-based match works on macOS and Windows.
-        return all.find((m) => m.name !== currentMon.name) ?? null;
-      }
-      // Wayland: currentMonitor() returns null because "primary" is an X11 concept.
-      // Heuristic: the secondary monitor is typically to the right or below, so
-      // pick the one whose origin is furthest from (0, 0).
-      return all.reduce((best, m) =>
-        (m.position.x + m.position.y) > (best.position.x + best.position.y) ? m : best
-      );
-    })();
-
-    const rawMode = settings.presentationMode;
-    const mode: Exclude<typeof rawMode, 'auto'> =
-      rawMode === 'auto' ? (external ? 'dual' : 'single') : rawMode;
-
-    if (mode === 'dual' || mode === 'mirror') {
-
-      if (external) {
-        const initPayload: PresentInitPayload = {
-          slides: visibleSlides,
-          theme: activeTheme,
-          index: startIndex,
-          step: 0,
-          aspectRatio,
-          docTitle,
-          docAuthor,
-          docDate,
-        };
-
-        // Close any stale audience window from a previous failed session to
-        // prevent a name collision that would silence window creation errors.
-        try {
-          const stale = await WebviewWindow.getByLabel('audience');
-          if (stale) await stale.close().catch(() => {});
-        } catch { /* ignore */ }
-
-        // Register ready listener BEFORE creating the window to avoid missing the event.
-        // Use `let` so the timeout callback can also reach it.
-        let unlistenReady: (() => void) | undefined;
-        const readyTimeoutId = setTimeout(() => {
-          // present:ready never fired — window creation silently failed or its
-          // content is hung. Mirrors the tauri://error and tauri://destroyed
-          // handlers below (reset state, cold-start exits via cli_exit)
-          // rather than just cleaning up the listener and leaving the app
-          // stuck fullscreened with no audience window and no error shown.
-          if (presentSessionRef.current !== sessionId) return; // stale session
-          unlistenReady?.();
-          audienceWin.close().catch(() => {});
-          stopAlwaysOnTopReassert();
-          if (coldPresentRef.current) {
-            invoke('set_wake_lock', { active: false }).catch(() => {});
-            invoke('cli_exit', {
-              message: 'presentation window did not respond in time',
-              code: 1,
-            }).catch(() => {});
-            return;
-          }
-          setPresentMode(false);
-          setPresenterMode(false);
-          getCurrentWindow().setFullscreen(false).catch(() => {});
-          getCurrentWindow().setAlwaysOnTop(false).catch(() => {});
-          handleWarn(t('presentation.audienceWindowTimeout'));
-        }, 10_000);
-
-        unlistenReady = await listen('present:ready', async () => {
-          clearTimeout(readyTimeoutId);
-          unlistenReady?.();
-          await emitTo('audience', 'present:init', initPayload);
-
-          // Drive positioning + fullscreen via Rust.
-          const logX = external.position.x / external.scaleFactor;
-          const logY = external.position.y / external.scaleFactor;
-          await invoke('setup_audience_window', {
-            x: logX,
-            y: logY,
-            physicalX: external.position.x,
-            physicalY: external.position.y,
-          }).catch(() => {});
-          // Reclaim focus on the presenter window — the audience window creation
-          // may steal it even with focus:false, depending on the compositor.
-          await getCurrentWindow().setFocus().catch(() => {});
-        });
-
-        const audienceWin = new WebviewWindow('audience', {
-          url: '/#audience',
-          x: external.position.x / external.scaleFactor,
-          y: external.position.y / external.scaleFactor,
-          width: external.size.width / external.scaleFactor,
-          height: external.size.height / external.scaleFactor,
-          // No fullscreen:true — on Linux that ignores x/y and captures the primary monitor.
-          // Fullscreen is applied via setup_audience_window after present:ready fires.
-          decorations: false,
-          title: 'Kova — Presentation',
-          resizable: false,
-          focus: false,
-        });
-
-        // If window creation fails, clean up the ready listener and reset state.
-        // Cold-started sessions have no editor to fall back to — report and quit.
-        audienceWin.once('tauri://error', () => {
-          clearTimeout(readyTimeoutId);
-          unlistenReady?.();
-          stopAlwaysOnTopReassert();
-          if (coldPresentRef.current) {
-            invoke('set_wake_lock', { active: false }).catch(() => {});
-            invoke('cli_exit', {
-              message: 'failed to create the presentation window',
-              code: 1,
-            }).catch(() => {});
-            return;
-          }
-          setPresentMode(false);
-          setPresenterMode(false);
-          getCurrentWindow().setFullscreen(false).catch(() => {});
-          getCurrentWindow().setAlwaysOnTop(false).catch(() => {});
-        }).catch(() => {});
-
-        // If the audience window is closed externally (compositor, Alt+F4, etc.),
-        // exit presentation mode so the main window doesn't stay stuck fullscreened.
-        // The sessionId guard ensures a stale handler from a previous session
-        // (triggered by closing a leftover window at the start of a new session)
-        // does not reset state that the new session just set.
-        audienceWin.once('tauri://destroyed', () => {
-          if (isExitingRef.current) return; // normal exit already in progress
-          if (presentSessionRef.current !== sessionId) return; // stale session
-          stopAlwaysOnTopReassert();
-          // Cold-started session: the audience window going away ends the
-          // presentation, and ending the presentation ends the app.
-          if (coldPresentRef.current) {
-            invoke('set_wake_lock', { active: false }).catch(() => {});
-            invoke('cli_exit', { code: 0 }).catch(() => {});
-            return;
-          }
-          setPresentMode(false);
-          setPresenterMode(false);
-          getCurrentWindow().setFullscreen(false).catch(() => {});
-          getCurrentWindow().setAlwaysOnTop(false).catch(() => {});
-        }).catch(() => {});
-
-        if (mode === 'dual') {
-          setPresenterMode(true);
-          if (settings.presenterWindowed) {
-            // A maximized frameless window is visually indistinguishable from
-            // fullscreen (no title bar, taskbar often auto-hidden), and it
-            // can't be placed alongside another window as the setting promises
-            // — so un-maximize rather than just skipping setFullscreen.
-            if (await getCurrentWindow().isMaximized().catch(() => false)) {
-              await getCurrentWindow().unmaximize().catch(() => {});
-            }
-            if (settings.presenterAlwaysOnTop) {
-              stopAlwaysOnTopReassert();
-              await getCurrentWindow().setAlwaysOnTop(true).catch(() => {});
-              alwaysOnTopIntervalRef.current = setInterval(() => {
-                getCurrentWindow().setAlwaysOnTop(true).catch(() => {});
-              }, 2000);
-            }
-          } else {
-            await getCurrentWindow().setFullscreen(true).catch(() => {});
-          }
-          return;
-        }
-        // Mirror: audience window shows slide, main window also fullscreens with normal overlay
-      }
-      // Fall through to single if no external monitor
-    }
-
-    setPresentMode(true);
-    await getCurrentWindow().setFullscreen(true).catch(() => {});
-  }, [slides, visibleSlides, safeSlideIndex, activeTheme, aspectRatio, docTitle, docDate, settings.presentationMode, settings.presenterWindowed, settings.presenterAlwaysOnTop, handleWarn, t, stopAlwaysOnTopReassert]);
-
-  // Cold-start present: enter presentation exactly once, as soon as the file
-  // content has been applied (filePath set in the same batch as content).
-  // Slide count is synchronous with content — useResolvedSlides only swaps
-  // media srcs asynchronously — so an empty visibleSlides here is a genuinely
-  // empty deck, not a deck that hasn't resolved yet. The window is hidden
-  // until this point (lib.rs setup skips show() for CLI actions); show it
-  // before entering so monitor detection and fullscreen behave normally.
-  useEffect(() => {
-    if (!coldPresent || coldEnterFiredRef.current || !filePath) return;
-    coldEnterFiredRef.current = true;
-    if (visibleSlides.length === 0) {
-      invoke('cli_exit', {
-        message: `'${filePath}' contains no visible slides`,
-        code: 1,
-      }).catch(() => {});
-      return;
-    }
-    (async () => {
-      await getCurrentWindow().show().catch(() => {});
-      await handlePresentEnter(false);
-    })();
-  }, [coldPresent, filePath, visibleSlides, handlePresentEnter]);
-
-  // Prevent display sleep while presenting; release on exit.
-  // Covers all exit paths (normal, error, external window close).
-  useEffect(() => {
-    invoke('set_wake_lock', { active: presentMode || presenterMode }).catch(() => {});
-  }, [presentMode, presenterMode]);
+  const { presentMode, presenterMode, handlePresentEnter, handlePresentExit } = usePresentationSession({
+    slides,
+    visibleSlides,
+    safeSlideIndex,
+    safePresentIndex,
+    setCurrentSlideIndex,
+    setPresentIndex,
+    setPresentStep,
+    activeTheme,
+    aspectRatio,
+    docTitle,
+    docAuthor,
+    docDate,
+    settings,
+    coldPresent,
+    filePath,
+    onWarn: handleWarn,
+    t,
+  });
 
   const actuallyCloseWindow = useCallback(async () => {
     // Unconditional: guarantees the macOS `caffeinate` child (and the Linux
