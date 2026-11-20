@@ -37,6 +37,20 @@ colors:
   #   cluster: "#F5F7FA"   # subgraph/cluster background
   #   text:    "#1a1a1a"   # node/edge/sequence label text
 
+  # Callout boxes (> [!note], > [!warning], ...) use fixed colours per type
+  # by default. callout_colors replaces any of them, and sets how the title
+  # and body text are coloured. title_text/body_text take a plain colour,
+  # "callout" (the callout's own colour), or "callout 70%" (70% callout
+  # colour, 30% normal text colour). Every field is optional.
+  # callout_colors:
+  #   note:    "#448aff"
+  #   info:    "#00b8d4"
+  #   tip:     "#00c853"
+  #   warning: "#ff9100"
+  #   danger:  "#ff5252"
+  #   title_text: callout        # default: the callout's own colour
+  #   body_text:  callout 70%    # default: the normal text colour
+
 fonts:
   title: "Inter, 'Helvetica Neue', Arial, sans-serif"
   body:  "Inter, 'Helvetica Neue', Arial, sans-serif"

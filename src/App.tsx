@@ -424,7 +424,15 @@ export default function App() {
       // the asset protocol cannot reliably serve absolute Windows paths outside
       // the home directory, so we read the file via IPC and embed it as base64.
       logo: resolvedLogoUrl,
-      colors: { ...base.colors, ...(themeOverrides.colors ?? {}) },
+      colors: {
+        ...base.colors,
+        ...(themeOverrides.colors ?? {}),
+        // Nested, so frontmatter can override one callout key and keep the
+        // theme's others (issue #283).
+        ...(themeOverrides.colors?.callout_colors
+          ? { callout_colors: { ...base.colors.callout_colors, ...themeOverrides.colors.callout_colors } }
+          : {}),
+      },
       fonts:  { ...base.fonts,  ...(themeOverrides.fonts  ?? {}) },
       header: { ...base.header, ...(themeOverrides.header ?? {}) },
       footer: { ...base.footer, ...(themeOverrides.footer ?? {}) },

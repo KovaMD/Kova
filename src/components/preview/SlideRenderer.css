@@ -312,7 +312,8 @@
 /* Callout/admonition boxes ("> [!note] ..."). Colors are fixed per type
    (mirroring mkdocs-material/Obsidian conventions) rather than theme-derived,
    since users rely on the same note=blue/warning=amber/danger=red mapping
-   regardless of which slide theme is active. */
+   regardless of which slide theme is active. A theme can still replace them
+   explicitly via colors.callout_colors (issue #283). */
 .sl-callout {
   --sl-callout-color: var(--sl-accent);
   border: 1px solid color-mix(in srgb, var(--sl-callout-color) 40%, transparent);
@@ -327,22 +328,28 @@
   align-items: center;
   gap: 0.4em;
   font-weight: 700;
-  color: var(--sl-callout-color);
+  /* Title/body colours (issue #283): N% of the callout colour, the rest from
+     the theme's base colour or the slide text. Defaults: title = callout
+     colour, body = slide text. Set via colors.callout_colors (calloutVars). */
+  color: color-mix(in srgb, var(--sl-callout-color) var(--sl-callout-title-mix, 100%), var(--sl-callout-title-base, var(--sl-text)));
 }
 .sl-callout__icon { display: inline-flex; width: 1.1em; height: 1.1em; flex-shrink: 0; }
 .sl-callout__icon svg { width: 100%; height: 100%; }
-.sl-callout__body { margin-top: 0.3em; color: var(--sl-text); }
+.sl-callout__body {
+  margin-top: 0.3em;
+  color: color-mix(in srgb, var(--sl-callout-color) var(--sl-callout-body-mix, 0%), var(--sl-callout-body-base, var(--sl-text)));
+}
 .sl-callout__body p { margin: 0 0 0.3em; }
 .sl-callout__body p:last-child { margin-bottom: 0; }
 .sl-callout__body ul, .sl-callout__body ol { margin: 0.2em 0; padding-left: 1.4em; }
 .sl-callout__body ul { list-style: disc; }
 .sl-callout__body ol { list-style: decimal; }
 
-.sl-callout--note    { --sl-callout-color: #448aff; }
-.sl-callout--info    { --sl-callout-color: #00b8d4; }
-.sl-callout--tip     { --sl-callout-color: #00c853; }
-.sl-callout--warning { --sl-callout-color: #ff9100; }
-.sl-callout--danger  { --sl-callout-color: #ff5252; }
+.sl-callout--note    { --sl-callout-color: var(--sl-callout-note, #448aff); }
+.sl-callout--info    { --sl-callout-color: var(--sl-callout-info, #00b8d4); }
+.sl-callout--tip     { --sl-callout-color: var(--sl-callout-tip, #00c853); }
+.sl-callout--warning { --sl-callout-color: var(--sl-callout-warning, #ff9100); }
+.sl-callout--danger  { --sl-callout-color: var(--sl-callout-danger, #ff5252); }
 
 .sl-table { border-collapse: collapse; width: 100%; font-size: 0.85em; }
 .sl-table th, .sl-table td { border: 1px solid color-mix(in srgb, var(--sl-text) 20%, transparent); padding: 0.3em 0.6em; text-align: left; }
