@@ -1,11 +1,19 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
+import { basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import { CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { markdown } from '@codemirror/lang-markdown';
 import { ensureSyntaxTree } from '@codemirror/language';
 import { calloutSource, directiveSource, iconSource, kovaCompletions } from '../completions';
 import { createTranslator } from '../../../i18n/translate';
+
+// jsdom does not implement Range.prototype.getClientRects, which CodeMirror's
+// drawSelection (part of basicSetup) invokes when measuring cursor positions.
+if (typeof Range.prototype.getClientRects !== 'function') {
+  Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
+}
 
 // `|` marks the cursor.
 function ctx(docWithCursor: string, explicit = false): CompletionContext {
@@ -129,6 +137,32 @@ describe('callout completions', () => {
 
   it('works after front matter has closed', () => {
     expect(labels(callouts(ctx('---\ntitle: X\n---\n\n> [!ti|')))).toContain('[!tip]');
+  });
+
+  it('consumes a trailing `]` from auto-closed brackets', () => {
+    const r = callouts(ctx('> [!|]')) as CompletionResult;
+    expect(r.from).toBe('> '.length);
+    expect(r.to).toBe('> [!|]'.indexOf('|') + 1);
+
+    const withoutTrailing = callouts(ctx('> [!|')) as CompletionResult;
+    expect(withoutTrailing.from).toBe('> '.length);
+    expect(withoutTrailing.to).toBeUndefined();
+  });
+
+  it('consumes the trailing `]` with basicSetup when applying autocomplete', () => {
+    const state = EditorState.create({
+      doc: '> [!]',
+      selection: { anchor: 4 }, // cursor between `!` and `]`
+      extensions: [basicSetup, markdown(), kovaCompletions(() => createTranslator(null, 'en'))],
+    });
+    const view = new EditorView({ state });
+    const r = callouts(new CompletionContext(view.state, 4, false)) as CompletionResult;
+    expect(r.to).toBe(5);
+
+    const tip = r.options.find((o) => o.label === '[!tip]')!;
+    (tip.apply as (view: EditorView, completion: any, from: number, to: number) => void)(view, tip, r.from, r.to!);
+    expect(view.state.doc.toString()).toBe('> [!tip] ');
+    view.destroy();
   });
 });
 

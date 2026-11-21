@@ -129,8 +129,15 @@ export function calloutSource(getT: () => Translator): CompletionSource {
         detail: t('editor.calloutAlias', { style }),
       }),
     );
+    // When bracket auto-closing (closeBrackets in basicSetup) is active, typing
+    // `[` inserts a closing `]` immediately after the cursor (`[!|]`). Consume
+    // it so accepting the completion does not leave a stray `]` that turns into
+    // the callout title (issue #284 / PR #285).
+    const nextChar = ctx.state.sliceDoc(ctx.pos, ctx.pos + 1);
+    const to = nextChar === ']' ? ctx.pos + 1 : undefined;
     return {
       from: ctx.pos - m[1].length,
+      ...(to !== undefined ? { to } : {}),
       options: [...canonical, ...aliases],
       validFor: /^\[![a-z0-9-]*$/i,
     };
