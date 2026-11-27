@@ -24,6 +24,12 @@ describe('resolveImageSrc', () => {
     expect(resolveImageSrc('asset://localhost/a.png', '/docs', new Map(), toAssetUrl)).toBe('asset://localhost/a.png');
   });
 
+  it('passes data: URLs through untouched (they have no //)', () => {
+    const svg = 'data:image/svg+xml,%3Csvg%2F%3E';
+    expect(resolveImageSrc(svg, '/docs', new Map(), toAssetUrl)).toBe(svg);
+    expect(localPathFromMediaSrc('data:image/png;base64,AA', '/docs')).toBeNull();
+  });
+
   it('returns a relative src as-is when there is no document dir', () => {
     expect(resolveImageSrc('notes.txt', '', new Map(), toAssetUrl)).toBe('notes.txt');
   });

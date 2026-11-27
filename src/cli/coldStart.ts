@@ -24,6 +24,7 @@ import { importMarp } from '../engine/import/marp';
 import { parsePptx } from '../engine/import/parsePptx';
 import { pptxToMarkdown } from '../engine/import/pptxToMarkdown';
 import { toRawUrl } from '../engine/import/toRawUrl';
+import { isAssetUrl, htmlHasAssetSrc } from '../engine/assetUrl';
 import { basename, dirname, toForwardSlashes } from '../engine/paths';
 import { collectDiagnostics, formatCheckReport, type CheckContext } from '../engine/parser/diagnostics';
 import { evaluateImportCheck } from '../engine/cli/importCheckGate';
@@ -280,8 +281,8 @@ export async function runColdLoad(cli: PendingCli | null, ports: ColdLoadPorts):
 // because by the time a user clicks it, the deck has been open long enough
 // for local media to have already resolved.
 export function hasPendingLocalMedia(visibleSlides: readonly Slide[]): boolean {
-  const isPending = (src: string) => src.startsWith('asset://') || src.startsWith('http://asset.localhost/');
-  const htmlIsPending = (html: string) => /src="(?:asset:\/\/|http:\/\/asset\.localhost\/)/.test(html);
+  const isPending = isAssetUrl;
+  const htmlIsPending = htmlHasAssetSrc;
   const itemIsPending = (item: ListItem): boolean =>
     htmlIsPending(item.html) || item.children.some(itemIsPending);
   return visibleSlides.some((slide) => {
