@@ -1,5 +1,9 @@
 # Kova
 
+
+> [!NOTE]
+> Request for user feedback on localisation in [issue #346](https://github.com/KovaMD/Kova/issues/346).
+
 Kova turns plain Markdown into polished slides — with live preview, multiple layouts, theming, and PPTX, PDF, and HTML export — all in a native desktop app.
 
 [![Latest release](https://img.shields.io/github/v/release/KovaMD/Kova?label=release&color=orange)](https://github.com/KovaMD/Kova/releases/latest)
