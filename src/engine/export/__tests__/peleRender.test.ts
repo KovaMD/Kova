@@ -34,6 +34,20 @@ describe('renderWithPele', () => {
     expect(() => renderWithPele('t4', 'flowchart LR\n  A -->')).not.toThrow(PeleUnsupportedError);
   });
 
+  it('keeps treemap section headers in the theme text colour, not one picked for the solid series fill', () => {
+    const src = buildMermaidRenderSource(
+      'treemap-beta\n"Bundle"\n    "Mermaid": 84\n    "Other"\n        "React": 4',
+      buildExportMermaidInit(DEFAULT_THEME),
+    );
+    const { svg } = renderWithPele('t6', src);
+    const sections = svg.match(/<g class="pele-node pele-section"[\s\S]*?<\/g>/g) ?? [];
+    expect(sections.length).toBe(2);
+    for (const s of sections) expect(s).not.toMatch(/--pele-fg-on-(dark|light)/);
+    expect(svg).toMatch(/class="pele-value"[^>]*fill="var\(--_m\)"[^>]*>88</);
+    // Leaf labels sit on the solid fill, so Pele's contrast pick stays.
+    expect(svg).toMatch(/data-id="Mermaid"[\s\S]*?--pele-fg-on-(dark|light)/);
+  });
+
   it('flags an unknown diagram type as unsupported so callers can fall back', () => {
     expect(() => renderWithPele('t5', 'notADiagram\n  x')).toThrow(PeleUnsupportedError);
   });

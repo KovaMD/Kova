@@ -50,7 +50,7 @@ export function addElements(ctx: ElementRenderContext, elements: SlideElement[],
       case 'paragraph':  appendParagraphRuns(ctx, text, el); break;
       case 'list':       appendListRuns(ctx, text, el); break;
       case 'blockquote':
-        if (el.calloutType) appendCalloutRuns(text, el);
+        if (el.calloutType) appendCalloutRuns(ctx, text, el);
         else appendQuoteRuns(ctx, text, el);
         break;
       case 'toc':        appendTocRuns(ctx, text, el); break;
