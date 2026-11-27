@@ -3,6 +3,7 @@
 // pptxgenjs never has to make a network request. Local and remote files are
 // read through the AssetLoader port, never Tauri directly.
 import type { AssetLoader } from '../../ports';
+import { isAssetUrl, isDataUrl, assetUrlToPath } from '../../assetUrl';
 import { mermaidSvgCache } from '../mermaidSvgCache';
 import { svgToPngDataUrl } from '../svgToPng';
 import { queuedMermaidRender } from '../mermaidRenderQueue';
@@ -135,11 +136,11 @@ function isCanvasBlank(canvas: HTMLCanvasElement, bgColor: string): boolean {
 
 export async function assetUrlToDataUrl(src: string, assets: AssetLoader): Promise<string> {
   try {
-    // asset:// URLs are user files served via Tauri's asset protocol.
+    // Asset URLs are user files served via Tauri's asset protocol.
     // fetch() on macOS WKWebView cannot reach asset:// because connect-src
     // does not include asset:. Read the file natively instead.
-    if (src.startsWith('asset://')) {
-      const path = decodeURIComponent(src.replace(/^asset:\/\/[^/]*/, ''));
+    if (isAssetUrl(src)) {
+      const path = assetUrlToPath(src);
       const ext  = path.split('.').pop()?.toLowerCase() ?? 'png';
       const b64  = await assets.readFileB64(path);
       return `data:${imageMime(ext)};base64,${b64}`;
@@ -183,7 +184,8 @@ export async function fetchUrlToDataUrl(url: string, assets: AssetLoader): Promi
 }
 
 export async function resolveImageSrcForExport(src: string, assets: AssetLoader): Promise<string> {
-  if (src.startsWith('asset://') || src.startsWith('tauri://')) return assetUrlToDataUrl(src, assets);
+  // Asset check first: on Windows asset URLs are http://asset.localhost/...
+  if (isAssetUrl(src) || src.startsWith('tauri://')) return assetUrlToDataUrl(src, assets);
   if (src.startsWith('http://') || src.startsWith('https://')) return fetchUrlToDataUrl(src, assets);
   return src;
 }
@@ -191,9 +193,9 @@ export async function resolveImageSrcForExport(src: string, assets: AssetLoader)
 /** Resolve a video src to a data: URL for PPTX `addMedia` (mirrors image path). */
 export async function videoUrlToDataUrl(src: string, assets: AssetLoader): Promise<string> {
   try {
-    if (src.startsWith('data:')) return src;
-    if (src.startsWith('asset://')) {
-      const path = decodeURIComponent(src.replace(/^asset:\/\/[^/]*/, ''));
+    if (isDataUrl(src)) return src;
+    if (isAssetUrl(src)) {
+      const path = assetUrlToPath(src);
       const b64 = await assets.readFileB64(path);
       return `data:${videoMime(path)};base64,${b64}`;
     }
@@ -235,11 +237,7 @@ export async function resolveSlideImages(slides: Slide[], theme: Theme, warnings
     const elements: SlideElement[] = [];
     for (const el of slide.elements) {
       if (el.type === 'image') {
-        const src = (el.src.startsWith('asset://') || el.src.startsWith('tauri://'))
-          ? await assetUrlToDataUrl(el.src, assets)
-          : (el.src.startsWith('http://') || el.src.startsWith('https://'))
-          ? await fetchUrlToDataUrl(el.src, assets)
-          : el.src;
+        const src = await resolveImageSrcForExport(el.src, assets);
         const ar = src.startsWith('data:') ? await getImageAspectRatio(src) : null;
         elements.push({ ...el, src, title: ar != null ? String(ar) : el.title });
       } else if (el.type === 'mermaid') {

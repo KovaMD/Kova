@@ -1,26 +1,29 @@
 import type { SlideElement } from '../../../types';
 import type { Area, ElementRenderContext } from '../context';
-import { hex } from '../colour';
+import type { Theme } from '../../../theme';
+import { calloutBodySpec, calloutTitleSpec, calloutTypeColor, mixHex, type CalloutTextSpec } from '../../../calloutColors';
+import { cssColorToHex, hex } from '../colour';
 import { makeStepRegistrar } from '../timing';
 import { firstFont } from '../fonts';
 import type { TextRunBuilder } from './textRuns';
 // ── Callout/admonition box (mirrors .sl-callout in SlideRenderer.css) ─────────
-// Colors are fixed per type, not theme-derived — same rationale as the web
-// renderer: users expect note=blue/warning=amber/danger=red regardless of theme.
-export const CALLOUT_COLORS: Record<string, string> = {
-  note: '#448AFF',
-  info: '#00B8D4',
-  tip: '#00C853',
-  warning: '#FF9100',
-  danger: '#FF5252',
-};
+// Colors are fixed per type unless the theme sets colors.callout_colors — same
+// rationale as the web renderer: users expect note=blue/warning=amber/danger=red
+// regardless of theme. Title/body mixing mirrors the CSS color-mix (issue #283).
+// All three colours are PPTX hex (no #); tc is the slide's text colour.
+export function calloutPalette(t: Theme, type: string | undefined, tc: string): { color: string; title: string; body: string } {
+  const cc = t.colors.callout_colors;
+  const color = cssColorToHex(calloutTypeColor(cc, type));
+  const pick = (spec: CalloutTextSpec) => mixHex(color, spec.base ? cssColorToHex(spec.base, tc) : tc, spec.mix);
+  return { color, title: pick(calloutTitleSpec(cc)), body: pick(calloutBodySpec(cc)) };
+}
 
 export function addCalloutBlock(
   ctx: ElementRenderContext, el: Extract<SlideElement, { type: 'blockquote' }>, area: Area, step?: number,
 ) {
   const { s, theme: t, steps: stepTargets } = ctx;
   const tc = ctx.colours.text;
-  const color = CALLOUT_COLORS[el.calloutType ?? 'note'] ?? CALLOUT_COLORS.note;
+  const { color, title: titleColor, body: bodyColor } = calloutPalette(t, el.calloutType, tc);
   const BAR_W = 0.06;
   const PAD   = 0.15;
 
@@ -31,7 +34,7 @@ export function addCalloutBlock(
   s.addShape('rect', {
     x: area.x, y: area.y, w: area.w, h: area.h,
     fill: { color: hex(t.colors.background) },
-    line: { color: hex(color), width: 0.75, transparency: 60 },
+    line: { color, width: 0.75, transparency: 60 },
     ...(bgName ? { objectName: bgName } : {}),
   });
   registerStep(bgName);
@@ -39,7 +42,7 @@ export function addCalloutBlock(
   const barName = stepName();
   s.addShape('rect', {
     x: area.x, y: area.y, w: BAR_W, h: area.h,
-    fill: { color: hex(color) },
+    fill: { color },
     line: { type: 'none' },
     ...(barName ? { objectName: barName } : {}),
   });
@@ -50,7 +53,7 @@ export function addCalloutBlock(
   s.addText(el.title ?? '', {
     x: area.x + BAR_W + PAD, y: area.y + PAD * 0.5, w: area.w - BAR_W - PAD * 1.5, h: titleH,
     fontSize: 15, bold: true,
-    color: hex(color),
+    color: titleColor,
     fontFace: firstFont(t.fonts.body),
     valign: 'top',
     ...(titleName ? { objectName: titleName } : {}),
@@ -62,7 +65,7 @@ export function addCalloutBlock(
     s.addText(el.text, {
       x: area.x + BAR_W + PAD, y: area.y + PAD * 0.5 + titleH, w: area.w - BAR_W - PAD * 1.5, h: area.h - titleH - PAD,
       fontSize: 14,
-      color: tc,
+      color: bodyColor,
       fontFace: firstFont(t.fonts.body),
       valign: 'top', wrap: true,
       shrinkText: true,
@@ -72,15 +75,17 @@ export function addCalloutBlock(
   }
 }
 /** A callout mixed with other content: title and body as text-box runs. */
-export function appendCalloutRuns(b: TextRunBuilder, el: Extract<SlideElement, { type: 'blockquote' }>) {
+export function appendCalloutRuns(
+  ctx: ElementRenderContext, b: TextRunBuilder, el: Extract<SlideElement, { type: 'blockquote' }>,
+) {
   b.startParagraph(el.step);
-  const color = CALLOUT_COLORS[el.calloutType ?? 'note'] ?? CALLOUT_COLORS.note;
+  const palette = calloutPalette(ctx.theme, el.calloutType, ctx.colours.text);
   b.runs.push({
     text: el.title ?? '',
-    options: { bold: true, fontSize: 16, color: hex(color), breakLine: true, paraSpaceAfter: 2 },
+    options: { bold: true, fontSize: 16, color: palette.title, breakLine: true, paraSpaceAfter: 2 },
   });
   if (el.text.trim()) {
     b.startParagraph(el.step);
-    b.runs.push({ text: el.text, options: { fontSize: 16, breakLine: true, paraSpaceAfter: 4 } });
+    b.runs.push({ text: el.text, options: { fontSize: 16, color: palette.body, breakLine: true, paraSpaceAfter: 4 } });
   }
 }

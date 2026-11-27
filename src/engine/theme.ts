@@ -1,6 +1,7 @@
 import yaml from 'js-yaml';
 import { normalizePath } from './resolvePath';
 import { resolveSlideColours, type SlideColours } from './render/slideModel';
+import { calloutVars, sanitiseCalloutColors, type CalloutColors } from './calloutColors';
 
 /**
  * Overrides for Mermaid flowchart/sequence-diagram colours (issue #245) —
@@ -30,6 +31,7 @@ export interface ThemeColors {
   heading?: string;       // content-slide heading colour (falls back to `text` when unset)
   bold?: string;          // inline **bold**/<strong> colour (falls back to `text` when unset)
   diagram_colors?: DiagramColors; // Mermaid flowchart/sequence colour overrides
+  callout_colors?: CalloutColors; // per-type callout colours + title/body text (issue #283)
 }
 
 export interface ThemeFonts {
@@ -557,6 +559,7 @@ export function themeToVars(
     '--sl-heading-ta':   theme.layout.heading_align,
     ...titleAlignVars(theme.layout.title_align),
     ...decorationVars(theme.layout.decoration),
+    ...calloutVars(theme.colors.callout_colors),
   } as React.CSSProperties;
 }
 
@@ -598,6 +601,9 @@ export function sanitiseThemeOverrides(raw: Record<string, unknown>): ThemeOverr
       } else if (key === 'diagram_colors') {
         const diagramColors = sanitiseDiagramColors(v, undefined);
         if (diagramColors) sanitised.diagram_colors = diagramColors;
+      } else if (key === 'callout_colors') {
+        const calloutColors = sanitiseCalloutColors(v, undefined);
+        if (calloutColors) sanitised.callout_colors = calloutColors;
       } else if (typeof v === 'string' && !/[;{}]/.test(v.trim())) {
         (sanitised as Record<string, string>)[key as string] = v.trim();
       }
@@ -822,6 +828,8 @@ function sanitiseColors(c: Partial<ThemeColors>, base: ThemeColors): ThemeColors
   if (typeof c.bold === 'string' && !/[;{}]/.test(c.bold.trim())) result.bold = c.bold.trim();
   const diagramColors = sanitiseDiagramColors(c.diagram_colors, base.diagram_colors);
   if (diagramColors) result.diagram_colors = diagramColors;
+  const calloutColors = sanitiseCalloutColors(c.callout_colors, base.callout_colors);
+  if (calloutColors) result.callout_colors = calloutColors;
   return result;
 }
 

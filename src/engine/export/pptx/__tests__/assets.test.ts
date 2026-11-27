@@ -97,6 +97,14 @@ describe('resolveImageSrcForExport', () => {
     expect(fetchUrlB64).toHaveBeenCalledTimes(1);
   });
 
+  it('reads Windows http://asset.localhost URLs as local files, not remote fetches', async () => {
+    const { assets, readFileB64, fetchUrlB64 } = fakeLoader({ 'C:/deck/a.gif': 'R0lG' });
+    expect(await resolveImageSrcForExport('http://asset.localhost/C%3A%2Fdeck%2Fa.gif', assets))
+      .toBe('data:image/gif;base64,R0lG');
+    expect(readFileB64).toHaveBeenCalledWith('C:/deck/a.gif');
+    expect(fetchUrlB64).not.toHaveBeenCalled();
+  });
+
   it('passes data: and relative sources through without touching the loader', async () => {
     const { assets, readFileB64, fetchUrlB64 } = fakeLoader();
     expect(await resolveImageSrcForExport('data:image/png;base64,AA', assets)).toBe('data:image/png;base64,AA');

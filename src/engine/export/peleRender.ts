@@ -83,6 +83,9 @@ export function peleVarsFromThemeVariables(tv: Record<string, unknown>): Record<
   const line = str('lineColor');
   const vsBg = (c: string | undefined) => (c && isHex6(c) && isHex6(bg) ? contrast(c, bg) : 0);
   put('accent', vsBg(primary) >= 3 || vsBg(line) <= vsBg(primary) ? primary : line);
+  // Since 1.13 Pele also reads each diagram type's own palette from the
+  // pragma (cScale*, git*, xyChart.plotColorPalette) and writes it after these
+  // in the root style, so this is only the fallback for types it doesn't map.
   for (let i = 1; i <= 8; i++) put(`series-${i}`, str(`pie${i}`) ?? str(`cScale${i - 1}`));
   return out;
 }
@@ -101,6 +104,21 @@ function bakeVars(svg: string, vars: Record<string, string>): string {
     `<svg${pre}style="${decl}${style.replace(/max-width:100%;height:auto;?/, '')}"`);
 }
 
+/**
+ * Pele 1.13 picks treemap section header text by contrast with the full series
+ * colour, but the header sits on a ~12% tint of it, so a theme with a dark
+ * cScale0 gets white headers on a near-white tint (and the reverse in dark
+ * themes). Dropping the fill restores the theme text colour for the name and
+ * the muted colour for the total. Leaf labels sit on the solid fill, so their
+ * contrast pick is left alone.
+ */
+function fixTreemapSectionText(svg: string): string {
+  if (!svg.includes('pele-treemap')) return svg;
+  return svg.replace(/<g class="pele-node pele-section"[\s\S]*?<\/g>/g, (section) =>
+    section.replace(/<text\b[^>]*>/g, (tag) =>
+      tag.replace(/ fill="var\(--pele-fg-on-(?:dark|light)[^"]*"/, tag.includes('pele-value') ? ' fill="var(--_m)"' : '')));
+}
+
 export class PeleUnsupportedError extends Error {}
 
 export function renderWithPele(id: string, src: string): { svg: string } {
@@ -111,7 +129,7 @@ export function renderWithPele(id: string, src: string): { svg: string } {
     // Pele measures labels with this font and writes it as the fallback for
     // --pele-font, so it also carries into exports.
     const { svg } = render(src, { idPrefix: id, fontFamily: fontFamily ? `"${fontFamily}", sans-serif` : undefined });
-    return { svg: bakeVars(svg, peleVarsFromThemeVariables(tv)) };
+    return { svg: bakeVars(fixTreemapSectionText(svg), peleVarsFromThemeVariables(tv)) };
   } catch (err) {
     if (err instanceof PeleError && err.code === 'unsupported-diagram') throw new PeleUnsupportedError(err.message);
     throw err;

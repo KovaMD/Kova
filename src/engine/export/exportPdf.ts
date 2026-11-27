@@ -5,6 +5,7 @@ import { svgToPngDataUrl } from './svgToPng';
 import { queuedMermaidRender } from './mermaidRenderQueue';
 import { buildMermaidRenderSource } from './mermaidSource';
 import { imageMime } from './imageMime';
+import { isAssetUrl, assetUrlToPath } from '../assetUrl';
 import { buildExportMermaidInit } from './mermaidExportTheme';
 import type { AspectRatio } from '../types';
 import type { Theme } from '../theme';
@@ -33,8 +34,8 @@ async function preResolveExternalImages(el: HTMLElement): Promise<void> {
     const src = img.src;
     let dataUrl: string | null = null;
     try {
-      if (src.startsWith('asset://')) {
-        const path = decodeURIComponent(src.replace(/^asset:\/\/[^/]*/, ''));
+      if (isAssetUrl(src)) {
+        const path = assetUrlToPath(src);
         const ext  = path.split('.').pop()?.toLowerCase() ?? 'png';
         const b64  = await enginePorts().assets.readFileB64(path);
         dataUrl = `data:${imageMime(ext)};base64,${b64}`;

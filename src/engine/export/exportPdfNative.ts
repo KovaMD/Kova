@@ -3,6 +3,7 @@ import type { AspectRatio, Slide } from '../types';
 import { getSlideStepValues } from '../layout/steps';
 import { mermaidSvgCache } from './mermaidSvgCache';
 import { imageMime } from './imageMime';
+import { isAssetUrl, assetUrlToPath } from '../assetUrl';
 import { videoMime } from './videoMime';
 import { type PdfExportOpts, planPage, SLIDE_PX_W } from './pdfLayout';
 import { escapeHtml } from '../html';
@@ -501,8 +502,8 @@ async function resolveImages(el: HTMLElement): Promise<void> {
     const src = img.getAttribute('src') ?? '';
     let dataUrl: string | null = null;
     try {
-      if (src.startsWith('asset://')) {
-        const path = decodeURIComponent(src.replace(/^asset:\/\/[^/]*/, ''));
+      if (isAssetUrl(src)) {
+        const path = assetUrlToPath(src);
         const b64  = await enginePorts().assets.readFileB64(path);
         dataUrl = `data:${imageMime(path)};base64,${b64}`;
       } else if (src.startsWith('https://') || src.startsWith('http://')) {
@@ -544,8 +545,8 @@ async function resolveVideos(el: HTMLElement): Promise<void> {
     const src = vid.getAttribute('src') ?? '';
     let dataUrl: string | null = null;
     try {
-      if (src.startsWith('asset://')) {
-        const path = decodeURIComponent(src.replace(/^asset:\/\/[^/]*/, ''));
+      if (isAssetUrl(src)) {
+        const path = assetUrlToPath(src);
         const b64  = await enginePorts().assets.readFileB64(path);
         dataUrl = `data:${videoMime(path)};base64,${b64}`;
       } else if (src.startsWith('https://') || src.startsWith('http://')) {
@@ -593,7 +594,6 @@ async function extractAllCss(): Promise<string> {
 // match both rather than sniffing one scheme. We fetch the app's own fonts via
 // the browser (no IPC) and embed them as data: URIs so the self-contained HTML
 // works when loaded from a temp file:// path.
-const ASSET_URL_RE = /^(?:asset:\/\/[^/]*|https?:\/\/asset\.localhost)(?=\/)/;
 
 export async function resolveFontUrls(
   css: string,
@@ -611,9 +611,8 @@ export async function resolveFontUrls(
   await Promise.all(Array.from(urls).map(async (url) => {
     try {
       let dataUrl: string;
-      if (ASSET_URL_RE.test(url)) {
-        // Drop the slash left in front of a Windows drive letter (/C:\...).
-        const path = decodeURIComponent(url.replace(ASSET_URL_RE, '')).replace(/^\/(?=[A-Za-z]:)/, '');
+      if (isAssetUrl(url)) {
+        const path = assetUrlToPath(url);
         const b64  = await assets.readFileB64(path);
         dataUrl = `data:${extToFontMime(path)};base64,${b64}`;
       } else if (url.startsWith('/') || url.startsWith(`${origin}/`)) {
