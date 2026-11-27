@@ -16,6 +16,7 @@ import type { Theme } from '../engine/theme';
 import type { AppSettings } from '../store/settings';
 import type { Translator } from '../i18n';
 import type { PresentInitPayload } from '../AudienceApp';
+import { bestEffort } from '../platform/bestEffort';
 
 /** Why a presentation session ended; picks the cold-start exit code/message. */
 export type EndSessionReason =
@@ -159,8 +160,8 @@ export function usePresentationSession({
     // an orphaned macOS caffeinate child would keep the machine awake.
     if (coldPresentRef.current) {
       const { code, message } = COLD_EXIT[reason];
-      await ipc.setWakeLock(false).catch(() => {});
-      await ipc.cliExit(code, message).catch(() => {});
+      await bestEffort(ipc.setWakeLock(false), 'setWakeLock');
+      await bestEffort(ipc.cliExit(code, message), 'cliExit');
       return;
     }
     setPresentMode(false);
@@ -169,8 +170,8 @@ export function usePresentationSession({
     // The audience window never answered: say so rather than leaving the
     // user wondering why the second screen stayed blank.
     if (reason === 'timeout') onWarn(t('presentation.audienceWindowTimeout'));
-    await getCurrentWindow().setFullscreen(false).catch(() => {});
-    await getCurrentWindow().setAlwaysOnTop(false).catch(() => {});
+    await bestEffort(getCurrentWindow().setFullscreen(false), 'setFullscreen');
+    await bestEffort(getCurrentWindow().setAlwaysOnTop(false), 'setAlwaysOnTop');
   }, [stopAlwaysOnTopReassert, onWarn, t]);
 
   const handlePresentExit = useCallback(async () => {
@@ -237,7 +238,7 @@ export function usePresentationSession({
           // stuck fullscreened with no audience window and no error shown.
           if (presentSessionRef.current !== sessionId) return; // stale session
           unlistenReady?.();
-          audienceWin.close().catch(() => {});
+          void bestEffort(audienceWin.close(), 'close');
           void endSession('timeout');
         }, AUDIENCE_READY_TIMEOUT_MS);
 
@@ -250,31 +251,31 @@ export function usePresentationSession({
           await positionAudienceWindow(external);
           // Reclaim focus on the presenter window — the audience window creation
           // may steal it even with focus:false, depending on the compositor.
-          await getCurrentWindow().setFocus().catch(() => {});
+          await bestEffort(getCurrentWindow().setFocus(), 'setFocus');
         });
 
         const audienceWin = createAudienceWindow(external);
 
         // If window creation fails, clean up the ready listener and reset state.
         // Cold-started sessions have no editor to fall back to — report and quit.
-        audienceWin.once('tauri://error', () => {
+        void bestEffort(audienceWin.once('tauri://error', () => {
           clearTimeout(readyTimeoutId);
           unlistenReady?.();
           void endSession('error');
-        }).catch(() => {});
+        }), 'once tauri://error');
 
         // If the audience window is closed externally (compositor, Alt+F4, etc.),
         // exit presentation mode so the main window doesn't stay stuck fullscreened.
         // The sessionId guard ensures a stale handler from a previous session
         // (triggered by closing a leftover window at the start of a new session)
         // does not reset state that the new session just set.
-        audienceWin.once('tauri://destroyed', () => {
+        void bestEffort(audienceWin.once('tauri://destroyed', () => {
           if (isExitingRef.current) return; // normal exit already in progress
           if (presentSessionRef.current !== sessionId) return; // stale session
           // Cold-started session: the audience window going away ends the
           // presentation, and ending the presentation ends the app.
           void endSession('destroyed');
-        }).catch(() => {});
+        }), 'once tauri://destroyed');
 
         if (mode === 'dual') {
           setPresenterMode(true);
@@ -284,17 +285,17 @@ export function usePresentationSession({
             // can't be placed alongside another window as the setting promises
             // — so un-maximize rather than just skipping setFullscreen.
             if (await getCurrentWindow().isMaximized().catch(() => false)) {
-              await getCurrentWindow().unmaximize().catch(() => {});
+              await bestEffort(getCurrentWindow().unmaximize(), 'unmaximize');
             }
             if (settings.presenterAlwaysOnTop) {
               stopAlwaysOnTopReassert();
-              await getCurrentWindow().setAlwaysOnTop(true).catch(() => {});
+              await bestEffort(getCurrentWindow().setAlwaysOnTop(true), 'setAlwaysOnTop');
               alwaysOnTopIntervalRef.current = setInterval(() => {
-                getCurrentWindow().setAlwaysOnTop(true).catch(() => {});
+                void bestEffort(getCurrentWindow().setAlwaysOnTop(true), 'setAlwaysOnTop');
               }, ALWAYS_ON_TOP_REASSERT_MS);
             }
           } else {
-            await getCurrentWindow().setFullscreen(true).catch(() => {});
+            await bestEffort(getCurrentWindow().setFullscreen(true), 'setFullscreen');
           }
           return;
         }
@@ -304,7 +305,7 @@ export function usePresentationSession({
     }
 
     setPresentMode(true);
-    await getCurrentWindow().setFullscreen(true).catch(() => {});
+    await bestEffort(getCurrentWindow().setFullscreen(true), 'setFullscreen');
   }, [slides, visibleSlides, safeSlideIndex, activeTheme, aspectRatio, docTitle, docAuthor, docDate, settings.presentationMode, settings.presenterWindowed, settings.presenterAlwaysOnTop, endSession, stopAlwaysOnTopReassert, setPresentIndex, setPresentStep]);
 
   // Cold-start present: enter presentation exactly once, as soon as the file
@@ -318,11 +319,11 @@ export function usePresentationSession({
     if (!coldPresent || coldEnterFiredRef.current || !filePath) return;
     coldEnterFiredRef.current = true;
     if (visibleSlides.length === 0) {
-      ipc.cliExit(1, `'${filePath}' contains no visible slides`).catch(() => {});
+      void bestEffort(ipc.cliExit(1, `'${filePath}' contains no visible slides`), 'cliExit');
       return;
     }
     (async () => {
-      await getCurrentWindow().show().catch(() => {});
+      await bestEffort(getCurrentWindow().show(), 'show');
       await handlePresentEnter(false);
     })();
   }, [coldPresent, filePath, visibleSlides, handlePresentEnter]);
@@ -330,7 +331,7 @@ export function usePresentationSession({
   // Prevent display sleep while presenting; release on exit.
   // Covers all exit paths (normal, error, external window close).
   useEffect(() => {
-    ipc.setWakeLock(presentMode || presenterMode).catch(() => {});
+    void bestEffort(ipc.setWakeLock(presentMode || presenterMode), 'setWakeLock');
   }, [presentMode, presenterMode]);
 
   return { presentMode, presenterMode, handlePresentEnter, handlePresentExit };

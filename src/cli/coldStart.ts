@@ -40,6 +40,7 @@ import type { Frontmatter, ListItem, Slide } from '../engine/types';
 import type { PdfExportOpts } from '../engine/export/pdfLayout';
 import type { PdfExportOutcome } from '../hooks/useExports';
 import type { PendingCli, CliThemeArg, PendingImport, PendingExport } from '../types/cli';
+import { bestEffort } from '../platform/bestEffort';
 
 // take_pending_cli drains once on the Rust side (Option::take), so cache the
 // promise at module level: StrictMode's double-mount and dep-driven effect
@@ -58,7 +59,7 @@ export function getPendingCli(): Promise<PendingCli | null> {
 // light.yaml can never collide with (and silently lose to) a built-in id.
 export async function resolveCliTheme(arg: CliThemeArg): Promise<Theme | null> {
   const fail = async (message: string) => {
-    await cliExit(1, message).catch(() => {});
+    await bestEffort(cliExit(1, message), 'cliExit');
     return null;
   };
   if (arg.type === 'path') {
@@ -137,19 +138,19 @@ async function cliCheckContext(docDir: string): Promise<CheckContext> {
 // When `--check` is also set, validate markdown before writing (issue #178).
 export async function runCliImport(imp: PendingImport, check: boolean): Promise<void> {
   const finish = async (report: string) => {
-    await cliStdout(report).catch(() => {});
-    await cliExit(0).catch(() => {});
+    await bestEffort(cliStdout(report), 'cliStdout');
+    await bestEffort(cliExit(0), 'cliExit');
   };
   const fail = async (message: string) => {
-    await cliExit(1, message).catch(() => {});
+    await bestEffort(cliExit(1, message), 'cliExit');
   };
   /** Run --check on markdown; returns false when the write must be skipped. */
   const gate = async (markdown: string, label: string, docDir: string): Promise<boolean> => {
     const result = await evaluateImportCheck(check, markdown, label, await cliCheckContext(docDir));
     if (!result.enabled) return true;
-    await cliStdout(result.report).catch(() => {});
+    await bestEffort(cliStdout(result.report), 'cliStdout');
     if (result.errors > 0) {
-      await cliExit(1).catch(() => {});
+      await bestEffort(cliExit(1), 'cliExit');
       return false;
     }
     return true;
@@ -251,13 +252,13 @@ export async function runColdLoad(cli: PendingCli | null, ports: ColdLoadPorts):
     if (cli.check || cli.check_only) {
       const diags = await collectDiagnostics(text, await cliCheckContext(dirname(target)));
       const { report, errors } = formatCheckReport(target, diags);
-      await cliStdout(report).catch(() => {});
+      await bestEffort(cliStdout(report), 'cliStdout');
       if (cli.check_only || errors > 0) {
-        await cliExit(errors > 0 ? 1 : 0).catch(() => {});
+        await bestEffort(cliExit(errors > 0 ? 1 : 0), 'cliExit');
         return;
       }
     }
-    await stopWatching().catch(() => {});
+    await bestEffort(stopWatching(), 'stopWatching');
     await ports.applyFileContent(text, target);
     if (cliTheme) {
       // --theme replaces the deck's *base* theme; the frontmatter
@@ -266,7 +267,7 @@ export async function runColdLoad(cli: PendingCli | null, ports: ColdLoadPorts):
     }
     if (cli.export) ports.startColdExport(cli.export);
   } catch {
-    await cliExit(1, `cannot read '${target}'`).catch(() => {});
+    await bestEffort(cliExit(1, `cannot read '${target}'`), 'cliExit');
   }
 }
 
@@ -320,15 +321,15 @@ export interface ColdExportContext {
 export function runColdExport(exp: PendingExport, ctx: ColdExportContext): Promise<void> {
   const { filePath, visibleSlides } = ctx;
   if (visibleSlides.length === 0) {
-    cliExit(1, `'${filePath}' contains no visible slides`).catch(() => {});
+    void bestEffort(cliExit(1, `'${filePath}' contains no visible slides`), 'cliExit');
     return Promise.resolve();
   }
   const finish = async (report: string) => {
-    await cliStdout(report).catch(() => {});
-    await cliExit(0).catch(() => {});
+    await bestEffort(cliStdout(report), 'cliStdout');
+    await bestEffort(cliExit(0), 'cliExit');
   };
   const fail = async (message: string) => {
-    await cliExit(1, message).catch(() => {});
+    await bestEffort(cliExit(1, message), 'cliExit');
   };
   return (async () => {
     try {

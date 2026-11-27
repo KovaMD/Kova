@@ -7,6 +7,7 @@ import { availableMonitors, currentMonitor, type Monitor } from '@tauri-apps/api
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import * as ipc from './ipc';
 import type { PresentInitPayload } from '../AudienceApp';
+import { bestEffort } from './bestEffort';
 
 export const AUDIENCE_WINDOW_LABEL = 'audience';
 
@@ -34,7 +35,7 @@ export async function detectMonitors(): Promise<DetectedMonitors> {
 export async function closeAudienceWindow(): Promise<void> {
   try {
     const win = await WebviewWindow.getByLabel(AUDIENCE_WINDOW_LABEL);
-    if (win) await win.close().catch(() => {});
+    if (win) await bestEffort(win.close(), 'close');
   } catch { /* ignore */ }
 }
 
@@ -67,15 +68,15 @@ export const sendPresentInit = (payload: PresentInitPayload): Promise<void> =>
 
 /** Move the audience window onto `monitor` and fullscreen it (via Rust). Never rejects. */
 export async function positionAudienceWindow(monitor: Monitor): Promise<void> {
-  await ipc.setupAudienceWindow({
+  await bestEffort(ipc.setupAudienceWindow({
     x: monitor.position.x / monitor.scaleFactor,
     y: monitor.position.y / monitor.scaleFactor,
     physicalX: monitor.position.x,
     physicalY: monitor.position.y,
-  }).catch(() => {});
+  }), 'setupAudienceWindow');
 }
 
 /** Broadcast the end of the presentation to the audience window. Never rejects. */
 export async function emitPresentExit(): Promise<void> {
-  await emit('present:exit', null).catch(() => {});
+  await bestEffort(emit('present:exit', null), 'emit');
 }

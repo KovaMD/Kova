@@ -14,6 +14,7 @@ import { registerBundledFonts } from '../engine/bundledFonts';
 import { extractFrontmatter } from '../engine/parser/frontmatter';
 import { imageMime } from '../engine/export/imageMime';
 import { useRemoteFonts } from './useRemoteFonts';
+import { bestEffort } from '../platform/bestEffort';
 
 export interface UseThemeStateOptions {
   /** The document frontmatter's raw `theme_overrides:` value (unsanitised). */
@@ -89,7 +90,7 @@ export function useThemeState({ rawThemeOverrides, onWarn }: UseThemeStateOption
   );
   const themeOverrides = useMemo(() => {
     return sanitiseThemeOverrides((rawThemeOverrides as Record<string, unknown>) ?? {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the serialised overrides so equal objects don't re-derive (see above)
   }, [themeOverridesJson]);
 
   const installedRemoteIds = useMemo(
@@ -164,7 +165,7 @@ export function useThemeState({ rawThemeOverrides, onWarn }: UseThemeStateOption
   useRemoteFonts(activeTheme.remoteFonts, { rerunKey: activeThemeId });
 
   const reloadCustomThemes = useCallback(() => {
-    ipc.loadCustomThemes()
+    void bestEffort(ipc.loadCustomThemes()
       .then(([dir, entries]) => {
         // Resolved together (not entry-by-entry) so extends: can target
         // another installed theme, not just a built-in (issue #249).
@@ -180,8 +181,7 @@ export function useThemeState({ rawThemeOverrides, onWarn }: UseThemeStateOption
         });
         const messages = [...errors, ...warnings];
         if (messages.length > 0) onWarnRef.current(`Theme issue:\n${messages.join('\n')}`);
-      })
-      .catch(() => {});
+      }), 'loadCustomThemes');
   }, []);
 
   const handleMissingThemeInstalled = useCallback((themeId: string) => {
@@ -198,7 +198,7 @@ export function useThemeState({ rawThemeOverrides, onWarn }: UseThemeStateOption
   // saving in some editors fires several filesystem events in quick
   // succession; the watcher itself lives for the app's lifetime once started.
   useEffect(() => {
-    ipc.startWatchingThemes().catch(() => {});
+    void bestEffort(ipc.startWatchingThemes(), 'startWatchingThemes');
     let debounce: ReturnType<typeof setTimeout> | null = null;
     const unlisten = listen<void>('theme-files-changed', () => {
       if (debounce) clearTimeout(debounce);

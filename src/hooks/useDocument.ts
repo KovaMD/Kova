@@ -10,6 +10,7 @@ import type { AppSettings } from '../store/settings';
 import { loadLastSession, saveLastSession } from '../store/lastSession';
 import { loadRecentFiles, addRecentFile, removeRecentFile, clearRecentFiles } from '../store/recentFiles';
 import type { PendingCli } from '../types/cli';
+import { bestEffort } from '../platform/bestEffort';
 
 export function makeStarter() {
   return `---
@@ -247,7 +248,7 @@ export function useDocument({
 
   const handleNewFile = useCallback(() => {
     guardDirty(async () => {
-      await ipc.stopWatching().catch(() => {});
+      await bestEffort(ipc.stopWatching(), 'stopWatching');
       setFilePath(null);
       setContent(makeStarter());
       setIsDirty(false);
@@ -305,8 +306,8 @@ export function useDocument({
         console.warn('[kova] could not restore last session:', err);
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // intentionally runs once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- restores the last session once at startup; running again would reload the file over the user's edits
+  }, []);
 
   // Maintain the "Open Recent" list whenever a file becomes the open document.
   useEffect(() => {
@@ -321,7 +322,7 @@ export function useDocument({
     const doOpen = async () => {
       const myGeneration = ++loadGenerationRef.current;
       try {
-        await ipc.stopWatching().catch(() => {});
+        await bestEffort(ipc.stopWatching(), 'stopWatching');
         const text: string = await ipc.readFile(path);
         // Two fast, overlapping triggers (drag-drop or Open Recent) would
         // otherwise race independently through applyFileContent, and
@@ -379,7 +380,7 @@ export function useDocument({
   }, [handleMarkdownDrop]);
 
   const openImported = useCallback(async (markdown: string, savedPath: string) => {
-    await ipc.stopWatching().catch(() => {});
+    await bestEffort(ipc.stopWatching(), 'stopWatching');
     await applyFileContent(markdown, savedPath);
   }, [applyFileContent]);
 
@@ -390,7 +391,7 @@ export function useDocument({
         multiple: false,
       });
       if (!selected || typeof selected !== 'string') return;
-      await ipc.stopWatching().catch(() => {});
+      await bestEffort(ipc.stopWatching(), 'stopWatching');
       const text: string = await ipc.readFile(selected);
       const { markdown, dropped } = importMarp(text);
       await applyFileContent(markdown, '');
@@ -405,7 +406,7 @@ export function useDocument({
     const { text, dir } = marpPrompt;
     const { markdown, dropped } = importMarp(text);
     setMarpPrompt(null);
-    await ipc.stopWatching().catch(() => {});
+    await bestEffort(ipc.stopWatching(), 'stopWatching');
     await applyFileContent(markdown, '');
     setImportDir(dir);
     setMarpLoss(dropped.length);
@@ -418,7 +419,7 @@ export function useDocument({
         multiple: false,
       });
       if (!selected || typeof selected !== 'string') return;
-      await ipc.stopWatching().catch(() => {});
+      await bestEffort(ipc.stopWatching(), 'stopWatching');
       const text: string = await ipc.readFile(selected);
       await applyFileContent(text, selected);
     } catch (err) { console.error('Open failed:', err); setWarnMessage(`Could not open file: ${err}`); }});
@@ -435,7 +436,7 @@ export function useDocument({
     const newPath = `${dir}${sep}${trimmed}${ext}`;
     if (newPath === filePath) return;
     try {
-      await ipc.stopWatching().catch(() => {});
+      await bestEffort(ipc.stopWatching(), 'stopWatching');
       await ipc.renameFile(filePath, newPath);
       setFilePath(newPath);
       await ipc.startWatching(newPath).catch(console.error);
@@ -548,9 +549,8 @@ export function useDocument({
   // buffered in lib.rs setup. Drain on mount, then listen for live macOS opens.
   // Opens the first path only — single-window editor, no tabs.
   useEffect(() => {
-    ipc.takePendingOpen()
-      .then((paths) => { if (paths[0]) handleMarkdownDrop(paths[0]); })
-      .catch(() => {});
+    void bestEffort(ipc.takePendingOpen()
+      .then((paths) => { if (paths[0]) handleMarkdownDrop(paths[0]); }), 'takePendingOpen');
     const un = listen<string[]>('open-file', (e) => {
       const p = e.payload?.[0];
       if (p) handleMarkdownDrop(p);
@@ -620,7 +620,7 @@ export function useDocument({
     setDropConfirmPath(null);
     if (!path) return;
     try {
-      await ipc.stopWatching().catch(() => {});
+      await bestEffort(ipc.stopWatching(), 'stopWatching');
       const text: string = await ipc.readFile(path);
       await applyFileContent(text, path);
     } catch (err) {

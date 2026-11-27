@@ -36,7 +36,6 @@ export function useRemoteFonts(fonts: RemoteFonts, options: UseRemoteFontsOption
           console.warn(`[kova] remote font "${font.family}" failed: ${err}`);
         });
     }
-  // `fonts` is read from the render that changed `trigger`; see rerunKey.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `fonts` is read from the render that changed `trigger` (see rerunKey)
   }, [trigger]);
 }

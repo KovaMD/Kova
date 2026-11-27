@@ -9,6 +9,7 @@ import App from "./App";
 import { AudienceApp } from "./AudienceApp";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { installTauriEnginePorts } from "./platform/enginePorts";
+import { bestEffort } from './platform/bestEffort';
 
 // Composition root: bind the platform-free engine to its Tauri adapters
 // before anything renders (see src/engine/ports.ts).
@@ -20,8 +21,8 @@ installTauriEnginePorts();
 // user with no way to close it short of a Task Manager kill — see #134.
 function CrashFallback() {
   React.useEffect(() => {
-    getCurrentWindow().setFullscreen(false).catch(() => {});
-    WebviewWindow.getByLabel('audience').then((win) => win?.close().catch(() => {})).catch(() => {});
+    void bestEffort(getCurrentWindow().setFullscreen(false), 'setFullscreen');
+    void bestEffort(WebviewWindow.getByLabel('audience').then((win) => win?.close()), 'close audience window');
   }, []);
 
   return (
