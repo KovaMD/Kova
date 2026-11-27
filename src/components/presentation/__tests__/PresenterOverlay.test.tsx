@@ -29,8 +29,6 @@ function renderPresenter(overrides: Partial<Props> = {}) {
     slides,
     currentIndex: 0,
     currentStep: 0,
-    theme: DEFAULT_THEME,
-    aspectRatio: { w: 16, h: 9 },
     showNextSlide: true,
     showTimer: false,
     notesFontSize: 'md',
@@ -38,7 +36,7 @@ function renderPresenter(overrides: Partial<Props> = {}) {
     onExit: vi.fn(),
     ...overrides,
   };
-  return { props, ...renderWithProviders(<PresenterOverlay {...props} />) };
+  return { props, ...renderWithProviders(<PresenterOverlay {...props} />, { deck: { theme: DEFAULT_THEME, aspectRatio: { w: 16, h: 9 } } }) };
 }
 
 describe('PresenterOverlay smoke test', () => {

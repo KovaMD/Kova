@@ -1,8 +1,7 @@
 import { memo, useCallback, useRef, useEffect, useState } from 'react';
-import type { Slide, AspectRatio } from '../../engine/types';
-import type { Theme } from '../../engine/theme';
-import { DEFAULT_THEME } from '../../engine/theme';
+import type { Slide } from '../../engine/types';
 import { SlideRenderer } from '../preview/SlideRenderer';
+import { useDeck } from '../preview/DeckContext';
 import { SLIDE_W } from '../../engine/constants';
 import { useT } from '../../i18n';
 
@@ -22,11 +21,6 @@ interface Props {
   onClearBackground?: (index: number) => void;
   onDelete?: (index: number) => void;
   onDeleteMultiple?: (indices: number[]) => void;
-  theme?: Theme;
-  docTitle?: string;
-  docAuthor?: string;
-  docDate?: string;
-  aspectRatio?: AspectRatio;
 }
 
 const THUMB_W = 140;
@@ -34,8 +28,9 @@ const THUMB_W = 140;
 // usually ready by the time it scrolls into view.
 const LAZY_MARGIN = '600px 0px';
 
-export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onReorderMultiple, onDuplicate, onNewSlide, onToggleHidden, onToggleTodo, onSetBackground, onClearBackground, onDelete, onDeleteMultiple, theme = DEFAULT_THEME, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 } }: Props) {
+export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onReorderMultiple, onDuplicate, onNewSlide, onToggleHidden, onToggleTodo, onSetBackground, onClearBackground, onDelete, onDeleteMultiple }: Props) {
   const t = useT();
+  const { aspectRatio } = useDeck();
   const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
 
   // Observe the outer panel div (no overflow) so a scrollbar appearing in the
@@ -374,10 +369,6 @@ export function ThumbnailPanel({ slides, currentIndex, onSelect, onReorder, onRe
                   onToggleHidden={onToggleHidden}
                   onDragStart={handleThumbMouseDown}
                   onContextMenu={handleThumbContextMenu}
-                  theme={theme}
-                  docTitle={docTitle}
-                  docAuthor={docAuthor}
-                  docDate={docDate}
                   scale={scale}
                   slideH={slideH}
                   thumbH={thumbH}
@@ -503,10 +494,6 @@ interface ThumbnailProps {
   onToggleHidden?: (index: number) => void;
   onDragStart: (index: number, e: React.MouseEvent) => void;
   onContextMenu: (index: number, e: React.MouseEvent) => void;
-  theme: Theme;
-  docTitle?: string;
-  docAuthor?: string;
-  docDate?: string;
   slideH: number;
   scale: number;
   thumbH: number;
@@ -520,8 +507,11 @@ interface ThumbnailProps {
 // keystroke. `onSelect`/`onDragStart` are forwarded as stable function
 // references (bound internally below) rather than passed as pre-bound
 // closures, specifically so they don't defeat this memoization.
-const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive, isSelected, isDragSource, isDragging, canDrag, isHidden, isTodo, onSelect, onToggleHidden, onDragStart, onContextMenu, theme, docTitle, docAuthor, docDate, slideH, scale, thumbH, scrollRoot }: ThumbnailProps) {
+const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive, isSelected, isDragSource, isDragging, canDrag, isHidden, isTodo, onSelect, onToggleHidden, onDragStart, onContextMenu, slideH, scale, thumbH, scrollRoot }: ThumbnailProps) {
   const t = useT();
+  // Deck changes (theme, title/author/date) re-render every thumbnail through
+  // context, as the old theme/doc props did.
+  const { theme } = useDeck();
   const thumbRef = useRef<HTMLDivElement>(null);
 
   // Render the slide only once it nears the visible part of the list. Every
@@ -604,10 +594,6 @@ const Thumbnail = memo(function Thumbnail({ slide, index, totalSlides, isActive,
           {inView ? (
             <SlideRenderer
               slide={slide}
-              theme={theme}
-              docTitle={docTitle}
-              docAuthor={docAuthor}
-              docDate={docDate}
               slideNumber={index + 1}
               totalSlides={totalSlides}
               isThumbnail
