@@ -14,6 +14,7 @@ import { DEFAULT_THEME, type Theme } from '../../theme';
 import { parseDocument } from '../../parser/markdownToSlides';
 import { exportToPptx } from '../../export/pptx';
 import { SlideRenderer } from '../../../components/preview/SlideRenderer';
+import { DEFAULT_DECK, DeckProvider } from '../../../components/preview/DeckContext';
 import type { Slide } from '../../types';
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -108,9 +109,10 @@ function renderPreview(slide: Slide, theme: Theme, slideNumber?: number): Observ
   document.body.appendChild(host);
   const root = createRoot(host);
   act(() => {
-    root.render(createElement(SlideRenderer, {
-      slide, theme, slideNumber, totalSlides: TOTAL,
-      docTitle: META.title, docAuthor: META.author, docDate: META.date,
+    const deck = { ...DEFAULT_DECK, theme, docTitle: META.title, docAuthor: META.author, docDate: META.date };
+    root.render(createElement(DeckProvider, {
+      value: deck,
+      children: createElement(SlideRenderer, { slide, slideNumber, totalSlides: TOTAL }),
     }));
   });
   const q = (sel: string) => host.querySelector(sel);

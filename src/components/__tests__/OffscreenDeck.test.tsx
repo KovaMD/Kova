@@ -5,42 +5,50 @@ import type { ComponentProps } from 'react';
 import { BUILT_IN_THEMES } from '../../engine/theme';
 import type { Slide } from '../../engine/types';
 import { OffscreenDeck } from '../OffscreenDeck';
+import { DEFAULT_DECK, DeckProvider, type DeckContextValue } from '../preview/DeckContext';
 
-// SlideRenderer pulls in Mermaid; stub it to record its props and signal ready.
-vi.mock('../preview/SlideRenderer', () => ({
-  SlideRenderer: (p: {
-    slideNumber: number; totalSlides: number; docTitle: string;
+// SlideRenderer pulls in Mermaid; stub it to record its props (and the deck
+// title it sees through DeckContext) and signal ready.
+vi.mock('../preview/SlideRenderer', async () => {
+  const { useDeck } = await import('../preview/DeckContext');
+  return { SlideRenderer: function SlideRendererStub(p: {
+    slideNumber: number; totalSlides: number;
     hideOverflowBadge?: boolean; onAllDiagramsReady?: () => void;
-  }) => {
+  }) {
+    const { docTitle } = useDeck();
     p.onAllDiagramsReady?.();
     return (
       <span
         data-n={p.slideNumber}
         data-total={p.totalSlides}
-        data-title={p.docTitle}
+        data-title={docTitle}
         data-hide={String(Boolean(p.hideOverflowBadge))}
       />
     );
-  },
-}));
+  } };
+});
 
 afterEach(cleanup);
 
 type Props = ComponentProps<typeof OffscreenDeck>;
 
-function renderDeck(overrides: Partial<Props> = {}) {
+function renderDeck(overrides: Partial<Props> = {}, deckOverrides: Partial<DeckContextValue> = {}) {
   const props: Props = {
     slides: [{}, {}, {}] as unknown as Slide[],
+    setSlideRef: vi.fn(),
+    onSlideReady: vi.fn(),
+    ...overrides,
+  };
+  const deck: DeckContextValue = {
+    ...DEFAULT_DECK,
     theme: BUILT_IN_THEMES[0],
     aspectRatio: { w: 4, h: 3 },
     docTitle: 'Deck',
     docAuthor: 'Me',
     docDate: 'Today',
-    setSlideRef: vi.fn(),
-    onSlideReady: vi.fn(),
-    ...overrides,
+    ...deckOverrides,
   };
-  return { ...render(<OffscreenDeck {...props} />), props };
+  return { ...render(<DeckProvider value={deck}><OffscreenDeck {...props} /></DeckProvider>), props };
 }
 
 describe('OffscreenDeck', () => {
@@ -61,7 +69,7 @@ describe('OffscreenDeck', () => {
   });
 
   it('rounds the slide height from the aspect ratio', () => {
-    const { container } = renderDeck({ aspectRatio: { w: 16, h: 9 } });
+    const { container } = renderDeck({}, { aspectRatio: { w: 16, h: 9 } });
     const w = container.firstElementChild!.firstElementChild as HTMLElement;
     expect(w.style.height).toBe('540px');
   });

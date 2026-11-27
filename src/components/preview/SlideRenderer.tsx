@@ -3,8 +3,8 @@ import mermaid from 'mermaid';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { bestEffort } from '../../platform/bestEffort';
 import type { Slide } from '../../engine/types';
-import type { Theme } from '../../engine/theme';
-import { themeToVars, DEFAULT_THEME, isLightHex } from '../../engine/theme';
+import { themeToVars, isLightHex } from '../../engine/theme';
+import { useDeck } from './DeckContext';
 import { resolveSlideFrame } from '../../engine/render/slideModel';
 import { getSlideStepValues } from '../../engine/layout/steps';
 import './SlideRenderer.css';
@@ -36,12 +36,8 @@ function BarText({ segments, className }: { segments: string[]; className: strin
 
 interface Props {
   slide: Slide;
-  theme?: Theme;
   slideNumber?: number;
   totalSlides?: number;
-  docTitle?: string;
-  docAuthor?: string;
-  docDate?: string;
   scale?: number;
   isThumbnail?: boolean;
   hideOverflowBadge?: boolean;
@@ -59,7 +55,9 @@ interface Props {
   revealStepIndex?: number;
 }
 
-export function SlideRenderer({ slide, theme = DEFAULT_THEME, slideNumber, totalSlides, docTitle = '', docAuthor = '', docDate = '', scale = 1, isThumbnail: isThumbnailProp, hideOverflowBadge = false, onAllDiagramsReady, onNavigateTo, revealStepIndex }: Props) {
+// Theme and document title/author/date come from DeckContext (useDeck).
+export function SlideRenderer({ slide, slideNumber, totalSlides, scale = 1, isThumbnail: isThumbnailProp, hideOverflowBadge = false, onAllDiagramsReady, onNavigateTo, revealStepIndex }: Props) {
+  const { theme, docTitle, docAuthor, docDate } = useDeck();
   // Header/footer visibility, bar text, logo placement and per-slide colour
   // precedence all come from the shared slide model (engine/render/slideModel),
   // so the preview and the PPTX export apply the same rules.

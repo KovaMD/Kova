@@ -4,6 +4,7 @@ import { screen } from '@testing-library/react';
 import { renderWithProviders } from '../../../test/renderWithProviders';
 import { parseDocument } from '../../../engine/parser/markdownToSlides';
 import { ThumbnailPanel } from '../ThumbnailPanel';
+import { DEFAULT_THEME } from '../../../engine/theme';
 
 vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: vi.fn(() => Promise.resolve()) }));
 vi.mock('mermaid', () => ({ default: { initialize: vi.fn(), render: vi.fn() } }));
@@ -23,6 +24,32 @@ function thumbnail(title: string): HTMLElement {
   if (!card) throw new Error(`no thumbnail for "${title}"`);
   return card;
 }
+
+describe('ThumbnailPanel deck inputs (DeckContext)', () => {
+  // The thumbnail's clipping box: the only element sized from the deck's
+  // aspect ratio (height = slide height x thumbnail scale).
+  function previewBox(title: string): HTMLElement {
+    const box = Array.from(thumbnail(title).querySelectorAll<HTMLElement>('div'))
+      .find((d) => d.style.overflow === 'hidden' && d.style.position === 'relative');
+    if (!box) throw new Error('no preview box');
+    return box;
+  }
+
+  it('sizes thumbnails from the deck aspect ratio', () => {
+    const wide = renderWithProviders(<ThumbnailPanel slides={slides} currentIndex={0} onSelect={vi.fn()} />, { deck: { aspectRatio: { w: 16, h: 9 } } });
+    const wideH = parseFloat(previewBox('Intro').style.height);
+    wide.unmount();
+    renderWithProviders(<ThumbnailPanel slides={slides} currentIndex={0} onSelect={vi.fn()} />, { deck: { aspectRatio: { w: 4, h: 3 } } });
+    const squareH = parseFloat(previewBox('Intro').style.height);
+    expect(squareH / wideH).toBeCloseTo((3 / 4) / (9 / 16), 1);
+  });
+
+  it('renders the deck title into thumbnail footers', () => {
+    const theme = { ...DEFAULT_THEME, footer: { show: true, text: '{title}', show_slide_number: false } };
+    renderWithProviders(<ThumbnailPanel slides={slides} currentIndex={0} onSelect={vi.fn()} />, { deck: { theme, docTitle: 'Board pack' } });
+    expect(screen.getAllByText('Board pack').length).toBe(slides.length);
+  });
+});
 
 describe('ThumbnailPanel smoke test', () => {
   it('shows an open-file hint when there are no slides', () => {

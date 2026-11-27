@@ -70,18 +70,18 @@ function frameOf(container: HTMLElement) {
   };
 }
 
-const docProps = { docTitle: 'T|itle', docAuthor: 'Ada', docDate: '2026-01-02', totalSlides: 9 };
+const docMeta = { docTitle: 'T|itle', docAuthor: 'Ada', docDate: '2026-01-02' };
 
 describe('SlideRenderer chrome (characterisation)', () => {
   it('renders header segments split on the template |, never on the doc title', () => {
-    const { container } = renderWithProviders(<SlideRenderer slide={contentSlide} theme={chromeTheme()} slideNumber={3} {...docProps} />);
+    const { container } = renderWithProviders(<SlideRenderer slide={contentSlide} slideNumber={3} totalSlides={9} />, { deck: { theme: chromeTheme(), ...docMeta } });
     const { q } = frameOf(container);
     const parts = [...q('.sl-header-text.sl-bar-parts')!.children].map((e) => e.textContent);
     expect(parts).toEqual(['Left T|itle', 'Mid Ada', 'R 2026-01-02 | extra']);
   });
 
   it('renders single-segment footer text, then the bare slide number', () => {
-    const { container } = renderWithProviders(<SlideRenderer slide={contentSlide} theme={chromeTheme()} slideNumber={3} {...docProps} />);
+    const { container } = renderWithProviders(<SlideRenderer slide={contentSlide} slideNumber={3} totalSlides={9} />, { deck: { theme: chromeTheme(), ...docMeta } });
     const { q } = frameOf(container);
     expect(q('.sl-footer-text')!.textContent).toBe('Foot 3/9');
     expect(q('.sl-footer-text')!.classList.contains('sl-bar-parts')).toBe(false);
@@ -89,17 +89,17 @@ describe('SlideRenderer chrome (characterisation)', () => {
   });
 
   it('omits the slide number without one, or when the theme turns it off', () => {
-    const a = renderWithProviders(<SlideRenderer slide={contentSlide} theme={chromeTheme()} {...docProps} />);
+    const a = renderWithProviders(<SlideRenderer slide={contentSlide} totalSlides={9} />, { deck: { theme: chromeTheme(), ...docMeta } });
     expect(frameOf(a.container).q('.sl-slide-num')).toBeNull();
     a.unmount();
     const off = chromeTheme({ footer: { show: true, text: 'F', show_slide_number: false } });
-    const b = renderWithProviders(<SlideRenderer slide={contentSlide} theme={off} slideNumber={2} {...docProps} />);
+    const b = renderWithProviders(<SlideRenderer slide={contentSlide} slideNumber={2} totalSlides={9} />, { deck: { theme: off, ...docMeta } });
     expect(frameOf(b.container).q('.sl-slide-num')).toBeNull();
   });
 
   it('omits empty bar text but keeps the bar', () => {
     const t = chromeTheme({ logo: undefined, header: { show: true, text: ' | ' }, footer: { show: true, text: '', show_slide_number: false } });
-    const { container } = renderWithProviders(<SlideRenderer slide={contentSlide} theme={t} {...docProps} />);
+    const { container } = renderWithProviders(<SlideRenderer slide={contentSlide} totalSlides={9} />, { deck: { theme: t, ...docMeta } });
     const { q } = frameOf(container);
     expect(q('.sl-header-bar')).not.toBeNull();
     expect(q('.sl-header-text')).toBeNull();
@@ -112,13 +112,13 @@ describe('SlideRenderer chrome (characterisation)', () => {
       header: { show: true, text: 'H', hide_on_title: true },
       footer: { show: true, text: 'F', show_slide_number: true, hide_on_title: true },
     });
-    const cover = renderWithProviders(<SlideRenderer slide={coverSlide} theme={t} slideNumber={1} {...docProps} />);
+    const cover = renderWithProviders(<SlideRenderer slide={coverSlide} slideNumber={1} totalSlides={9} />, { deck: { theme: t, ...docMeta } });
     const c = frameOf(cover.container);
     expect(c.q('.sl-header-bar')).toBeNull();
     expect(c.q('.sl-footer-bar')).toBeNull();
     expect(c.q('img')).toBeNull();
     cover.unmount();
-    const content = renderWithProviders(<SlideRenderer slide={contentSlide} theme={t} slideNumber={2} {...docProps} />);
+    const content = renderWithProviders(<SlideRenderer slide={contentSlide} slideNumber={2} totalSlides={9} />, { deck: { theme: t, ...docMeta } });
     const d = frameOf(content.container);
     expect(d.q('.sl-header-bar img.sl-logo')).not.toBeNull();
     expect(d.q('.sl-footer-bar .sl-slide-num')!.textContent).toBe('2');
@@ -130,7 +130,7 @@ describe('SlideRenderer chrome (characterisation)', () => {
     ['bottom-left', 'footer', ''],
     ['bottom-right', 'footer', 'auto'],
   ] as const)('logo at %s sits in the %s bar', (pos, bar, marginLeft) => {
-    const { container } = renderWithProviders(<SlideRenderer slide={contentSlide} theme={chromeTheme({ logo_position: pos })} {...docProps} />);
+    const { container } = renderWithProviders(<SlideRenderer slide={contentSlide} totalSlides={9} />, { deck: { theme: chromeTheme({ logo_position: pos }), ...docMeta } });
     const { q } = frameOf(container);
     const img = q(bar === 'header' ? '.sl-header-bar img.sl-logo' : '.sl-footer-bar img.sl-logo-footer')!;
     expect(img.getAttribute('src')).toBe(LOGO);
@@ -141,7 +141,7 @@ describe('SlideRenderer chrome (characterisation)', () => {
 
   it('logo floats in its corner when the theme has no bar there', () => {
     const t = chromeTheme({ logo_position: 'bottom-right', footer: { show: false, text: '', show_slide_number: false } });
-    const { container } = renderWithProviders(<SlideRenderer slide={contentSlide} theme={t} {...docProps} />);
+    const { container } = renderWithProviders(<SlideRenderer slide={contentSlide} totalSlides={9} />, { deck: { theme: t, ...docMeta } });
     const { q } = frameOf(container);
     const img = q('img.sl-logo-float')!;
     expect(img.className).toBe('sl-logo-float pos-bottom-right');
@@ -150,7 +150,7 @@ describe('SlideRenderer chrome (characterisation)', () => {
   });
 
   it('no logo renders no image', () => {
-    const { container } = renderWithProviders(<SlideRenderer slide={contentSlide} theme={chromeTheme({ logo: undefined })} {...docProps} />);
+    const { container } = renderWithProviders(<SlideRenderer slide={contentSlide} totalSlides={9} />, { deck: { theme: chromeTheme({ logo: undefined }), ...docMeta } });
     expect(container.querySelectorAll('img')).toHaveLength(0);
   });
 });
@@ -171,7 +171,7 @@ describe('SlideRenderer colour precedence (characterisation)', () => {
     ['textColor', withHB, { textColor: '#ABCDEF' }, ['#ABCDEF', '#ABCDEF', '#ABCDEF', '#F5F5F5', '#1a1a1a']],
     ['textColor + invert', withHB, { textColor: '#ABCDEF', invert: true }, ['#ABCDEF', '#ABCDEF', '#ABCDEF', '#F5F5F5', '#1a1a1a']],
   ] as const)('%s', (_n, theme, flags, [text, heading, bold, codeBg, codeText]) => {
-    const { container } = renderWithProviders(<SlideRenderer slide={{ ...contentSlide, ...flags }} theme={theme} />);
+    const { container } = renderWithProviders(<SlideRenderer slide={{ ...contentSlide, ...flags }} />, { deck: { theme: theme } });
     const { v, frame } = frameOf(container);
     expect([v('--sl-text'), v('--sl-heading-text'), v('--sl-bold-text'), v('--sl-code-bg'), v('--sl-code-text')])
       .toEqual([text, heading, bold, codeBg, codeText]);

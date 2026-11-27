@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { emit, emitTo, listen } from '@tauri-apps/api/event';
 import { bestEffort } from './platform/bestEffort';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { SlideRenderer } from './components/preview/SlideRenderer';
+import { DEFAULT_DECK, DeckProvider, type DeckContextValue } from './components/preview/DeckContext';
 import { SLIDE_W, ScaledSlideBox, LaserDot } from './components/presentation/presentationShared';
 import type { Slide, AspectRatio } from './engine/types';
 import type { Theme } from './engine/theme';
@@ -138,6 +139,16 @@ function AudienceAppInner({ showProgressBar }: { showProgressBar: boolean }) {
     return () => obs.disconnect();
   }, [initData]);
 
+  // Deck render inputs from the init payload, for DeckContext. Built before
+  // the early return below so the hook order never changes.
+  const deck = useMemo<DeckContextValue>(() => initData ? {
+    theme: initData.theme,
+    docTitle: initData.docTitle ?? '',
+    docAuthor: initData.docAuthor ?? '',
+    docDate: initData.docDate ?? '',
+    aspectRatio: initData.aspectRatio,
+  } : DEFAULT_DECK, [initData]);
+
   if (!initData) {
     return (
       <div style={{
@@ -150,11 +161,12 @@ function AudienceAppInner({ showProgressBar }: { showProgressBar: boolean }) {
   }
 
   const slide  = slidesRef.current[currentIndex];
-  const { theme, aspectRatio, docTitle, docAuthor, docDate } = initData;
+  const { theme, aspectRatio } = deck;
   const total  = slidesRef.current.length;
   const slideH = Math.round(SLIDE_W * aspectRatio.h / aspectRatio.w);
 
   return (
+    <DeckProvider value={deck}>
     <div style={{
       position: 'fixed', inset: 0, background: '#000',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -198,12 +210,8 @@ function AudienceAppInner({ showProgressBar }: { showProgressBar: boolean }) {
               <ScaledSlideBox scale={scale} slideH={slideH}>
                 <SlideRenderer
                   slide={slide}
-                  theme={theme}
                   slideNumber={currentIndex + 1}
                   totalSlides={total}
-                  docTitle={docTitle}
-                  docAuthor={docAuthor}
-                  docDate={docDate}
                   hideOverflowBadge
                   onNavigateTo={handleNavigateTo}
                   revealStepIndex={currentStep}
@@ -227,5 +235,6 @@ function AudienceAppInner({ showProgressBar }: { showProgressBar: boolean }) {
         </div>
       </div>
     </div>
+    </DeckProvider>
   );
 }

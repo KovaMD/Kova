@@ -25,12 +25,11 @@ function renderOverlay(overrides: Partial<Props> = {}) {
     slides,
     currentIndex: 0,
     currentStep: 0,
-    theme: DEFAULT_THEME,
     onNavigate: vi.fn(),
     onExit: vi.fn(),
     ...overrides,
   };
-  return { props, ...renderWithProviders(<PresentationOverlay {...props} />) };
+  return { props, ...renderWithProviders(<PresentationOverlay {...props} />, { deck: { theme: DEFAULT_THEME } }) };
 }
 
 function press(key: string) {

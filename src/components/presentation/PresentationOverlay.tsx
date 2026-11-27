@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
-import type { Slide, AspectRatio } from '../../engine/types';
-import type { Theme } from '../../engine/theme';
+import type { Slide } from '../../engine/types';
+import { useDeck } from '../preview/DeckContext';
 import { SlideRenderer } from '../preview/SlideRenderer';
 import { getSlideStepCount } from '../../engine/layout/steps';
 import { SLIDE_W, formatTimerDisplay, ScaledSlideBox, LaserDot, NotesText, usePresentationNav } from './presentationShared';
@@ -12,11 +12,6 @@ interface Props {
   currentIndex: number;
   /** Build-reveal step index for the *current* slide — see usePresentationNav. */
   currentStep: number;
-  theme: Theme;
-  docTitle?: string;
-  docAuthor?: string;
-  docDate?: string;
-  aspectRatio?: AspectRatio;
   laserColor?: string;
   showTimer?: boolean;
   /** Target talk length in minutes; 0 keeps the elapsed-only count-up display. */
@@ -30,8 +25,9 @@ const HUD_H   = 40;   // px — HUD bar height
 const NOTE_H  = 160;  // px — speaker notes panel height
 
 export function PresentationOverlay({
-  slides, currentIndex, currentStep, theme, docTitle, docAuthor, docDate, aspectRatio = { w: 16, h: 9 }, laserColor = '#ff2020', showTimer = false, countdownMinutes = 0, showProgressBar = true, onNavigate, onExit,
+  slides, currentIndex, currentStep, laserColor = '#ff2020', showTimer = false, countdownMinutes = 0, showProgressBar = true, onNavigate, onExit,
 }: Props) {
+  const { theme, aspectRatio } = useDeck();
   const t = useT();
   const slide = slides[currentIndex];
 
@@ -159,12 +155,8 @@ export function PresentationOverlay({
           <ScaledSlideBox scale={scale} slideH={slideH}>
             <SlideRenderer
               slide={slide}
-              theme={theme}
               slideNumber={currentIndex + 1}
               totalSlides={total}
-              docTitle={docTitle}
-              docAuthor={docAuthor}
-              docDate={docDate}
               hideOverflowBadge
               onNavigateTo={handleNavigateTo}
               revealStepIndex={currentStep}

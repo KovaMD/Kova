@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { emitTo } from '@tauri-apps/api/event';
 import { bestEffort } from '../../platform/bestEffort';
-import type { Slide, AspectRatio } from '../../engine/types';
-import type { Theme } from '../../engine/theme';
+import type { Slide } from '../../engine/types';
 import type { NotesFontSize } from '../../store/settings';
+import { useDeck } from '../preview/DeckContext';
 import { SlideRenderer } from '../preview/SlideRenderer';
 import { getSlideStepCount } from '../../engine/layout/steps';
 import { SLIDE_W, formatTimerDisplay, ScaledSlideBox, LaserDot, NotesText, usePresentationNav } from './presentationShared';
@@ -15,11 +15,6 @@ interface Props {
   currentIndex: number;
   /** Build-reveal step index for the *current* slide — see usePresentationNav. */
   currentStep: number;
-  theme: Theme;
-  docTitle?: string;
-  docAuthor?: string;
-  docDate?: string;
-  aspectRatio: AspectRatio;
   showNextSlide: boolean;
   showTimer: boolean;
   /** Target talk length in minutes; 0 keeps the elapsed-only count-up display. */
@@ -37,9 +32,10 @@ const RIGHT_W_MAX     = 600; // px
 const STORAGE_KEY     = 'kova:presenter-right-w';
 
 export function PresenterOverlay({
-  slides, currentIndex, currentStep, theme, docTitle, docAuthor, docDate, aspectRatio,
+  slides, currentIndex, currentStep,
   showNextSlide, showTimer, countdownMinutes = 0, notesFontSize, laserColor = '#ff2020', onNavigate, onExit,
 }: Props) {
+  const { aspectRatio } = useDeck();
   const t = useT();
   const slide     = slides[currentIndex];
   const nextSlide = slides[currentIndex + 1] ?? null;
@@ -199,12 +195,8 @@ export function PresenterOverlay({
             <ScaledSlideBox scale={currentScale} slideH={slideH}>
               <SlideRenderer
                 slide={slide}
-                theme={theme}
                 slideNumber={currentIndex + 1}
                 totalSlides={total}
-                docTitle={docTitle}
-                docAuthor={docAuthor}
-                docDate={docDate}
                 hideOverflowBadge
                 onNavigateTo={handleNavigateTo}
                 revealStepIndex={currentStep}
@@ -245,12 +237,8 @@ export function PresenterOverlay({
                   <ScaledSlideBox scale={nextScale} slideH={slideH}>
                     <SlideRenderer
                       slide={nextSlide}
-                      theme={theme}
                       slideNumber={currentIndex + 2}
                       totalSlides={total}
-                      docTitle={docTitle}
-                      docAuthor={docAuthor}
-                      docDate={docDate}
                       hideOverflowBadge
                       // Shows what the audience will see the moment the
                       // presenter advances past the current slide's remaining

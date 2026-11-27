@@ -32,7 +32,8 @@ import { buildMacMenu, delegateMenuActions } from './macMenu';
 import type { MenuActions } from './macMenu';
 import { loadKeybindings, matchShortcut, getCombo, isMac } from './engine/keybindings';
 import type { Keybindings } from './engine/keybindings';
-import { I18nProvider, useLocaleTranslator, formatFallbackDate } from './i18n';
+import { I18nProvider, useLocaleTranslator } from './i18n';
+import { resolveDeckMeta } from './engine/render/slideModel';
 
 import { parseDocument } from './engine/parser/markdownToSlides';
 import { extractFrontmatter, patchFrontmatter } from './engine/parser/frontmatter';
@@ -53,6 +54,7 @@ import { usePresentationSession } from './hooks/usePresentationSession';
 import { useColdStartState, useLocalMediaGate, useColdLoad, useColdExport } from './hooks/useColdStart';
 import { getPendingCli } from './cli/coldStart';
 import { OffscreenDeck } from './components/OffscreenDeck';
+import { DeckProvider, useDeckContextValue } from './components/preview/DeckContext';
 
 import './styles/global.css';
 
@@ -275,18 +277,17 @@ export default function App() {
     ? Math.min(presentStep, getSlideStepCount(visibleSlides[safePresentIndex]))
     : 0;
 
-  // {title} in header/footer templates falls back to the deck's cover slide
-  // (first non-hidden H1) when frontmatter has no explicit `title:` — most
-  // decks only ever get a title via a heading, never via frontmatter, and a
-  // silently blank footer segment (issue #55) is worse than this guess.
-  const docTitle = frontmatter.title ?? rawSlides.find((s) => !s.hidden && s.titleLevel === 1)?.title ?? '';
-  const docAuthor = (frontmatter.author as string | undefined) ?? '';
-  const docDate = (frontmatter.date as string | undefined) ?? formatFallbackDate(settings.locale);
+  // {title}/{author}/{date} for header/footer templates, resolved exactly as
+  // the PPTX export does (resolveDeckMeta): {title} falls back to the cover
+  // slide's H1 when frontmatter has none (issue #55), {date} to today.
+  const { title: docTitle, author: docAuthor, date: docDate } = resolveDeckMeta(frontmatter, rawSlides, settings.locale);
 
   const aspectRatio = useMemo(
     () => parseAspectRatio(frontmatter.aspect_ratio as string | undefined),
     [frontmatter.aspect_ratio],
   );
+  // Deck-wide render inputs for every SlideRenderer host (DeckContext).
+  const deck = useDeckContextValue(activeTheme, docTitle, docAuthor, docDate, aspectRatio);
 
   const wordCount = useMemo(() => countWords(editorBody), [editorBody]);
 
@@ -779,11 +780,6 @@ export default function App() {
           slides={visibleSlides}
           currentIndex={safePresentIndex}
           currentStep={safePresentStep}
-          theme={activeTheme}
-          docTitle={docTitle}
-          docAuthor={docAuthor}
-          docDate={docDate}
-          aspectRatio={aspectRatio}
           laserColor={settings.laserColor}
           showTimer={settings.presenterShowTimer}
           countdownMinutes={settings.presenterCountdownMinutes}
@@ -797,11 +793,6 @@ export default function App() {
           slides={visibleSlides}
           currentIndex={safePresentIndex}
           currentStep={safePresentStep}
-          theme={activeTheme}
-          docTitle={docTitle}
-          docAuthor={docAuthor}
-          docDate={docDate}
-          aspectRatio={aspectRatio}
           showNextSlide={settings.presenterShowNextSlide}
           showTimer={settings.presenterShowTimer}
           countdownMinutes={settings.presenterCountdownMinutes}
@@ -822,6 +813,7 @@ export default function App() {
   if (coldPresent) {
     return (
       <I18nProvider locale={settings.locale}>
+        <DeckProvider value={deck}>
         <div className="app">
           {presentationOverlays}
           {!presentMode && !presenterMode && (
@@ -833,12 +825,14 @@ export default function App() {
             </div>
           )}
         </div>
+        </DeckProvider>
       </I18nProvider>
     );
   }
 
   return (
     <I18nProvider locale={settings.locale}>
+    <DeckProvider value={deck}>
     <div className="app">
       {doc.fileDragOver && !presentMode && !presenterMode && (
         <div style={{
@@ -910,11 +904,6 @@ export default function App() {
               onDelete={handleDeleteSlide}
               onDeleteMultiple={handleDeleteMultiple}
               onReorderMultiple={handleReorderMultiple}
-              theme={activeTheme}
-              docTitle={docTitle}
-              docAuthor={docAuthor}
-              docDate={docDate}
-              aspectRatio={aspectRatio}
             />
           </Panel>
 
@@ -1066,16 +1055,12 @@ export default function App() {
       {offscreenContext && (
         <OffscreenDeck
           slides={offscreenContext.slides}
-          theme={activeTheme}
-          aspectRatio={aspectRatio}
-          docTitle={docTitle}
-          docAuthor={docAuthor}
-          docDate={docDate}
           setSlideRef={setOffscreenSlideRef}
           onSlideReady={onOffscreenSlideReady}
         />
       )}
     </div>
+    </DeckProvider>
     </I18nProvider>
   );
 }
