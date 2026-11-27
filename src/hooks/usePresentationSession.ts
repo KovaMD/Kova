@@ -225,7 +225,9 @@ export function usePresentationSession({
         await closeAudienceWindow();
 
         // Register ready listener BEFORE creating the window to avoid missing the event.
-        // Use `let` so the timeout callback can also reach it.
+        // Use `let` so the timeout callback can also reach it: as a `const`
+        // declared after the await, an early timeout would hit the TDZ.
+        // eslint-disable-next-line prefer-const
         let unlistenReady: (() => void) | undefined;
         const readyTimeoutId = setTimeout(() => {
           // present:ready never fired — window creation silently failed or its
@@ -303,7 +305,7 @@ export function usePresentationSession({
 
     setPresentMode(true);
     await getCurrentWindow().setFullscreen(true).catch(() => {});
-  }, [slides, visibleSlides, safeSlideIndex, activeTheme, aspectRatio, docTitle, docDate, settings.presentationMode, settings.presenterWindowed, settings.presenterAlwaysOnTop, endSession, stopAlwaysOnTopReassert, setPresentIndex, setPresentStep]);
+  }, [slides, visibleSlides, safeSlideIndex, activeTheme, aspectRatio, docTitle, docAuthor, docDate, settings.presentationMode, settings.presenterWindowed, settings.presenterAlwaysOnTop, endSession, stopAlwaysOnTopReassert, setPresentIndex, setPresentStep]);
 
   // Cold-start present: enter presentation exactly once, as soon as the file
   // content has been applied (filePath set in the same batch as content).
