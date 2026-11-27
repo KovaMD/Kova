@@ -1,7 +1,7 @@
 // ESLint flat config. Tooling only: the goal is to catch hook-dependency
 // mistakes (react-hooks) and obvious TypeScript issues without forcing a mass
-// rewrite of existing source. exhaustive-deps starts as a warning and will be
-// promoted to an error once the existing warnings are fixed or justified.
+// rewrite of existing source. exhaustive-deps is an error (refactor card
+// P4-12): a deliberate omission needs an eslint-disable with its reason.
 import js from "@eslint/js";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -31,7 +31,7 @@ export default tseslint.config(
     },
     rules: {
       "react-hooks/rules-of-hooks": "error",
-      "react-hooks/exhaustive-deps": "warn",
+      "react-hooks/exhaustive-deps": "error",
 
       // Recommended rules that the existing source already trips. Kept as
       // warnings so the lint step passes without rewriting source in the
